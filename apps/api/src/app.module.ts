@@ -5,6 +5,7 @@ import { RequestLoggingMiddleware } from './common/middleware/request-logging.mi
 import { AppConfigModule } from './config/app-config.module'
 import { PrismaModule } from './database/prisma/prisma.module'
 import { AuthModule } from './modules/auth/auth.module'
+import { AssignmentsModule } from './modules/assignments/assignments.module'
 import { FilesModule } from './modules/files/files.module'
 import { GroupSettingsModule } from './modules/group-settings/group-settings.module'
 import { GroupMembersModule } from './modules/group-members/group-members.module'
@@ -27,6 +28,7 @@ import { SystemModule } from './modules/system/system.module'
     SystemModule,
     UsersModule,
     AuthModule,
+    AssignmentsModule,
     FilesModule,
     GroupsModule,
     GroupSettingsModule,
