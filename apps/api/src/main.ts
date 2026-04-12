@@ -2,10 +2,11 @@ import 'reflect-metadata'
 import helmet from 'helmet'
 import { Logger, VersioningType } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
+import { SwaggerModule } from '@nestjs/swagger'
 import { AppModule } from './app.module'
 import { AllExceptionsFilter } from './common/exception-filters/all-exceptions.filter'
 import { ZodValidationPipe } from './common/pipes/zod-validation.pipe'
+import { createOpenApiDocument } from './common/swagger/openapi-document'
 import { AppConfigService } from './config/app-config.service'
 
 type CreateAppOptions = {
@@ -34,23 +35,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   const shouldEnableSwagger = options.enableSwagger ?? config.swaggerEnabled
 
   if (shouldEnableSwagger) {
-    const document = SwaggerModule.createDocument(
-      app,
-      new DocumentBuilder()
-        .setTitle('SmartTeach API')
-        .setDescription('Backend API for SmartTeach MVP.')
-        .setVersion('0.2.0')
-        .addBearerAuth(
-          {
-            type: 'http',
-            scheme: 'bearer',
-            bearerFormat: 'JWT',
-          },
-          'bearerAuth',
-        )
-        .addServer(`${config.publicApiBaseUrl}/api/v1`, 'Local REST API')
-        .build(),
-    )
+    const document = createOpenApiDocument(app, config.publicApiBaseUrl)
 
     SwaggerModule.setup('api/docs', app, document, {
       swaggerOptions: {

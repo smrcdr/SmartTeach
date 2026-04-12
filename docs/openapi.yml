@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: SmartTeach API
   version: 0.2.0
-  description: |
+  description: |-
     Актуальная спецификация REST API для MVP проекта SmartTeach.
     Спецификация обновлена после пересмотра предметной области и синхронизирована
     с новой структурой базы данных, зафиксированной в `docs/07-database-structure.md`.
@@ -18,8 +18,6 @@ info:
 servers:
   - url: http://localhost:3000/api/v1
     description: Локальный REST API
-security:
-  - bearerAuth: []
 tags:
   - name: System
     description: Служебные маршруты API
@@ -46,61 +44,8 @@ tags:
   - name: Chats
     description: Групповые и личные чаты
 paths:
-  /health:
-    get:
-      tags:
-        - System
-      security: []
-      summary: Проверить доступность API
-      responses:
-        '200':
-          description: API доступен и готов принимать запросы.
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - status
-                  - timestamp
-                properties:
-                  status:
-                    type: string
-                    example: ok
-                  timestamp:
-                    type: string
-                    format: date-time
-
-  /auth/register:
-    post:
-      tags:
-        - Authentication
-      security: []
-      summary: Зарегистрировать нового пользователя
-      description: Создает пользователя, стартовую сессию и возвращает пару токенов.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RegisterRequest'
-      responses:
-        '201':
-          description: Пользователь успешно зарегистрирован.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthSession'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
-
   /auth/login:
     post:
-      tags:
-        - Authentication
-      security: []
-      summary: Войти в систему
       description: Проверяет email и пароль и создает новую пользовательскую сессию.
       requestBody:
         required: true
@@ -110,44 +55,28 @@ paths:
               $ref: '#/components/schemas/LoginRequest'
       responses:
         '200':
-          description: Авторизация выполнена успешно.
+          description: ''
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthSession'
         '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-
-  /auth/refresh:
-    post:
-      tags:
-        - Authentication
-      security: []
-      summary: Обновить токены
-      description: Принимает refresh token, проверяет сессию и выдает новую пару токенов.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RefreshTokenRequest'
-      responses:
-        '200':
-          description: Токены успешно обновлены.
+          description: ''
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenPair'
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/UnauthorizedError'
-
-  /auth/logout:
-    post:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      summary: Войти в систему
       tags:
         - Authentication
-      summary: Завершить текущую сессию
+  /auth/logout:
+    post:
       description: Отзывает текущую сессию пользователя по refresh token.
       requestBody:
         required: true
@@ -159,28 +88,2426 @@ paths:
         '204':
           description: Сессия успешно завершена.
         '401':
-          $ref: '#/components/responses/UnauthorizedError'
-
-  /auth/me:
-    get:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Завершить текущую сессию
       tags:
         - Authentication
-      summary: Получить текущего пользователя
+  /auth/me:
+    get:
       responses:
         '200':
-          description: Профиль текущего пользователя.
+          description: ''
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
         '401':
-          $ref: '#/components/responses/UnauthorizedError'
-
-  /users/me:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить текущего пользователя
+      tags:
+        - Authentication
+  /auth/refresh:
+    post:
+      description: Принимает refresh token, проверяет сессию и выдает новую пару токенов.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      summary: Обновить токены
+      tags:
+        - Authentication
+  /auth/register:
+    post:
+      description: Создает пользователя, стартовую сессию и возвращает пару токенов.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSession'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      summary: Зарегистрировать нового пользователя
+      tags:
+        - Authentication
+  /chats:
+    get:
+      parameters:
+        - name: chatType
+          required: false
+          in: query
+          schema:
+            enum:
+              - GROUP
+              - DIRECT
+            type: string
+        - name: groupId
+          required: false
+          in: query
+          schema:
+            format: uuid
+            example: 66666666-6666-4666-8666-666666666666
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Chat'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить доступные чаты текущего пользователя
+      tags:
+        - Chats
+  /chats/{chatId}:
+    get:
+      parameters:
+        - name: chatId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chat'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить чат по идентификатору
+      tags:
+        - Chats
+  /chats/{chatId}/messages:
+    get:
+      parameters:
+        - name: chatId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 200
+            example: 50
+            type: number
+        - name: before
+          required: false
+          in: query
+          schema:
+            format: date-time
+            example: '2026-04-12T12:00:00.000Z'
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить сообщения чата
+      tags:
+        - Chats
+    post:
+      parameters:
+        - name: chatId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageCreateRequest'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Отправить сообщение
+      tags:
+        - Chats
+  /chats/{chatId}/messages/{messageId}:
+    delete:
+      description: Выполняет мягкое удаление сообщения.
+      parameters:
+        - name: chatId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: messageId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Сообщение успешно удалено.
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Удалить сообщение
+      tags:
+        - Chats
     patch:
+      parameters:
+        - name: chatId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: messageId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageUpdateRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Отредактировать сообщение
+      tags:
+        - Chats
+  /chats/direct:
+    post:
+      description: Возвращает существующий direct-чат 1 на 1 или создает новый, если его еще нет.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDirectChatRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chat'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Создать или получить личный чат
+      tags:
+        - Chats
+  /files:
+    post:
+      description: Загружает файл в объектное хранилище и возвращает его метаданные.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadFileRequest'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileObject'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Загрузить файл
+      tags:
+        - Files
+  /files/{fileId}:
+    delete:
+      description: Выполняет мягкое удаление файла и делает его недоступным для новых привязок.
+      parameters:
+        - name: fileId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Файл успешно удален.
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Удалить файл
+      tags:
+        - Files
+    get:
+      parameters:
+        - name: fileId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileObject'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить метаданные собственного файла
+      tags:
+        - Files
+  /groups:
+    get:
+      description: Возвращает группы с учетом фильтров, прав доступа и участия текущего пользователя.
+      parameters:
+        - name: search
+          required: false
+          in: query
+          schema:
+            example: frontend
+            type: string
+        - name: code
+          required: false
+          in: query
+          schema:
+            example: WEBSPR1
+            type: string
+        - name: accessMode
+          required: false
+          in: query
+          schema:
+            enum:
+              - OPEN
+              - BY_REQUEST
+              - CLOSED
+            type: string
+        - name: status
+          required: false
+          in: query
+          schema:
+            enum:
+              - ACTIVE
+              - ARCHIVED
+              - DELETED
+            type: string
+        - name: joinedOnly
+          required: false
+          in: query
+          schema:
+            example: true
+            type: boolean
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Group'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить список групп
+      tags:
+        - Groups
+    post:
+      description: Создает группу, настройки группы и запись владельца в составе участников.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupRequest'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Создать группу
+      tags:
+        - Groups
+  /groups/{groupId}:
+    delete:
+      description: Выполняет мягкое удаление группы и переводит ее в статус DELETED.
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Группа успешно удалена.
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Удалить группу
+      tags:
+        - Groups
+    get:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить группу по идентификатору
+      tags:
+        - Groups
+    patch:
+      description: Позволяет владельцу или администратору обновить базовые поля группы.
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGroupRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Обновить группу
+      tags:
+        - Groups
+  /groups/{groupId}/assignments:
+    get:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: status
+          required: false
+          in: query
+          schema:
+            enum:
+              - DRAFT
+              - PUBLISHED
+              - ARCHIVED
+            type: string
+        - name: lessonId
+          required: false
+          in: query
+          schema:
+            format: uuid
+            example: 77777777-7777-4777-8777-777777777777
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Assignment'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить список заданий группы
+      tags:
+        - Assignments
+    post:
+      description: Доступно владельцу и администраторам группы, если assignments_enabled включен.
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAssignmentRequest'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assignment'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Создать задание
+      tags:
+        - Assignments
+  /groups/{groupId}/assignments/{assignmentId}:
+    get:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: assignmentId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assignment'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить задание
+      tags:
+        - Assignments
+    patch:
+      description: Позволяет менять статус, дедлайн, lessonId и набор привязанных файлов задания.
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: assignmentId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAssignmentRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assignment'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Обновить задание
+      tags:
+        - Assignments
+  /groups/{groupId}/assignments/{assignmentId}/submissions:
+    get:
+      description: Обычный участник видит только собственные submissions. OWNER и ADMIN могут видеть все submissions задания.
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: assignmentId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: mineOnly
+          required: false
+          in: query
+          schema:
+            example: true
+            type: boolean
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Submission'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить попытки сдачи задания
+      tags:
+        - Assignments
+    post:
+      description: Создает новую попытку текущего пользователя и автоматически назначает следующий attemptNumber.
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: assignmentId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubmissionRequest'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Submission'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Создать новую попытку сдачи
+      tags:
+        - Assignments
+  /groups/{groupId}/assignments/{assignmentId}/submissions/{submissionId}:
+    get:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: assignmentId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: submissionId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Submission'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить попытку сдачи
+      tags:
+        - Assignments
+    patch:
+      description: Используется как для редактирования своей попытки, так и для проверки работы manager-ролями.
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: assignmentId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: submissionId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSubmissionRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Submission'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Обновить попытку сдачи
+      tags:
+        - Assignments
+  /groups/{groupId}/chats:
+    get:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Chat'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить групповые чаты группы
+      tags:
+        - Chats
+    post:
+      description: Доступно владельцу и администраторам группы, если chat_enabled включен.
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupChatCreateRequest'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chat'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Создать групповой чат
+      tags:
+        - Chats
+  /groups/{groupId}/chats/{chatId}:
+    delete:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: chatId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Чат успешно удален.
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Удалить групповой чат
+      tags:
+        - Chats
+    patch:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: chatId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupChatUpdateRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chat'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Обновить групповой чат
+      tags:
+        - Chats
+  /groups/{groupId}/join:
+    post:
+      description: Работает только для групп с режимом OPEN. Для групп BY_REQUEST нужно использовать заявки на вступление.
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupMember'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Вступить в открытую группу
+      tags:
+        - Group Members
+  /groups/{groupId}/join-requests:
+    get:
+      description: Доступно владельцу и администраторам группы.
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: status
+          required: false
+          in: query
+          schema:
+            enum:
+              - PENDING
+              - APPROVED
+              - REJECTED
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupJoinRequest'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить заявки на вступление
+      tags:
+        - Join Requests
+    post:
+      description: Создает заявку в группу с режимом BY_REQUEST.
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupJoinRequest'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Подать заявку на вступление
+      tags:
+        - Join Requests
+  /groups/{groupId}/join-requests/{requestId}:
+    patch:
+      description: Позволяет одобрить или отклонить заявку.
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: requestId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinRequestDecisionRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupJoinRequest'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Рассмотреть заявку на вступление
+      tags:
+        - Join Requests
+  /groups/{groupId}/leave:
+    post:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Пользователь успешно покинул группу.
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Покинуть группу
+      tags:
+        - Group Members
+  /groups/{groupId}/lessons:
+    get:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: status
+          required: false
+          in: query
+          schema:
+            enum:
+              - DRAFT
+              - PUBLISHED
+              - ARCHIVED
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Lesson'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить список уроков группы
+      tags:
+        - Lessons
+    post:
+      description: Доступно владельцу и администраторам группы, если lessons_enabled включен.
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLessonRequest'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lesson'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Создать урок
+      tags:
+        - Lessons
+  /groups/{groupId}/lessons/{lessonId}:
+    get:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: lessonId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lesson'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить урок
+      tags:
+        - Lessons
+    patch:
+      description: Позволяет менять статус, порядок и набор привязанных файлов урока.
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: lessonId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLessonRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lesson'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Обновить урок
+      tags:
+        - Lessons
+  /groups/{groupId}/members:
+    get:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupMember'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить участников группы
+      tags:
+        - Group Members
+    post:
+      description: Используется владельцем или администратором, в том числе для закрытых групп.
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupMemberRequest'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupMember'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Добавить участника в группу вручную
+      tags:
+        - Group Members
+  /groups/{groupId}/members/{userId}:
+    delete:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: userId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Участник успешно удален из группы.
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Удалить участника из группы
+      tags:
+        - Group Members
+    patch:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: userId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGroupMemberRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupMember'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Изменить роль участника
+      tags:
+        - Group Members
+  /groups/{groupId}/schedule:
+    get:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: from
+          required: false
+          in: query
+          schema:
+            format: date-time
+            example: '2026-04-01T00:00:00.000Z'
+            type: string
+        - name: to
+          required: false
+          in: query
+          schema:
+            format: date-time
+            example: '2026-04-30T23:59:59.999Z'
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduleEntry'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить единый календарь группы
+      tags:
+        - Schedule
+  /groups/{groupId}/schedule/events:
+    get:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: status
+          required: false
+          in: query
+          schema:
+            enum:
+              - PLANNED
+              - CANCELLED
+            type: string
+        - name: from
+          required: false
+          in: query
+          schema:
+            format: date-time
+            example: '2026-04-01T00:00:00.000Z'
+            type: string
+        - name: to
+          required: false
+          in: query
+          schema:
+            format: date-time
+            example: '2026-04-30T23:59:59.999Z'
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduleEvent'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить кастомные события группы
+      tags:
+        - Schedule
+    post:
+      description: Доступно владельцу и администраторам группы, если schedule_enabled включен.
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScheduleEventRequest'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleEvent'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Создать кастомное событие
+      tags:
+        - Schedule
+  /groups/{groupId}/schedule/events/{eventId}:
+    delete:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: eventId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '204':
+          description: ''
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Удалить кастомное событие
+      tags:
+        - Schedule
+    get:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: eventId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleEvent'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить кастомное событие
+      tags:
+        - Schedule
+    patch:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: eventId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateScheduleEventRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleEvent'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Обновить кастомное событие
+      tags:
+        - Schedule
+  /groups/{groupId}/settings:
+    get:
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupSettings'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить настройки группы
+      tags:
+        - Group Settings
+    patch:
+      description: Позволяет владельцу или администратору включать и отключать функции группы.
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGroupSettingsRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupSettings'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Обновить настройки группы
+      tags:
+        - Group Settings
+  /groups/by-code/{code}:
+    get:
+      parameters:
+        - name: code
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Найти группу по коду
+      tags:
+        - Groups
+  /health:
+    get:
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      summary: Проверить доступность API
+      tags:
+        - System
+  /users/{userId}:
+    get:
+      parameters:
+        - name: userId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicUser'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить публичный профиль пользователя
       tags:
         - Users
-      summary: Обновить собственный профиль
+  /users/me:
+    patch:
       description: Позволяет изменить display name, bio и avatar пользователя.
       requestBody:
         required: true
@@ -190,1621 +2517,109 @@ paths:
               $ref: '#/components/schemas/UpdateMyProfileRequest'
       responses:
         '200':
-          description: Профиль успешно обновлен.
+          description: ''
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
         '400':
-          $ref: '#/components/responses/ValidationError'
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/UnauthorizedError'
-
-  /users/{userId}:
-    get:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Обновить собственный профиль
       tags:
         - Users
-      summary: Получить публичный профиль пользователя
-      parameters:
-        - $ref: '#/components/parameters/UserId'
-      responses:
-        '200':
-          description: Публичные данные пользователя.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PublicUser'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /files:
-    post:
-      tags:
-        - Files
-      summary: Загрузить файл
-      description: Загружает файл в объектное хранилище и возвращает его метаданные.
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required:
-                - file
-              properties:
-                file:
-                  type: string
-                  format: binary
-                folder:
-                  type: string
-                  description: Логическая папка, например avatars, lessons, assignments, submissions, messages.
-      responses:
-        '201':
-          description: Файл успешно загружен.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FileObject'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-
-  /files/{fileId}:
-    get:
-      tags:
-        - Files
-      summary: Получить метаданные файла
-      parameters:
-        - $ref: '#/components/parameters/FileId'
-      responses:
-        '200':
-          description: Метаданные файла.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FileObject'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    delete:
-      tags:
-        - Files
-      summary: Удалить файл
-      description: Выполняет мягкое удаление файла и делает его недоступным для новых привязок.
-      parameters:
-        - $ref: '#/components/parameters/FileId'
-      responses:
-        '204':
-          description: Файл успешно удален.
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /groups:
-    get:
-      tags:
-        - Groups
-      summary: Получить список групп
-      description: Возвращает список групп с учетом фильтров и прав доступа текущего пользователя.
-      parameters:
-        - name: search
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Поиск по названию и описанию.
-        - name: code
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Поиск по короткому коду группы.
-        - name: accessMode
-          in: query
-          required: false
-          schema:
-            $ref: '#/components/schemas/GroupAccessMode'
-        - name: status
-          in: query
-          required: false
-          schema:
-            $ref: '#/components/schemas/GroupStatus'
-        - name: joinedOnly
-          in: query
-          required: false
-          schema:
-            type: boolean
-          description: Возвращать только группы, где состоит текущий пользователь.
-      responses:
-        '200':
-          description: Список групп.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Group'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-    post:
-      tags:
-        - Groups
-      summary: Создать группу
-      description: Создает группу, настройки группы и запись владельца в составе участников.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GroupCreateRequest'
-      responses:
-        '201':
-          description: Группа успешно создана.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Group'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-
-  /groups/by-code/{code}:
-    get:
-      tags:
-        - Groups
-      summary: Найти группу по коду
-      description: Быстрый поиск группы по автоматически сгенерированному короткому коду.
-      parameters:
-        - $ref: '#/components/parameters/GroupCode'
-      responses:
-        '200':
-          description: Группа найдена.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Group'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /groups/{groupId}:
-    get:
-      tags:
-        - Groups
-      summary: Получить группу по идентификатору
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-      responses:
-        '200':
-          description: Детальная информация о группе.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Group'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    patch:
-      tags:
-        - Groups
-      summary: Обновить группу
-      description: Позволяет владельцу или администратору обновить базовые поля группы.
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GroupUpdateRequest'
-      responses:
-        '200':
-          description: Группа успешно обновлена.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Group'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    delete:
-      tags:
-        - Groups
-      summary: Удалить группу
-      description: Выполняет мягкое удаление группы и переводит ее в статус `DELETED`.
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-      responses:
-        '204':
-          description: Группа успешно удалена.
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /groups/{groupId}/settings:
-    get:
-      tags:
-        - Group Settings
-      summary: Получить настройки группы
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-      responses:
-        '200':
-          description: Настройки группы.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GroupSettings'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    patch:
-      tags:
-        - Group Settings
-      summary: Обновить настройки группы
-      description: Позволяет включать и отключать функции группы.
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GroupSettingsUpdateRequest'
-      responses:
-        '200':
-          description: Настройки успешно обновлены.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GroupSettings'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /groups/{groupId}/join:
-    post:
-      tags:
-        - Group Members
-      summary: Вступить в открытую группу
-      description: Работает только для групп с режимом `OPEN`. Для групп `BY_REQUEST` нужно использовать `/join-requests`.
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-      responses:
-        '200':
-          description: Пользователь успешно добавлен в группу.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GroupMember'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
-
-  /groups/{groupId}/leave:
-    post:
-      tags:
-        - Group Members
-      summary: Покинуть группу
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-      responses:
-        '204':
-          description: Пользователь успешно покинул группу.
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /groups/{groupId}/members:
-    get:
-      tags:
-        - Group Members
-      summary: Получить участников группы
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-      responses:
-        '200':
-          description: Список участников группы.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/GroupMember'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    post:
-      tags:
-        - Group Members
-      summary: Добавить участника в группу вручную
-      description: Используется владельцем или администратором, в том числе для закрытых групп.
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GroupMemberCreateRequest'
-      responses:
-        '201':
-          description: Пользователь успешно добавлен в группу.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GroupMember'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
-
-  /groups/{groupId}/members/{userId}:
-    patch:
-      tags:
-        - Group Members
-      summary: Изменить роль участника
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - $ref: '#/components/parameters/UserId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GroupMemberUpdateRequest'
-      responses:
-        '200':
-          description: Роль участника успешно обновлена.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GroupMember'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    delete:
-      tags:
-        - Group Members
-      summary: Удалить участника из группы
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - $ref: '#/components/parameters/UserId'
-      responses:
-        '204':
-          description: Участник успешно удален из группы.
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /groups/{groupId}/join-requests:
-    get:
-      tags:
-        - Join Requests
-      summary: Получить заявки на вступление
-      description: Доступно владельцу и администраторам группы.
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - name: status
-          in: query
-          required: false
-          schema:
-            $ref: '#/components/schemas/JoinRequestStatus'
-      responses:
-        '200':
-          description: Список заявок.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/GroupJoinRequest'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    post:
-      tags:
-        - Join Requests
-      summary: Подать заявку на вступление
-      description: Создает заявку в группу с режимом `BY_REQUEST`.
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-      responses:
-        '201':
-          description: Заявка успешно создана.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GroupJoinRequest'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
-
-  /groups/{groupId}/join-requests/{requestId}:
-    patch:
-      tags:
-        - Join Requests
-      summary: Рассмотреть заявку на вступление
-      description: Позволяет одобрить или отклонить заявку.
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - $ref: '#/components/parameters/RequestId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JoinRequestDecisionRequest'
-      responses:
-        '200':
-          description: Заявка успешно обработана.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GroupJoinRequest'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /groups/{groupId}/lessons:
-    get:
-      tags:
-        - Lessons
-      summary: Получить список уроков группы
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - name: status
-          in: query
-          required: false
-          schema:
-            $ref: '#/components/schemas/LessonStatus'
-      responses:
-        '200':
-          description: Список уроков.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Lesson'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    post:
-      tags:
-        - Lessons
-      summary: Создать урок
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LessonCreateRequest'
-      responses:
-        '201':
-          description: Урок успешно создан.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Lesson'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /groups/{groupId}/lessons/{lessonId}:
-    get:
-      tags:
-        - Lessons
-      summary: Получить урок
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - $ref: '#/components/parameters/LessonId'
-      responses:
-        '200':
-          description: Данные урока.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Lesson'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    patch:
-      tags:
-        - Lessons
-      summary: Обновить урок
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - $ref: '#/components/parameters/LessonId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LessonUpdateRequest'
-      responses:
-        '200':
-          description: Урок успешно обновлен.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Lesson'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /groups/{groupId}/assignments:
-    get:
-      tags:
-        - Assignments
-      summary: Получить список заданий группы
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - name: status
-          in: query
-          required: false
-          schema:
-            $ref: '#/components/schemas/AssignmentStatus'
-        - name: lessonId
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Список заданий.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Assignment'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    post:
-      tags:
-        - Assignments
-      summary: Создать задание
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AssignmentCreateRequest'
-      responses:
-        '201':
-          description: Задание успешно создано.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Assignment'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /groups/{groupId}/assignments/{assignmentId}:
-    get:
-      tags:
-        - Assignments
-      summary: Получить задание
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - $ref: '#/components/parameters/AssignmentId'
-      responses:
-        '200':
-          description: Данные задания.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Assignment'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    patch:
-      tags:
-        - Assignments
-      summary: Обновить задание
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - $ref: '#/components/parameters/AssignmentId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AssignmentUpdateRequest'
-      responses:
-        '200':
-          description: Задание успешно обновлено.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Assignment'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /groups/{groupId}/assignments/{assignmentId}/submissions:
-    get:
-      tags:
-        - Assignments
-      summary: Получить попытки сдачи задания
-      description: Возвращает сдачи текущего пользователя или, при наличии прав, все сдачи задания.
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - $ref: '#/components/parameters/AssignmentId'
-        - name: mineOnly
-          in: query
-          required: false
-          schema:
-            type: boolean
-      responses:
-        '200':
-          description: Список попыток сдачи.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Submission'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    post:
-      tags:
-        - Assignments
-      summary: Создать новую попытку сдачи
-      description: Создает новую попытку для задания и автоматически назначает следующий `attemptNumber`.
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - $ref: '#/components/parameters/AssignmentId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SubmissionCreateRequest'
-      responses:
-        '201':
-          description: Попытка сдачи успешно создана.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Submission'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /groups/{groupId}/assignments/{assignmentId}/submissions/{submissionId}:
-    get:
-      tags:
-        - Assignments
-      summary: Получить попытку сдачи
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - $ref: '#/components/parameters/AssignmentId'
-        - $ref: '#/components/parameters/SubmissionId'
-      responses:
-        '200':
-          description: Данные попытки сдачи.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Submission'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    patch:
-      tags:
-        - Assignments
-      summary: Обновить попытку сдачи
-      description: Используется как для редактирования черновика, так и для проверки работы.
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - $ref: '#/components/parameters/AssignmentId'
-        - $ref: '#/components/parameters/SubmissionId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SubmissionUpdateRequest'
-      responses:
-        '200':
-          description: Попытка сдачи успешно обновлена.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Submission'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /groups/{groupId}/schedule:
-    get:
-      tags:
-        - Schedule
-      summary: Получить единый календарь группы
-      description: |
-        Возвращает агрегированную ленту расписания группы.
-        В ответ входят:
-        - уроки с заполненными `startsAt` и `endsAt`;
-        - дедлайны заданий с заполненным `dueAt`;
-        - кастомные события из `schedule_events`.
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - name: from
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date-time
-        - name: to
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date-time
-      responses:
-        '200':
-          description: Агрегированное расписание группы.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ScheduleEntry'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /groups/{groupId}/schedule/events:
-    get:
-      tags:
-        - Schedule
-      summary: Получить кастомные события группы
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - name: status
-          in: query
-          required: false
-          schema:
-            $ref: '#/components/schemas/ScheduleEventStatus'
-        - name: from
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date-time
-        - name: to
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date-time
-      responses:
-        '200':
-          description: Список кастомных событий.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ScheduleEvent'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    post:
-      tags:
-        - Schedule
-      summary: Создать кастомное событие
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ScheduleEventCreateRequest'
-      responses:
-        '201':
-          description: Событие успешно создано.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScheduleEvent'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /groups/{groupId}/schedule/events/{eventId}:
-    get:
-      tags:
-        - Schedule
-      summary: Получить кастомное событие
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - $ref: '#/components/parameters/EventId'
-      responses:
-        '200':
-          description: Данные события.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScheduleEvent'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    patch:
-      tags:
-        - Schedule
-      summary: Обновить кастомное событие
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - $ref: '#/components/parameters/EventId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ScheduleEventUpdateRequest'
-      responses:
-        '200':
-          description: Событие успешно обновлено.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScheduleEvent'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    delete:
-      tags:
-        - Schedule
-      summary: Удалить кастомное событие
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - $ref: '#/components/parameters/EventId'
-      responses:
-        '204':
-          description: Событие успешно удалено.
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /groups/{groupId}/chats:
-    get:
-      tags:
-        - Chats
-      summary: Получить групповые чаты группы
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-      responses:
-        '200':
-          description: Список групповых чатов.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Chat'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    post:
-      tags:
-        - Chats
-      summary: Создать групповой чат
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GroupChatCreateRequest'
-      responses:
-        '201':
-          description: Групповой чат успешно создан.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Chat'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /groups/{groupId}/chats/{chatId}:
-    patch:
-      tags:
-        - Chats
-      summary: Обновить групповой чат
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - $ref: '#/components/parameters/ChatId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GroupChatUpdateRequest'
-      responses:
-        '200':
-          description: Чат успешно обновлен.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Chat'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    delete:
-      tags:
-        - Chats
-      summary: Удалить групповой чат
-      parameters:
-        - $ref: '#/components/parameters/GroupId'
-        - $ref: '#/components/parameters/ChatId'
-      responses:
-        '204':
-          description: Чат успешно удален.
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /chats:
-    get:
-      tags:
-        - Chats
-      summary: Получить доступные чаты текущего пользователя
-      parameters:
-        - name: chatType
-          in: query
-          required: false
-          schema:
-            $ref: '#/components/schemas/ChatType'
-        - name: groupId
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-          description: Ограничить выборку чатами конкретной группы.
-      responses:
-        '200':
-          description: Список чатов текущего пользователя.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Chat'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-
-  /chats/direct:
-    post:
-      tags:
-        - Chats
-      summary: Создать или получить личный чат
-      description: Возвращает существующий direct-чат `1 на 1` или создает новый, если его еще нет.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateDirectChatRequest'
-      responses:
-        '200':
-          description: Личный чат найден или создан.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Chat'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /chats/{chatId}:
-    get:
-      tags:
-        - Chats
-      summary: Получить чат по идентификатору
-      parameters:
-        - $ref: '#/components/parameters/ChatId'
-      responses:
-        '200':
-          description: Детальная информация о чате.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Chat'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /chats/{chatId}/messages:
-    get:
-      tags:
-        - Chats
-      summary: Получить сообщения чата
-      parameters:
-        - $ref: '#/components/parameters/ChatId'
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-        - name: before
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date-time
-      responses:
-        '200':
-          description: Список сообщений чата.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Message'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    post:
-      tags:
-        - Chats
-      summary: Отправить сообщение
-      parameters:
-        - $ref: '#/components/parameters/ChatId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MessageCreateRequest'
-      responses:
-        '201':
-          description: Сообщение успешно отправлено.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Message'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /chats/{chatId}/messages/{messageId}:
-    patch:
-      tags:
-        - Chats
-      summary: Отредактировать сообщение
-      parameters:
-        - $ref: '#/components/parameters/ChatId'
-        - $ref: '#/components/parameters/MessageId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MessageUpdateRequest'
-      responses:
-        '200':
-          description: Сообщение успешно обновлено.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Message'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    delete:
-      tags:
-        - Chats
-      summary: Удалить сообщение
-      description: Выполняет мягкое удаление сообщения.
-      parameters:
-        - $ref: '#/components/parameters/ChatId'
-        - $ref: '#/components/parameters/MessageId'
-      responses:
-        '204':
-          description: Сообщение успешно удалено.
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
 components:
   securitySchemes:
     bearerAuth:
-      type: http
       scheme: bearer
       bearerFormat: JWT
-
-  parameters:
-    UserId:
-      name: userId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-      description: UUID пользователя.
-    FileId:
-      name: fileId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-      description: UUID файла.
-    GroupId:
-      name: groupId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-      description: UUID группы.
-    GroupCode:
-      name: code
-      in: path
-      required: true
-      schema:
-        type: string
-      description: Короткий код группы.
-    RequestId:
-      name: requestId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-      description: UUID заявки на вступление.
-    LessonId:
-      name: lessonId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-      description: UUID урока.
-    AssignmentId:
-      name: assignmentId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-      description: UUID задания.
-    SubmissionId:
-      name: submissionId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-      description: UUID попытки сдачи.
-    EventId:
-      name: eventId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-      description: UUID кастомного события.
-    ChatId:
-      name: chatId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-      description: UUID чата.
-    MessageId:
-      name: messageId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-      description: UUID сообщения.
-
-  responses:
-    ValidationError:
-      description: Ошибка валидации входных данных.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    UnauthorizedError:
-      description: Пользователь не авторизован.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    ForbiddenError:
-      description: Недостаточно прав для выполнения операции.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    NotFoundError:
-      description: Ресурс не найден.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    ConflictError:
-      description: Конфликт состояния ресурса.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-
+      type: http
   schemas:
-    ErrorResponse:
+    Assignment:
       type: object
-      required:
-        - statusCode
-        - message
       properties:
-        statusCode:
-          type: integer
-          example: 400
-        message:
+        id:
           type: string
-          example: Validation failed
-        errors:
+          format: uuid
+          example: 88888888-8888-4888-8888-888888888888
+        groupId:
+          type: string
+          format: uuid
+          example: 66666666-6666-4666-8666-666666666666
+        lessonId:
+          type: object
+          format: uuid
+          nullable: true
+          example: 77777777-7777-4777-8777-777777777777
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Prepare contract review
+        content:
+          type: object
+          nullable: true
+          example: Подготовьте разбор API-контракта и зафиксируйте спорные поля.
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - ARCHIVED
+          example: PUBLISHED
+        dueAt:
+          type: object
+          format: date-time
+          nullable: true
+        maxScore:
+          type: object
+          minimum: 0
+          nullable: true
+          example: 100
+        publishedAt:
+          type: object
+          format: date-time
+          nullable: true
+        archivedAt:
+          type: object
+          format: date-time
+          nullable: true
+        createdByUserId:
+          type: string
+          format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        files:
           type: array
           items:
-            type: string
-
-    GroupAccessMode:
-      type: string
-      enum:
-        - OPEN
-        - BY_REQUEST
-        - CLOSED
-      description: Режим вступления в группу.
-
-    GroupStatus:
-      type: string
-      enum:
-        - ACTIVE
-        - ARCHIVED
-        - DELETED
-      description: Статус группы.
-
-    GroupEditableStatus:
-      type: string
-      enum:
-        - ACTIVE
-        - ARCHIVED
-      description: Статус группы, доступный через обычное редактирование.
-
-    GroupRole:
-      type: string
-      enum:
-        - OWNER
-        - ADMIN
-        - USER
-      description: Роль пользователя внутри группы.
-
-    JoinRequestStatus:
-      type: string
-      enum:
-        - PENDING
-        - APPROVED
-        - REJECTED
-      description: Статус заявки на вступление.
-
-    JoinRequestDecision:
-      type: string
-      enum:
-        - APPROVED
-        - REJECTED
-      description: Решение по заявке на вступление.
-
-    LessonStatus:
-      type: string
-      enum:
-        - DRAFT
-        - PUBLISHED
-        - ARCHIVED
-      description: Статус урока.
-
-    AssignmentStatus:
-      type: string
-      enum:
-        - DRAFT
-        - PUBLISHED
-        - ARCHIVED
-      description: Статус задания.
-
-    SubmissionStatus:
-      type: string
-      enum:
-        - DRAFT
-        - SUBMITTED
-        - REVIEWED
-      description: Статус попытки сдачи.
-
-    ScheduleEventStatus:
-      type: string
-      enum:
-        - PLANNED
-        - CANCELLED
-      description: Статус кастомного события.
-
-    ScheduleEntryType:
-      type: string
-      enum:
-        - LESSON
-        - ASSIGNMENT_DEADLINE
-        - CUSTOM_EVENT
-      description: Источник записи в агрегированном расписании.
-
-    ChatType:
-      type: string
-      enum:
-        - GROUP
-        - DIRECT
-      description: Тип чата.
-
-    PublicUser:
-      type: object
-      required:
-        - id
-        - displayName
-      properties:
-        id:
-          type: string
-          format: uuid
-        displayName:
-          type: string
-        bio:
-          type: string
-          nullable: true
-        avatarFileId:
-          type: string
-          format: uuid
-          nullable: true
-
-    User:
-      type: object
-      required:
-        - id
-        - email
-        - displayName
-        - createdAt
-        - updatedAt
-      properties:
-        id:
-          type: string
-          format: uuid
-        email:
-          type: string
-          format: email
-        displayName:
-          type: string
-        bio:
-          type: string
-          nullable: true
-        avatarFileId:
-          type: string
-          format: uuid
-          nullable: true
+            $ref: '#/components/schemas/FileObject'
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
-
-    TokenPair:
-      type: object
       required:
-        - accessToken
-        - refreshToken
-        - sessionId
-      properties:
-        accessToken:
-          type: string
-        refreshToken:
-          type: string
-        sessionId:
-          type: string
-          format: uuid
-
+        - id
+        - groupId
+        - title
+        - status
+        - createdByUserId
+        - files
+        - createdAt
+        - updatedAt
     AuthSession:
       type: object
-      required:
-        - user
-        - accessToken
-        - refreshToken
-        - sessionId
       properties:
         user:
           $ref: '#/components/schemas/User'
@@ -1815,9 +2630,309 @@ components:
         sessionId:
           type: string
           format: uuid
-
+          example: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+      required:
+        - user
+        - accessToken
+        - refreshToken
+        - sessionId
+    Chat:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: fffffff1-ffff-4fff-8fff-fffffffffff1
+        chatType:
+          type: string
+          enum:
+            - GROUP
+            - DIRECT
+          example: GROUP
+        groupId:
+          type: object
+          format: uuid
+          nullable: true
+          example: 66666666-6666-4666-8666-666666666666
+        title:
+          type: object
+          nullable: true
+          example: Общий чат Web Basics
+        createdByUserId:
+          type: string
+          format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        lastMessageAt:
+          type: object
+          format: date-time
+          nullable: true
+          example: '2026-04-12T11:30:00.000Z'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMember'
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-12T10:00:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-04-12T11:30:00.000Z'
+      required:
+        - id
+        - chatType
+        - createdByUserId
+        - members
+        - createdAt
+        - updatedAt
+    ChatMember:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        joinedAt:
+          type: string
+          format: date-time
+          example: '2026-04-12T10:00:00.000Z'
+        lastReadAt:
+          type: object
+          format: date-time
+          nullable: true
+          example: '2026-04-12T11:30:00.000Z'
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-12T10:00:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-04-12T11:30:00.000Z'
+        user:
+          $ref: '#/components/schemas/PublicUser'
+      required:
+        - userId
+        - joinedAt
+        - createdAt
+        - updatedAt
+        - user
+    CreateAssignmentRequest:
+      type: object
+      properties:
+        lessonId:
+          type: string
+          format: uuid
+          example: 77777777-7777-4777-8777-777777777777
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Prepare contract review
+        content:
+          type: string
+          example: Сравните итоговую реализацию с OpenAPI и опишите расхождения.
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - ARCHIVED
+          example: DRAFT
+        dueAt:
+          type: string
+          format: date-time
+          example: '2026-04-20T18:00:00.000Z'
+        maxScore:
+          type: number
+          minimum: 0
+          example: 100
+        fileIds:
+          example:
+            - aaaaaaa4-aaaa-4aaa-8aaa-aaaaaaaaaaa4
+          type: array
+          items:
+            type: string
+      required:
+        - title
+    CreateDirectChatRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+          example: 33333333-3333-4333-8333-333333333333
+      required:
+        - userId
+    CreateGroupMemberRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+          example: 33333333-3333-4333-8333-333333333333
+        role:
+          type: string
+          enum:
+            - OWNER
+            - ADMIN
+            - USER
+          example: ADMIN
+      required:
+        - userId
+    CreateGroupRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 150
+          example: Frontend Patterns Lab
+        description:
+          type: string
+          example: Группа для разбора компонентного мышления и интерфейсных паттернов.
+        accessMode:
+          type: string
+          enum:
+            - OPEN
+            - BY_REQUEST
+            - CLOSED
+          example: BY_REQUEST
+        settings:
+          $ref: '#/components/schemas/GroupSettings'
+      required:
+        - name
+        - accessMode
+        - settings
+    CreateLessonRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Intro to REST contracts
+        content:
+          type: string
+          example: Разбираем базовые REST-паттерны и итоговый контракт lesson module.
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - ARCHIVED
+          example: DRAFT
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 20
+        startsAt:
+          type: string
+          format: date-time
+          example: '2026-04-15T09:00:00.000Z'
+        endsAt:
+          type: string
+          format: date-time
+          example: '2026-04-15T10:30:00.000Z'
+        fileIds:
+          example:
+            - aaaaaaa3-aaaa-4aaa-8aaa-aaaaaaaaaaa3
+          type: array
+          items:
+            type: string
+      required:
+        - title
+    CreateScheduleEventRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Demo day rehearsal
+        description:
+          type: string
+          example: Репетиция финальной презентации перед защитой.
+        startsAt:
+          type: string
+          format: date-time
+          example: '2026-04-16T12:00:00.000Z'
+        endsAt:
+          type: string
+          format: date-time
+          example: '2026-04-16T13:30:00.000Z'
+        location:
+          type: string
+          example: Zoom / Room 204
+      required:
+        - title
+        - startsAt
+        - endsAt
+    CreateSubmissionRequest:
+      type: object
+      properties:
+        text:
+          type: string
+          example: Готовая работа и комментарии по спорным местам реализации.
+        fileIds:
+          example:
+            - bbbbbbb1-bbbb-4bbb-8bbb-bbbbbbbbbbb1
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - SUBMITTED
+          example: DRAFT
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: number
+          example: 400
+        message:
+          type: string
+          example: Validation failed
+        errors:
+          example:
+            - 'email: Invalid email address'
+          type: array
+          items:
+            type: string
+      required:
+        - statusCode
+        - message
     FileObject:
       type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1
+        originalName:
+          type: string
+          example: avatar.png
+        mimeType:
+          type: string
+          example: image/png
+        sizeBytes:
+          type: number
+          example: 204800
+        uploadedByUserId:
+          type: string
+          format: uuid
+          example: bbbbbbb2-bbbb-4bbb-8bbb-bbbbbbbbbbb2
+        url:
+          type: string
+          format: uri
+          example: http://localhost:9000/smarteach-files/avatars/2026/04/12/aBcD1234xYz9.png?X-Amz-Algorithm=AWS4-HMAC-SHA256
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-12T00:00:00.000Z'
       required:
         - id
         - originalName
@@ -1826,81 +2941,51 @@ components:
         - uploadedByUserId
         - url
         - createdAt
-      properties:
-        id:
-          type: string
-          format: uuid
-        originalName:
-          type: string
-        mimeType:
-          type: string
-        sizeBytes:
-          type: integer
-          format: int64
-        uploadedByUserId:
-          type: string
-          format: uuid
-        url:
-          type: string
-          format: uri
-        createdAt:
-          type: string
-          format: date-time
-
-    GroupSettings:
-      type: object
-      required:
-        - chatEnabled
-        - lessonsEnabled
-        - assignmentsEnabled
-        - scheduleEnabled
-      properties:
-        chatEnabled:
-          type: boolean
-        lessonsEnabled:
-          type: boolean
-        assignmentsEnabled:
-          type: boolean
-        scheduleEnabled:
-          type: boolean
-
     Group:
       type: object
-      required:
-        - id
-        - code
-        - name
-        - ownerId
-        - accessMode
-        - status
-        - settings
-        - createdAt
-        - updatedAt
       properties:
         id:
           type: string
           format: uuid
+          example: 66666666-6666-4666-8666-666666666666
         code:
           type: string
+          example: WEBSPR1
         name:
           type: string
+          minLength: 2
+          maxLength: 150
+          example: Web Basics Spring 2026
         description:
-          type: string
+          type: object
           nullable: true
+          example: Открытая группа для отработки HTML, CSS и базового JavaScript.
         ownerId:
           type: string
           format: uuid
+          example: 11111111-1111-4111-8111-111111111111
         owner:
           $ref: '#/components/schemas/PublicUser'
         accessMode:
-          $ref: '#/components/schemas/GroupAccessMode'
+          type: string
+          enum:
+            - OPEN
+            - BY_REQUEST
+            - CLOSED
+          example: OPEN
         status:
-          $ref: '#/components/schemas/GroupStatus'
+          type: string
+          enum:
+            - ACTIVE
+            - ARCHIVED
+            - DELETED
+          example: ACTIVE
         settings:
           $ref: '#/components/schemas/GroupSettings'
         membersCount:
-          type: integer
+          type: number
           minimum: 0
+          example: 3
         createdAt:
           type: string
           format: date-time
@@ -1908,69 +2993,71 @@ components:
           type: string
           format: date-time
         archivedAt:
-          type: string
+          type: object
           format: date-time
           nullable: true
         deletedAt:
-          type: string
+          type: object
           format: date-time
           nullable: true
-
-    GroupMember:
-      type: object
-      required:
-        - groupId
-        - userId
-        - role
-        - joinedAt
-        - updatedAt
-        - user
-      properties:
-        groupId:
-          type: string
-          format: uuid
-        userId:
-          type: string
-          format: uuid
-        role:
-          $ref: '#/components/schemas/GroupRole'
-        joinedAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-        user:
-          $ref: '#/components/schemas/PublicUser'
-
-    GroupJoinRequest:
-      type: object
       required:
         - id
-        - groupId
-        - userId
+        - code
+        - name
+        - ownerId
+        - owner
+        - accessMode
         - status
+        - settings
+        - membersCount
         - createdAt
         - updatedAt
-        - user
+    GroupChatCreateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 150
+          example: Общий чат Web Basics
+      required:
+        - title
+    GroupChatUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 150
+          example: Чат для организационных вопросов
+    GroupJoinRequest:
+      type: object
       properties:
         id:
           type: string
           format: uuid
+          example: 99999999-9999-4999-8999-999999999999
         groupId:
           type: string
           format: uuid
+          example: 77777777-7777-4777-8777-777777777777
         userId:
           type: string
           format: uuid
+          example: 33333333-3333-4333-8333-333333333333
         status:
-          $ref: '#/components/schemas/JoinRequestStatus'
-        reviewedByUserId:
           type: string
+          enum:
+            - PENDING
+            - APPROVED
+            - REJECTED
+          example: PENDING
+        reviewedByUserId:
+          type: object
           format: uuid
           nullable: true
         reviewedAt:
-          type: string
+          type: object
           format: date-time
           nullable: true
         createdAt:
@@ -1982,12 +3069,154 @@ components:
         user:
           $ref: '#/components/schemas/PublicUser'
         reviewer:
+          nullable: true
           allOf:
             - $ref: '#/components/schemas/PublicUser'
-          nullable: true
-
+      required:
+        - id
+        - groupId
+        - userId
+        - status
+        - createdAt
+        - updatedAt
+        - user
+    GroupMember:
+      type: object
+      properties:
+        groupId:
+          type: string
+          format: uuid
+          example: 66666666-6666-4666-8666-666666666666
+        userId:
+          type: string
+          format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        role:
+          type: string
+          enum:
+            - OWNER
+            - ADMIN
+            - USER
+          example: ADMIN
+        joinedAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/PublicUser'
+      required:
+        - groupId
+        - userId
+        - role
+        - joinedAt
+        - updatedAt
+        - user
+    GroupSettings:
+      type: object
+      properties:
+        chatEnabled:
+          type: boolean
+          example: true
+        lessonsEnabled:
+          type: boolean
+          example: true
+        assignmentsEnabled:
+          type: boolean
+          example: true
+        scheduleEnabled:
+          type: boolean
+          example: true
+      required:
+        - chatEnabled
+        - lessonsEnabled
+        - assignmentsEnabled
+        - scheduleEnabled
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        timestamp:
+          type: string
+          example: '2026-04-12T00:00:00.000Z'
+      required:
+        - status
+        - timestamp
+    JoinRequestDecisionRequest:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum:
+            - APPROVED
+            - REJECTED
+          example: APPROVED
+      required:
+        - decision
     Lesson:
       type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 77777777-7777-4777-8777-777777777777
+        groupId:
+          type: string
+          format: uuid
+          example: 66666666-6666-4666-8666-666666666666
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Intro to REST contracts
+        content:
+          type: object
+          nullable: true
+          example: Разбираем базовую структуру REST API и договоренности по payload.
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - ARCHIVED
+          example: PUBLISHED
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 10
+        startsAt:
+          type: object
+          format: date-time
+          nullable: true
+        endsAt:
+          type: object
+          format: date-time
+          nullable: true
+        publishedAt:
+          type: object
+          format: date-time
+          nullable: true
+        archivedAt:
+          type: object
+          format: date-time
+          nullable: true
+        createdByUserId:
+          type: string
+          format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileObject'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
       required:
         - id
         - groupId
@@ -1998,160 +3227,292 @@ components:
         - files
         - createdAt
         - updatedAt
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: student@smarteach.local
+        password:
+          type: string
+          example: Password123!
+      required:
+        - email
+        - password
+    Message:
+      type: object
       properties:
         id:
           type: string
           format: uuid
-        groupId:
+          example: 12121212-1212-4212-8212-121212121212
+        chatId:
           type: string
           format: uuid
-        title:
-          type: string
-        content:
-          type: string
-          nullable: true
-        status:
-          $ref: '#/components/schemas/LessonStatus'
-        sortOrder:
-          type: integer
-        startsAt:
-          type: string
-          format: date-time
-          nullable: true
-        endsAt:
-          type: string
-          format: date-time
-          nullable: true
-        publishedAt:
-          type: string
-          format: date-time
-          nullable: true
-        archivedAt:
-          type: string
-          format: date-time
-          nullable: true
-        createdByUserId:
+          example: fffffff1-ffff-4fff-8fff-fffffffffff1
+        authorId:
           type: string
           format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        text:
+          type: object
+          nullable: true
+          example: Закрепил материалы к уроку.
         files:
           type: array
           items:
             $ref: '#/components/schemas/FileObject'
+        editedAt:
+          type: object
+          format: date-time
+          nullable: true
+          example: '2026-04-12T11:35:00.000Z'
+        deletedAt:
+          type: object
+          format: date-time
+          nullable: true
+          example: '2026-04-12T12:10:00.000Z'
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-12T11:30:00.000Z'
+        author:
+          $ref: '#/components/schemas/PublicUser'
+      required:
+        - id
+        - chatId
+        - authorId
+        - files
+        - createdAt
+        - author
+    MessageCreateRequest:
+      type: object
+      properties:
+        text:
+          type: string
+          example: Проверьте, пожалуйста, последний макет.
+        fileIds:
+          example:
+            - aaaaaaa6-aaaa-4aaa-8aaa-aaaaaaaaaaa6
+          type: array
+          items:
+            type: string
+    MessageUpdateRequest:
+      type: object
+      properties:
+        text:
+          type: string
+          example: Обновил текст сообщения после проверки вложения.
+        fileIds:
+          example:
+            - aaaaaaa6-aaaa-4aaa-8aaa-aaaaaaaaaaa6
+          type: array
+          items:
+            type: string
+    PublicUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        displayName:
+          type: string
+          example: Alex Teacher
+        bio:
+          type: object
+          nullable: true
+          example: Преподает веб-разработку и ведет открытые учебные группы.
+        avatarFileId:
+          type: object
+          format: uuid
+          nullable: true
+          example: aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1
+      required:
+        - id
+        - displayName
+    RefreshTokenRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+      required:
+        - refreshToken
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: student@smarteach.local
+        password:
+          type: string
+          minLength: 8
+          example: Password123!
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: Student Example
+      required:
+        - email
+        - password
+        - displayName
+    ScheduleEntry:
+      type: object
+      properties:
+        sourceType:
+          type: string
+          enum:
+            - LESSON
+            - ASSIGNMENT_DEADLINE
+            - CUSTOM_EVENT
+          example: LESSON
+        sourceId:
+          type: string
+          format: uuid
+          example: bbbbbbb1-bbbb-4bbb-8bbb-bbbbbbbbbbb1
+        groupId:
+          type: string
+          format: uuid
+          example: 66666666-6666-4666-8666-666666666666
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Intro to API Contracts
+        description:
+          type: object
+          nullable: true
+          example: Разбираем правила построения контрактов и release discipline.
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: object
+          format: date-time
+          nullable: true
+      required:
+        - sourceType
+        - sourceId
+        - groupId
+        - title
+        - startsAt
+    ScheduleEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 99999999-9999-4999-8999-999999999999
+        groupId:
+          type: string
+          format: uuid
+          example: 66666666-6666-4666-8666-666666666666
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Demo day rehearsal
+        description:
+          type: object
+          nullable: true
+          example: Прогоним презентации и технический чек.
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        location:
+          type: object
+          nullable: true
+          example: Zoom / Room 204
+        status:
+          type: string
+          enum:
+            - PLANNED
+            - CANCELLED
+          example: PLANNED
+        createdByUserId:
+          type: string
+          format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        cancelledAt:
+          type: object
+          format: date-time
+          nullable: true
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
-
-    Assignment:
-      type: object
       required:
         - id
         - groupId
         - title
+        - startsAt
+        - endsAt
         - status
         - createdByUserId
-        - files
         - createdAt
         - updatedAt
-      properties:
-        id:
-          type: string
-          format: uuid
-        groupId:
-          type: string
-          format: uuid
-        lessonId:
-          type: string
-          format: uuid
-          nullable: true
-        title:
-          type: string
-        content:
-          type: string
-          nullable: true
-        status:
-          $ref: '#/components/schemas/AssignmentStatus'
-        dueAt:
-          type: string
-          format: date-time
-          nullable: true
-        maxScore:
-          type: integer
-          nullable: true
-        publishedAt:
-          type: string
-          format: date-time
-          nullable: true
-        archivedAt:
-          type: string
-          format: date-time
-          nullable: true
-        createdByUserId:
-          type: string
-          format: uuid
-        files:
-          type: array
-          items:
-            $ref: '#/components/schemas/FileObject'
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
     Submission:
       type: object
-      required:
-        - id
-        - assignmentId
-        - authorId
-        - attemptNumber
-        - status
-        - files
-        - createdAt
-        - updatedAt
-        - author
       properties:
         id:
           type: string
           format: uuid
+          example: 99999999-9999-4999-8999-999999999999
         assignmentId:
           type: string
           format: uuid
+          example: 88888888-8888-4888-8888-888888888888
         authorId:
           type: string
           format: uuid
+          example: 11111111-1111-4111-8111-111111111111
         attemptNumber:
-          type: integer
+          type: number
           minimum: 1
+          example: 2
         text:
-          type: string
+          type: object
           nullable: true
+          example: Финальная версия работы.
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - SUBMITTED
+            - REVIEWED
+          example: SUBMITTED
         files:
           type: array
           items:
             $ref: '#/components/schemas/FileObject'
-        status:
-          $ref: '#/components/schemas/SubmissionStatus'
         score:
-          type: integer
+          type: object
+          minimum: 0
           nullable: true
+          example: 90
         feedback:
-          type: string
+          type: object
           nullable: true
+          example: Хорошая работа, но нужно закрыть edge case с правами доступа.
         submittedAt:
-          type: string
+          type: object
           format: date-time
           nullable: true
         reviewedByUserId:
-          type: string
+          type: object
           format: uuid
           nullable: true
+          example: 22222222-2222-4222-8222-222222222222
         reviewedAt:
-          type: string
+          type: object
           format: date-time
           nullable: true
         createdAt:
@@ -2163,235 +3524,160 @@ components:
         author:
           $ref: '#/components/schemas/PublicUser'
         reviewer:
+          nullable: true
           allOf:
             - $ref: '#/components/schemas/PublicUser'
-          nullable: true
-
-    ScheduleEvent:
-      type: object
       required:
         - id
-        - groupId
-        - title
-        - startsAt
-        - endsAt
-        - status
-        - createdByUserId
-        - createdAt
-        - updatedAt
-      properties:
-        id:
-          type: string
-          format: uuid
-        groupId:
-          type: string
-          format: uuid
-        title:
-          type: string
-        description:
-          type: string
-          nullable: true
-        startsAt:
-          type: string
-          format: date-time
-        endsAt:
-          type: string
-          format: date-time
-        location:
-          type: string
-          nullable: true
-        status:
-          $ref: '#/components/schemas/ScheduleEventStatus'
-        createdByUserId:
-          type: string
-          format: uuid
-        cancelledAt:
-          type: string
-          format: date-time
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    ScheduleEntry:
-      type: object
-      required:
-        - sourceType
-        - sourceId
-        - groupId
-        - title
-        - startsAt
-      properties:
-        sourceType:
-          $ref: '#/components/schemas/ScheduleEntryType'
-        sourceId:
-          type: string
-          format: uuid
-        groupId:
-          type: string
-          format: uuid
-        title:
-          type: string
-        description:
-          type: string
-          nullable: true
-        startsAt:
-          type: string
-          format: date-time
-        endsAt:
-          type: string
-          format: date-time
-          nullable: true
-
-    ChatMember:
-      type: object
-      required:
-        - userId
-        - joinedAt
-        - createdAt
-        - updatedAt
-        - user
-      properties:
-        userId:
-          type: string
-          format: uuid
-        joinedAt:
-          type: string
-          format: date-time
-        lastReadAt:
-          type: string
-          format: date-time
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-        user:
-          $ref: '#/components/schemas/PublicUser'
-
-    Chat:
-      type: object
-      required:
-        - id
-        - chatType
-        - members
-        - createdByUserId
-        - createdAt
-        - updatedAt
-      properties:
-        id:
-          type: string
-          format: uuid
-        chatType:
-          $ref: '#/components/schemas/ChatType'
-        groupId:
-          type: string
-          format: uuid
-          nullable: true
-        title:
-          type: string
-          nullable: true
-        createdByUserId:
-          type: string
-          format: uuid
-        lastMessageAt:
-          type: string
-          format: date-time
-          nullable: true
-        members:
-          type: array
-          items:
-            $ref: '#/components/schemas/ChatMember'
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    Message:
-      type: object
-      required:
-        - id
-        - chatId
+        - assignmentId
         - authorId
+        - attemptNumber
+        - status
         - files
         - createdAt
+        - updatedAt
         - author
-      properties:
-        id:
-          type: string
-          format: uuid
-        chatId:
-          type: string
-          format: uuid
-        authorId:
-          type: string
-          format: uuid
-        text:
-          type: string
-          nullable: true
-        files:
-          type: array
-          items:
-            $ref: '#/components/schemas/FileObject'
-        editedAt:
-          type: string
-          format: date-time
-          nullable: true
-        deletedAt:
-          type: string
-          format: date-time
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-        author:
-          $ref: '#/components/schemas/PublicUser'
-
-    RegisterRequest:
+    TokenPair:
       type: object
-      required:
-        - email
-        - password
-        - displayName
       properties:
-        email:
+        accessToken:
           type: string
-          format: email
-        password:
-          type: string
-          minLength: 8
-        displayName:
-          type: string
-          minLength: 2
-          maxLength: 100
-
-    LoginRequest:
-      type: object
-      required:
-        - email
-        - password
-      properties:
-        email:
-          type: string
-          format: email
-        password:
-          type: string
-
-    RefreshTokenRequest:
-      type: object
-      required:
-        - refreshToken
-      properties:
         refreshToken:
           type: string
-
+        sessionId:
+          type: string
+          format: uuid
+          example: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+      required:
+        - accessToken
+        - refreshToken
+        - sessionId
+    UpdateAssignmentRequest:
+      type: object
+      properties:
+        lessonId:
+          type: object
+          format: uuid
+          nullable: true
+          example: 77777777-7777-4777-8777-777777777777
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Updated assignment title
+        content:
+          type: string
+          example: Уточните формат финального отчета и дедлайн.
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - ARCHIVED
+          example: ARCHIVED
+        dueAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T18:00:00.000Z'
+        maxScore:
+          type: number
+          minimum: 0
+          example: 80
+        fileIds:
+          example:
+            - aaaaaaa4-aaaa-4aaa-8aaa-aaaaaaaaaaa4
+          type: array
+          items:
+            type: string
+    UpdateGroupMemberRequest:
+      type: object
+      properties:
+        role:
+          type: string
+          enum:
+            - OWNER
+            - ADMIN
+            - USER
+          example: USER
+      required:
+        - role
+    UpdateGroupRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 150
+          example: Frontend Patterns Lab
+        description:
+          type: string
+          example: Обновленное описание учебной группы.
+        accessMode:
+          type: string
+          enum:
+            - OPEN
+            - BY_REQUEST
+            - CLOSED
+          example: OPEN
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - ARCHIVED
+          example: ARCHIVED
+    UpdateGroupSettingsRequest:
+      type: object
+      properties:
+        chatEnabled:
+          type: boolean
+          example: true
+        lessonsEnabled:
+          type: boolean
+          example: true
+        assignmentsEnabled:
+          type: boolean
+          example: true
+        scheduleEnabled:
+          type: boolean
+          example: true
+    UpdateLessonRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Updated lesson title
+        content:
+          type: string
+          example: Обновленный конспект урока.
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - ARCHIVED
+          example: ARCHIVED
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 5
+        startsAt:
+          type: object
+          format: date-time
+          example: '2026-04-20T09:00:00.000Z'
+          nullable: true
+        endsAt:
+          type: object
+          format: date-time
+          example: '2026-04-20T10:30:00.000Z'
+          nullable: true
+        fileIds:
+          example:
+            - aaaaaaa3-aaaa-4aaa-8aaa-aaaaaaaaaaa3
+          type: array
+          items:
+            type: string
     UpdateMyProfileRequest:
       type: object
       properties:
@@ -2399,324 +3685,116 @@ components:
           type: string
           minLength: 2
           maxLength: 100
+          example: Alex Teacher
         bio:
           type: string
           maxLength: 1000
+          example: Преподает веб-разработку и ведет открытые учебные группы.
         avatarFileId:
-          type: string
+          type: object
           format: uuid
-
-    GroupSettingsCreateRequest:
+          example: aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1
+          nullable: true
+    UpdateScheduleEventRequest:
       type: object
-      required:
-        - chatEnabled
-        - lessonsEnabled
-        - assignmentsEnabled
-        - scheduleEnabled
-      properties:
-        chatEnabled:
-          type: boolean
-        lessonsEnabled:
-          type: boolean
-        assignmentsEnabled:
-          type: boolean
-        scheduleEnabled:
-          type: boolean
-
-    GroupSettingsUpdateRequest:
-      type: object
-      properties:
-        chatEnabled:
-          type: boolean
-        lessonsEnabled:
-          type: boolean
-        assignmentsEnabled:
-          type: boolean
-        scheduleEnabled:
-          type: boolean
-
-    GroupCreateRequest:
-      type: object
-      required:
-        - name
-        - accessMode
-        - settings
-      properties:
-        name:
-          type: string
-          minLength: 2
-          maxLength: 150
-        description:
-          type: string
-        accessMode:
-          $ref: '#/components/schemas/GroupAccessMode'
-        settings:
-          $ref: '#/components/schemas/GroupSettingsCreateRequest'
-
-    GroupUpdateRequest:
-      type: object
-      properties:
-        name:
-          type: string
-          minLength: 2
-          maxLength: 150
-        description:
-          type: string
-        accessMode:
-          $ref: '#/components/schemas/GroupAccessMode'
-        status:
-          $ref: '#/components/schemas/GroupEditableStatus'
-
-    GroupMemberCreateRequest:
-      type: object
-      required:
-        - userId
-      properties:
-        userId:
-          type: string
-          format: uuid
-        role:
-          $ref: '#/components/schemas/GroupRole'
-
-    GroupMemberUpdateRequest:
-      type: object
-      required:
-        - role
-      properties:
-        role:
-          $ref: '#/components/schemas/GroupRole'
-
-    JoinRequestDecisionRequest:
-      type: object
-      required:
-        - decision
-      properties:
-        decision:
-          $ref: '#/components/schemas/JoinRequestDecision'
-
-    LessonCreateRequest:
-      type: object
-      required:
-        - title
       properties:
         title:
           type: string
           minLength: 2
           maxLength: 200
-        content:
+          example: Updated rehearsal
+        description:
           type: string
-        status:
-          $ref: '#/components/schemas/LessonStatus'
-        sortOrder:
-          type: integer
-          minimum: 1
+          example: Перенесли репетицию, обновите тайминг и роли.
         startsAt:
           type: string
           format: date-time
+          example: '2026-04-16T14:00:00.000Z'
         endsAt:
           type: string
           format: date-time
-        fileIds:
-          type: array
-          items:
-            type: string
-            format: uuid
-
-    LessonUpdateRequest:
-      type: object
-      properties:
-        title:
+          example: '2026-04-16T15:00:00.000Z'
+        location:
           type: string
-          minLength: 2
-          maxLength: 200
-        content:
-          type: string
+          example: Main campus auditorium
         status:
-          $ref: '#/components/schemas/LessonStatus'
-        sortOrder:
-          type: integer
-          minimum: 1
-        startsAt:
           type: string
-          format: date-time
-        endsAt:
-          type: string
-          format: date-time
-        fileIds:
-          type: array
-          items:
-            type: string
-            format: uuid
-
-    AssignmentCreateRequest:
-      type: object
-      required:
-        - title
-      properties:
-        lessonId:
-          type: string
-          format: uuid
-        title:
-          type: string
-          minLength: 2
-          maxLength: 200
-        content:
-          type: string
-        status:
-          $ref: '#/components/schemas/AssignmentStatus'
-        dueAt:
-          type: string
-          format: date-time
-        maxScore:
-          type: integer
-          minimum: 0
-        fileIds:
-          type: array
-          items:
-            type: string
-            format: uuid
-
-    AssignmentUpdateRequest:
-      type: object
-      properties:
-        lessonId:
-          type: string
-          format: uuid
-        title:
-          type: string
-          minLength: 2
-          maxLength: 200
-        content:
-          type: string
-        status:
-          $ref: '#/components/schemas/AssignmentStatus'
-        dueAt:
-          type: string
-          format: date-time
-        maxScore:
-          type: integer
-          minimum: 0
-        fileIds:
-          type: array
-          items:
-            type: string
-            format: uuid
-
-    SubmissionCreateRequest:
+          enum:
+            - PLANNED
+            - CANCELLED
+          example: CANCELLED
+    UpdateSubmissionRequest:
       type: object
       properties:
         text:
           type: string
+          example: Обновленная работа с исправлением замечаний.
         fileIds:
+          example:
+            - bbbbbbb1-bbbb-4bbb-8bbb-bbbbbbbbbbb1
           type: array
           items:
             type: string
-            format: uuid
         status:
-          $ref: '#/components/schemas/SubmissionStatus'
-
-    SubmissionUpdateRequest:
-      type: object
-      properties:
-        text:
           type: string
-        fileIds:
-          type: array
-          items:
-            type: string
-            format: uuid
-        status:
-          $ref: '#/components/schemas/SubmissionStatus'
+          enum:
+            - DRAFT
+            - SUBMITTED
+            - REVIEWED
+          example: REVIEWED
         score:
-          type: integer
+          type: number
           minimum: 0
+          example: 95
         feedback:
           type: string
-
-    ScheduleEventCreateRequest:
+          example: Хорошая структура ответа, но добавьте тест на отказ в доступе.
+    UploadFileRequest:
       type: object
+      properties:
+        file:
+          type: string
+          format: binary
+        folder:
+          type: string
+          description: Логическая папка хранения, например avatars, lessons или messages.
+          example: avatars
       required:
-        - title
-        - startsAt
-        - endsAt
-      properties:
-        title:
-          type: string
-          minLength: 2
-          maxLength: 200
-        description:
-          type: string
-        startsAt:
-          type: string
-          format: date-time
-        endsAt:
-          type: string
-          format: date-time
-        location:
-          type: string
-
-    ScheduleEventUpdateRequest:
+        - file
+    User:
       type: object
       properties:
-        title:
-          type: string
-          minLength: 2
-          maxLength: 200
-        description:
-          type: string
-        startsAt:
-          type: string
-          format: date-time
-        endsAt:
-          type: string
-          format: date-time
-        location:
-          type: string
-        status:
-          $ref: '#/components/schemas/ScheduleEventStatus'
-
-    GroupChatCreateRequest:
-      type: object
-      required:
-        - title
-      properties:
-        title:
-          type: string
-          minLength: 2
-          maxLength: 150
-
-    GroupChatUpdateRequest:
-      type: object
-      properties:
-        title:
-          type: string
-          minLength: 2
-          maxLength: 150
-
-    CreateDirectChatRequest:
-      type: object
-      required:
-        - userId
-      properties:
-        userId:
+        id:
           type: string
           format: uuid
-
-    MessageCreateRequest:
-      type: object
-      properties:
-        text:
+          example: 11111111-1111-4111-8111-111111111111
+        email:
           type: string
-        fileIds:
-          type: array
-          items:
-            type: string
-            format: uuid
-
-    MessageUpdateRequest:
-      type: object
+          format: email
+          example: alex.teacher@smarteach.local
+        displayName:
+          type: string
+          example: Alex Teacher
+        bio:
+          type: object
+          nullable: true
+          example: Преподает веб-разработку и ведет открытые учебные группы.
+        avatarFileId:
+          type: object
+          format: uuid
+          nullable: true
+          example: aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-12T00:00:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-04-12T00:00:00.000Z'
       required:
-        - text
-      properties:
-        text:
-          type: string
+        - id
+        - email
+        - displayName
+        - createdAt
+        - updatedAt
