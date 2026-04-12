@@ -5,6 +5,7 @@ import { RequestLoggingMiddleware } from './common/middleware/request-logging.mi
 import { AppConfigModule } from './config/app-config.module'
 import { PrismaModule } from './database/prisma/prisma.module'
 import { AuthModule } from './modules/auth/auth.module'
+import { FilesModule } from './modules/files/files.module'
 import { SecurityModule } from './security/security.module'
 import { UsersModule } from './modules/users/users.module'
 import { MinioModule } from './storage/minio/minio.module'
@@ -21,6 +22,7 @@ import { SystemModule } from './modules/system/system.module'
     SystemModule,
     UsersModule,
     AuthModule,
+    FilesModule,
   ],
 })
 export class AppModule implements NestModule {

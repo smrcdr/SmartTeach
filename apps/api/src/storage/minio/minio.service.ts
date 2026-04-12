@@ -2,6 +2,12 @@ import { Inject, Injectable } from '@nestjs/common'
 import { Client } from 'minio'
 import { AppConfigService } from '../../config/app-config.service'
 
+type UploadObjectOptions = {
+  objectName: string
+  body: Buffer
+  contentType: string
+}
+
 @Injectable()
 export class MinioService {
   private readonly client: Client
@@ -26,6 +32,26 @@ export class MinioService {
 
   getClient() {
     return this.client
+  }
+
+  async uploadObject(options: UploadObjectOptions) {
+    await this.client.putObject(
+      this.bucketName,
+      options.objectName,
+      options.body,
+      options.body.length,
+      {
+        'Content-Type': options.contentType,
+      },
+    )
+  }
+
+  async getObjectUrl(objectName: string, expiresInSeconds = 60 * 60) {
+    return this.client.presignedGetObject(this.bucketName, objectName, expiresInSeconds)
+  }
+
+  async removeObject(objectName: string) {
+    await this.client.removeObject(this.bucketName, objectName)
   }
 
   async healthCheck() {
