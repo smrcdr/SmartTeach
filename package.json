@@ -14,7 +14,7 @@
     "build": "npm run build:web && npm run build:api",
     "build:web": "npm run build -w @smarteach/web",
     "build:api": "npm run build -w @smarteach/api",
-    "test:api": "npm run test -w @smarteach/api",
+    "test:api": "npm --prefix apps/api test",
     "prisma:generate": "npm run prisma:generate -w @smarteach/api",
     "db:migrate": "npm run db:migrate -w @smarteach/api",
     "db:seed": "npm run db:seed -w @smarteach/api"

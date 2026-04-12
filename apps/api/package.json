@@ -6,7 +6,7 @@
     "dev": "node --env-file=../../.env ../../node_modules/@nestjs/cli/bin/nest.js start --watch",
     "build": "nest build",
     "start": "node --env-file=../../.env ../../dist/apps/api/main.js",
-    "test": "node --env-file=../../.env --import tsx --test src/tests/**/*.test.ts",
+    "test": "node --env-file=\"$(dirname \"$npm_package_json\")/../../.env\" --import tsx --test --test-concurrency=1 \"$(dirname \"$npm_package_json\")\"/src/tests/*.test.ts",
     "prisma:generate": "node --env-file=../../.env ../../node_modules/prisma/build/index.js generate --config ./prisma.config.ts",
     "db:migrate": "node --env-file=../../.env ../../node_modules/prisma/build/index.js migrate dev --config ./prisma.config.ts",
     "db:seed": "node --env-file=../../.env ../../node_modules/prisma/build/index.js db seed --config ./prisma.config.ts"
