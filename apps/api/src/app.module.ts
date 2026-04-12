@@ -6,6 +6,7 @@ import { AppConfigModule } from './config/app-config.module'
 import { PrismaModule } from './database/prisma/prisma.module'
 import { AuthModule } from './modules/auth/auth.module'
 import { AssignmentsModule } from './modules/assignments/assignments.module'
+import { ChatsModule } from './modules/chats/chats.module'
 import { FilesModule } from './modules/files/files.module'
 import { GroupSettingsModule } from './modules/group-settings/group-settings.module'
 import { GroupMembersModule } from './modules/group-members/group-members.module'
@@ -30,6 +31,7 @@ import { SystemModule } from './modules/system/system.module'
     UsersModule,
     AuthModule,
     AssignmentsModule,
+    ChatsModule,
     FilesModule,
     GroupsModule,
     GroupSettingsModule,
