@@ -8,7 +8,11 @@ import { AllExceptionsFilter } from './common/exception-filters/all-exceptions.f
 import { ZodValidationPipe } from './common/pipes/zod-validation.pipe'
 import { AppConfigService } from './config/app-config.service'
 
-export async function createApp() {
+type CreateAppOptions = {
+  enableSwagger?: boolean
+}
+
+export async function createApp(options: CreateAppOptions = {}) {
   const app = await NestFactory.create(AppModule)
 
   app.enableShutdownHooks()
@@ -27,7 +31,9 @@ export async function createApp() {
   app.useGlobalPipes(new ZodValidationPipe())
   app.useGlobalFilters(new AllExceptionsFilter())
 
-  if (config.swaggerEnabled) {
+  const shouldEnableSwagger = options.enableSwagger ?? config.swaggerEnabled
+
+  if (shouldEnableSwagger) {
     const document = SwaggerModule.createDocument(
       app,
       new DocumentBuilder()

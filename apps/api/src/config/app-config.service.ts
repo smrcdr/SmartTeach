@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Inject, Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import type { AppEnvironment } from './env.schema'
 
@@ -28,7 +28,10 @@ function parseDurationToSeconds(duration: string) {
 
 @Injectable()
 export class AppConfigService {
-  constructor(private readonly configService: ConfigService<AppEnvironment, true>) {}
+  constructor(
+    @Inject(ConfigService)
+    private readonly configService: ConfigService<AppEnvironment, true>,
+  ) {}
 
   get apiPublicUrl() {
     return this.configService.get('API_PUBLIC_URL', { infer: true }) ?? null

@@ -1,10 +1,10 @@
-import { Injectable } from '@nestjs/common'
+import { Inject, Injectable } from '@nestjs/common'
 import { compare, hash } from 'bcryptjs'
 import { AppConfigService } from '../config/app-config.service'
 
 @Injectable()
 export class PasswordHashService {
-  constructor(private readonly config: AppConfigService) {}
+  constructor(@Inject(AppConfigService) private readonly config: AppConfigService) {}
 
   hash(plainPassword: string) {
     return hash(plainPassword, this.config.passwordHashRounds)

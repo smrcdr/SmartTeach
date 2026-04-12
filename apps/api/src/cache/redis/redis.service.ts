@@ -1,4 +1,4 @@
-import { Injectable, Logger, type OnApplicationShutdown } from '@nestjs/common'
+import { Inject, Injectable, Logger, type OnApplicationShutdown } from '@nestjs/common'
 import { createClient, type RedisClientType } from 'redis'
 import { AppConfigService } from '../../config/app-config.service'
 
@@ -8,7 +8,7 @@ export class RedisService implements OnApplicationShutdown {
   private readonly client: RedisClientType
   private connectionPromise: Promise<void> | null = null
 
-  constructor(private readonly config: AppConfigService) {
+  constructor(@Inject(AppConfigService) private readonly config: AppConfigService) {
     this.client = createClient({
       url: this.config.redisUrl,
       socket: {

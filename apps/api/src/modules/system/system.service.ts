@@ -1,4 +1,4 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
+import { Inject, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 import { RedisService } from '../../cache/redis/redis.service'
 import { PrismaService } from '../../database/prisma/prisma.service'
 import { MinioService } from '../../storage/minio/minio.service'
@@ -9,8 +9,11 @@ export class SystemService {
   private readonly logger = new Logger(SystemService.name)
 
   constructor(
+    @Inject(PrismaService)
     private readonly prismaService: PrismaService,
+    @Inject(RedisService)
     private readonly redisService: RedisService,
+    @Inject(MinioService)
     private readonly minioService: MinioService,
   ) {}
 

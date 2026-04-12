@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Inject, Injectable } from '@nestjs/common'
 import { Client } from 'minio'
 import { AppConfigService } from '../../config/app-config.service'
 
@@ -6,7 +6,7 @@ import { AppConfigService } from '../../config/app-config.service'
 export class MinioService {
   private readonly client: Client
 
-  constructor(private readonly config: AppConfigService) {
+  constructor(@Inject(AppConfigService) private readonly config: AppConfigService) {
     const endpoint = new URL(this.config.minioEndpoint)
 
     this.client = new Client({

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Inject, Injectable } from '@nestjs/common'
 import { sign, verify, type JwtPayload, type SignOptions } from 'jsonwebtoken'
 import { AppConfigService } from '../config/app-config.service'
 
@@ -9,7 +9,7 @@ export type TokenPayload = JwtPayload & {
 
 @Injectable()
 export class TokenService {
-  constructor(private readonly config: AppConfigService) {}
+  constructor(@Inject(AppConfigService) private readonly config: AppConfigService) {}
 
   generateAccessToken(payload: TokenPayload) {
     return this.signToken(

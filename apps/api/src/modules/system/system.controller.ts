@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, HttpStatus } from '@nestjs/common'
+import { Controller, Get, HttpCode, HttpStatus, Inject } from '@nestjs/common'
 import {
   ApiOkResponse,
   ApiOperation,
@@ -15,7 +15,7 @@ import { SystemService } from './system.service'
   version: '1',
 })
 export class SystemController {
-  constructor(private readonly systemService: SystemService) {}
+  constructor(@Inject(SystemService) private readonly systemService: SystemService) {}
 
   @Get()
   @HttpCode(HttpStatus.OK)
