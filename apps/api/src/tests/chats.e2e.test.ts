@@ -3,6 +3,7 @@ import { after, before, test } from 'node:test'
 import type { INestApplication } from '@nestjs/common'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { GroupRole, PrismaClient } from '@prisma/client'
+import { io, type Socket } from 'socket.io-client'
 import { createApp } from '../main'
 import { MinioService } from '../storage/minio/minio.service'
 
@@ -154,6 +155,16 @@ type MessageResponse = {
   }
 }
 
+type ChatSubscriptionResponse =
+  | {
+      ok: true
+      chatId: string
+    }
+  | {
+      ok: false
+      error: string
+    }
+
 async function request<T = JsonRecord>(
   path: string,
   init: RequestOptions = {},
@@ -255,6 +266,76 @@ async function createOwnedFile(userId: string, label: string) {
   createdFileIds.add(file.id)
 
   return file
+}
+
+async function connectChatSocket(accessToken?: string) {
+  const socket = io(`${baseUrl}/chat`, {
+    transports: ['websocket'],
+    reconnection: false,
+    auth: accessToken ? { token: accessToken } : undefined,
+  })
+
+  return new Promise<Socket>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      cleanup()
+      socket.disconnect()
+      reject(new Error('Timed out while connecting to chat gateway'))
+    }, 2_000)
+
+    const cleanup = () => {
+      clearTimeout(timeout)
+      socket.off('connect', handleConnect)
+      socket.off('connect_error', handleError)
+    }
+
+    const handleConnect = () => {
+      cleanup()
+      resolve(socket)
+    }
+
+    const handleError = (error: Error) => {
+      cleanup()
+      socket.disconnect()
+      reject(error)
+    }
+
+    socket.once('connect', handleConnect)
+    socket.once('connect_error', handleError)
+  })
+}
+
+async function subscribeToChat(socket: Socket, chatId: string) {
+  return new Promise<ChatSubscriptionResponse>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Timed out while subscribing to chat room'))
+    }, 2_000)
+
+    socket.emit('chat.subscribe', { chatId }, (response: ChatSubscriptionResponse) => {
+      clearTimeout(timeout)
+      resolve(response)
+    })
+  })
+}
+
+async function waitForSocketEvent<T>(socket: Socket, eventName: string) {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      cleanup()
+      reject(new Error(`Timed out while waiting for ${eventName}`))
+    }, 2_000)
+
+    const cleanup = () => {
+      clearTimeout(timeout)
+      socket.off(eventName, handleEvent)
+    }
+
+    const handleEvent = (payload: T) => {
+      cleanup()
+      resolve(payload)
+    }
+
+    socket.once(eventName, handleEvent)
+  })
 }
 
 function buildDirectChatKey(firstUserId: string, secondUserId: string) {
@@ -448,7 +529,125 @@ test('direct chats are deduplicated by direct_chat_key and protected by membersh
   })
 })
 
-test('message endpoints support text, attachment-only messages, editing and soft deletion', async () => {
+test('chat gateway authenticates clients and streams message events to subscribed members', async () => {
+  const owner = await registerUser('ws-owner')
+  const member = await registerUser('ws-member')
+  const outsider = await registerUser('ws-outsider')
+  const group = await createGroup(owner.accessToken)
+
+  await addGroupMember(group.id, member.user.id, GroupRole.USER)
+
+  const chatCreateResult = await request<ChatResponse>(`/groups/${group.id}/chats`, {
+    method: 'POST',
+    token: owner.accessToken,
+    body: {
+      title: 'Realtime чат',
+    },
+  })
+
+  assert.equal(chatCreateResult.response.status, 201)
+  assert.ok(chatCreateResult.body)
+
+  await assert.rejects(connectChatSocket(), /Missing access token/)
+
+  const outsiderSocket = await connectChatSocket(outsider.accessToken)
+
+  try {
+    const outsiderSubscription = await subscribeToChat(outsiderSocket, chatCreateResult.body.id)
+
+    assert.deepEqual(outsiderSubscription, {
+      ok: false,
+      error: 'You are not a member of this group',
+    })
+  } finally {
+    outsiderSocket.disconnect()
+  }
+
+  const memberSocket = await connectChatSocket(member.accessToken)
+
+  try {
+    const subscription = await subscribeToChat(memberSocket, chatCreateResult.body.id)
+
+    assert.deepEqual(subscription, {
+      ok: true,
+      chatId: chatCreateResult.body.id,
+    })
+
+    const createdEventPromise = waitForSocketEvent<MessageResponse>(
+      memberSocket,
+      'chat.message.created',
+    )
+    const createMessageResult = await request<MessageResponse>(
+      `/chats/${chatCreateResult.body.id}/messages`,
+      {
+        method: 'POST',
+        token: member.accessToken,
+        body: {
+          text: 'Сообщение для realtime-потока.',
+        },
+      },
+    )
+
+    assert.equal(createMessageResult.response.status, 201)
+    assert.ok(createMessageResult.body)
+
+    const createdEvent = await createdEventPromise
+
+    assert.equal(createdEvent.id, createMessageResult.body.id)
+    assert.equal(createdEvent.chatId, chatCreateResult.body.id)
+    assert.equal(createdEvent.text, 'Сообщение для realtime-потока.')
+
+    const updatedEventPromise = waitForSocketEvent<MessageResponse>(
+      memberSocket,
+      'chat.message.updated',
+    )
+    const updateMessageResult = await request<MessageResponse>(
+      `/chats/${chatCreateResult.body.id}/messages/${createMessageResult.body.id}`,
+      {
+        method: 'PATCH',
+        token: member.accessToken,
+        body: {
+          text: 'Сообщение обновлено для realtime-потока.',
+        },
+      },
+    )
+
+    assert.equal(updateMessageResult.response.status, 200)
+    assert.ok(updateMessageResult.body)
+
+    const updatedEvent = await updatedEventPromise
+
+    assert.equal(updatedEvent.id, createMessageResult.body.id)
+    assert.equal(updatedEvent.text, 'Сообщение обновлено для realtime-потока.')
+    assert.ok(updatedEvent.editedAt)
+
+    const deletedEventPromise = waitForSocketEvent<MessageResponse>(
+      memberSocket,
+      'chat.message.deleted',
+    )
+    const deleteMessageResult = await request(
+      `/chats/${chatCreateResult.body.id}/messages/${createMessageResult.body.id}`,
+      {
+        method: 'DELETE',
+        token: member.accessToken,
+      },
+    )
+
+    assert.equal(deleteMessageResult.response.status, 204)
+    assert.equal(deleteMessageResult.body, null)
+
+    const deletedEvent = await deletedEventPromise
+
+    assert.equal(deletedEvent.id, createMessageResult.body.id)
+    assert.ok(deletedEvent.deletedAt)
+    assert.equal(deletedEvent.text, null)
+    assert.deepEqual(deletedEvent.files, [])
+  } finally {
+    memberSocket.disconnect()
+  }
+})
+
+test('message endpoints support attachment sync during edits and hide deleted content', async () => {
   const owner = await registerUser('message-owner')
   const admin = await registerUser('message-admin')
   const member = await registerUser('message-member')
@@ -469,6 +668,7 @@ test('message endpoints support text, attachment-only messages, editing and soft
   assert.ok(chatCreateResult.body)
 
   const attachmentFile = await createOwnedFile(member.user.id, 'layout-reference')
+  const replacementAttachmentFile = await createOwnedFile(member.user.id, 'layout-replacement')
 
   const textMessageResult = await request<MessageResponse>(`/chats/${chatCreateResult.body.id}/messages`, {
     method: 'POST',
@@ -480,6 +680,7 @@ test('message endpoints support text, attachment-only messages, editing and soft
 
   assert.equal(textMessageResult.response.status, 201)
   assert.ok(textMessageResult.body)
+  const textMessageId = textMessageResult.body.id
   assert.equal(textMessageResult.body.text, 'Первый вариант домашней работы готов.')
   assert.equal(textMessageResult.body.files.length, 0)
 
@@ -539,12 +740,13 @@ test('message endpoints support text, attachment-only messages, editing and soft
   assert.equal(chatDetailResult.body.lastMessageAt, attachmentMessageResult.body.createdAt)
 
   const updateMessageResult = await request<MessageResponse>(
-    `/chats/${chatCreateResult.body.id}/messages/${textMessageResult.body.id}`,
+    `/chats/${chatCreateResult.body.id}/messages/${textMessageId}`,
     {
       method: 'PATCH',
       token: member.accessToken,
       body: {
         text: 'Обновил первый вариант после комментариев.',
+        fileIds: [attachmentFile.id],
       },
     },
   )
@@ -552,10 +754,45 @@ test('message endpoints support text, attachment-only messages, editing and soft
   assert.equal(updateMessageResult.response.status, 200)
   assert.ok(updateMessageResult.body)
   assert.equal(updateMessageResult.body.text, 'Обновил первый вариант после комментариев.')
+  assert.equal(updateMessageResult.body.files.length, 1)
+  assert.equal(updateMessageResult.body.files[0]?.id, attachmentFile.id)
   assert.ok(updateMessageResult.body.editedAt)
 
+  const replaceAttachmentResult = await request<MessageResponse>(
+    `/chats/${chatCreateResult.body.id}/messages/${textMessageId}`,
+    {
+      method: 'PATCH',
+      token: member.accessToken,
+      body: {
+        fileIds: [replacementAttachmentFile.id],
+      },
+    },
+  )
+
+  assert.equal(replaceAttachmentResult.response.status, 200)
+  assert.ok(replaceAttachmentResult.body)
+  assert.equal(replaceAttachmentResult.body.text, 'Обновил первый вариант после комментариев.')
+  assert.equal(replaceAttachmentResult.body.files.length, 1)
+  assert.equal(replaceAttachmentResult.body.files[0]?.id, replacementAttachmentFile.id)
+
+  const clearAttachmentsResult = await request<MessageResponse>(
+    `/chats/${chatCreateResult.body.id}/messages/${textMessageId}`,
+    {
+      method: 'PATCH',
+      token: member.accessToken,
+      body: {
+        fileIds: [],
+      },
+    },
+  )
+
+  assert.equal(clearAttachmentsResult.response.status, 200)
+  assert.ok(clearAttachmentsResult.body)
+  assert.equal(clearAttachmentsResult.body.text, 'Обновил первый вариант после комментариев.')
+  assert.deepEqual(clearAttachmentsResult.body.files, [])
+
   const adminEditResult = await request(
-    `/chats/${chatCreateResult.body.id}/messages/${textMessageResult.body.id}`,
+    `/chats/${chatCreateResult.body.id}/messages/${textMessageId}`,
     {
       method: 'PATCH',
       token: admin.accessToken,
@@ -568,7 +805,7 @@ test('message endpoints support text, attachment-only messages, editing and soft
   assert.equal(adminEditResult.response.status, 403)
 
   const deleteMessageResult = await request(
-    `/chats/${chatCreateResult.body.id}/messages/${attachmentMessageResult.body.id}`,
+    `/chats/${chatCreateResult.body.id}/messages/${textMessageResult.body.id}`,
     {
       method: 'DELETE',
       token: admin.accessToken,
@@ -589,6 +826,9 @@ test('message endpoints support text, attachment-only messages, editing and soft
   assert.equal(listAfterDeleteResult.response.status, 200)
   assert.ok(listAfterDeleteResult.body)
   assert.equal(listAfterDeleteResult.body.length, 2)
-  assert.equal(listAfterDeleteResult.body[1]?.id, attachmentMessageResult.body.id)
-  assert.ok(listAfterDeleteResult.body[1]?.deletedAt)
+  const deletedMessage = listAfterDeleteResult.body.find((message) => message.id === textMessageId)
+  assert.ok(deletedMessage)
+  assert.ok(deletedMessage.deletedAt)
+  assert.equal(deletedMessage.text, null)
+  assert.deepEqual(deletedMessage.files, [])
 })

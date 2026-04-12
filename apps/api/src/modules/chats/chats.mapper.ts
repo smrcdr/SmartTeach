@@ -127,12 +127,16 @@ export function mapMessageToDto(
   message: MessageRecord,
   fileUrlsById: Map<string, string>,
 ): MessageDto {
+  const isDeleted = message.deletedAt !== null
+
   return {
     id: message.id,
     chatId: message.chatId,
     authorId: message.authorId,
-    text: message.text,
-    files: message.files.map((link) => mapFileToDto(link.file, fileUrlsById.get(link.file.id) ?? '')),
+    text: isDeleted ? null : message.text,
+    files: isDeleted
+      ? []
+      : message.files.map((link) => mapFileToDto(link.file, fileUrlsById.get(link.file.id) ?? '')),
     editedAt: message.editedAt?.toISOString() ?? null,
     deletedAt: message.deletedAt?.toISOString() ?? null,
     createdAt: message.createdAt.toISOString(),

@@ -8,6 +8,7 @@ import {
 import { ChatType, GroupRole, GroupStatus, Prisma } from '@prisma/client'
 import { PrismaService } from '../../database/prisma/prisma.service'
 import { MinioService } from '../../storage/minio/minio.service'
+import { ChatRealtimePublisher } from './chat-realtime.publisher'
 import { chatSelect, ChatRecord, mapChatToDto, mapMessageToDto, MessageRecord, messageSelect } from './chats.mapper'
 import { CreateDirectChatRequestDto } from './dto/create-direct-chat-request.dto'
 import { ChatDto } from './dto/chat.dto'
@@ -29,6 +30,8 @@ export class ChatsService {
   constructor(
     @Inject(PrismaService) private readonly prismaService: PrismaService,
     @Inject(MinioService) private readonly minioService: MinioService,
+    @Inject(ChatRealtimePublisher)
+    private readonly chatRealtimePublisher: ChatRealtimePublisher,
   ) {}
 
   async listGroupChats(groupId: string, userId: string): Promise<ChatDto[]> {
@@ -254,6 +257,10 @@ export class ChatsService {
     return mapChatToDto(chat)
   }
 
+  async ensureChatAccess(chatId: string, userId: string) {
+    await this.assertChatAccess(chatId, userId)
+  }
+
   async listMessages(
     chatId: string,
     userId: string,
@@ -335,7 +342,11 @@ export class ChatsService {
       return this.getMessageRecordOrThrow(tx, chatId, createdMessage.id)
     })
 
-    return this.mapMessageRecordToDto(message)
+    const messageDto = await this.mapMessageRecordToDto(message)
+
+    this.chatRealtimePublisher.emitMessageCreated(messageDto)
+
+    return messageDto
   }
 
   async updateMessage(
@@ -358,31 +369,60 @@ export class ChatsService {
       throw new ForbiddenException('Deleted messages are read-only')
     }
 
-    const text = this.normalizeNullableText(payload.text) ?? null
+    const fileIds = payload.fileIds !== undefined ? this.normalizeFileIds(payload.fileIds) : undefined
 
-    if (text === null && existingMessage.files.length === 0) {
+    if (fileIds !== undefined) {
+      await this.assertAttachableMessageFiles(fileIds, userId)
+    }
+
+    const currentFileIds = existingMessage.files.map((link) => link.file.id)
+    const nextText =
+      payload.text !== undefined ? this.normalizeNullableText(payload.text) ?? null : existingMessage.text
+    const nextFileIds = fileIds ?? currentFileIds
+
+    if (nextText === null && nextFileIds.length === 0) {
       throw new BadRequestException({
         message: 'Validation failed',
         errors: ['text: Message must contain text or at least one attachment'],
       })
     }
 
-    if (text === existingMessage.text) {
+    const textChanged = nextText !== existingMessage.text
+    const filesChanged =
+      fileIds !== undefined && !this.areStringArraysEqual(currentFileIds, nextFileIds)
+
+    if (!textChanged && !filesChanged) {
       return this.mapMessageRecordToDto(existingMessage)
     }
 
-    const updatedMessage = await this.prismaService.message.update({
-      where: {
-        id: messageId,
-      },
-      data: {
-        text,
+    const updatedMessage = await this.prismaService.$transaction(async (tx) => {
+      const data: Prisma.MessageUpdateInput = {
         editedAt: new Date(),
-      },
-      select: messageSelect,
+      }
+
+      if (textChanged) {
+        data.text = nextText
+      }
+
+      await tx.message.update({
+        where: {
+          id: messageId,
+        },
+        data,
+      })
+
+      if (fileIds !== undefined) {
+        await this.syncMessageFiles(tx, messageId, fileIds)
+      }
+
+      return this.getMessageRecordOrThrow(tx, chatId, messageId)
     })
 
-    return this.mapMessageRecordToDto(updatedMessage)
+    const messageDto = await this.mapMessageRecordToDto(updatedMessage)
+
+    this.chatRealtimePublisher.emitMessageUpdated(messageDto)
+
+    return messageDto
   }
 
   async deleteMessage(chatId: string, messageId: string, userId: string) {
@@ -404,14 +444,22 @@ export class ChatsService {
       return
     }
 
-    await this.prismaService.message.update({
-      where: {
-        id: messageId,
-      },
-      data: {
-        deletedAt: new Date(),
-      },
+    const deletedMessage = await this.prismaService.$transaction(async (tx) => {
+      await tx.message.update({
+        where: {
+          id: messageId,
+        },
+        data: {
+          deletedAt: new Date(),
+        },
+      })
+
+      return this.getMessageRecordOrThrow(tx, chatId, messageId)
     })
+
+    const messageDto = await this.mapMessageRecordToDto(deletedMessage)
+
+    this.chatRealtimePublisher.emitMessageDeleted(messageDto)
   }
 
   private async assertGroupAccess(
@@ -759,8 +807,23 @@ export class ChatsService {
     fileIds: string[],
   ) {
     if (fileIds.length === 0) {
+      await executor.messageFile.deleteMany({
+        where: {
+          messageId,
+        },
+      })
+
       return
     }
+
+    await executor.messageFile.deleteMany({
+      where: {
+        messageId,
+        fileId: {
+          notIn: fileIds,
+        },
+      },
+    })
 
     for (const [index, fileId] of fileIds.entries()) {
       await executor.messageFile.upsert({
@@ -784,10 +847,12 @@ export class ChatsService {
 
   private async mapMessageRecordToDto(message: MessageRecord): Promise<MessageDto> {
     const fileUrlsById = await this.buildFileUrlsById(
-      message.files.map((link) => ({
-        id: link.file.id,
-        storageKey: link.file.storageKey,
-      })),
+      message.deletedAt === null
+        ? message.files.map((link) => ({
+            id: link.file.id,
+            storageKey: link.file.storageKey,
+          }))
+        : [],
     )
 
     return mapMessageToDto(message, fileUrlsById)
@@ -796,10 +861,12 @@ export class ChatsService {
   private async mapMessageRecordsToDto(messages: MessageRecord[]): Promise<MessageDto[]> {
     const fileUrlsById = await this.buildFileUrlsById(
       messages.flatMap((message) =>
-        message.files.map((link) => ({
-          id: link.file.id,
-          storageKey: link.file.storageKey,
-        })),
+        message.deletedAt === null
+          ? message.files.map((link) => ({
+              id: link.file.id,
+              storageKey: link.file.storageKey,
+            }))
+          : [],
       ),
     )
 
@@ -831,5 +898,13 @@ export class ChatsService {
         ['directChatKey', 'direct_chat_key'].includes(String(field)),
       )
     )
+  }
+
+  private areStringArraysEqual(left: string[], right: string[]) {
+    if (left.length !== right.length) {
+      return false
+    }
+
+    return left.every((value, index) => value === right[index])
   }
 }
