@@ -1,0 +1,408 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum GroupAccessMode {
+  OPEN
+  BY_REQUEST
+  CLOSED
+}
+
+enum GroupStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+enum GroupRole {
+  OWNER
+  ADMIN
+  USER
+}
+
+enum JoinRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LessonStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum AssignmentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  REVIEWED
+}
+
+enum ScheduleEventStatus {
+  PLANNED
+  CANCELLED
+}
+
+enum ChatType {
+  GROUP
+  DIRECT
+}
+
+model User {
+  id              String   @id @default(uuid()) @db.Uuid
+  email           String   @unique @db.VarChar(255)
+  passwordHash    String   @map("password_hash") @db.VarChar(255)
+  displayName     String   @map("display_name") @db.VarChar(100)
+  bio             String?  @db.Text
+  avatarFileId    String?  @map("avatar_file_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  avatarFile      File?    @relation("UserAvatar", fields: [avatarFileId], references: [id], onDelete: SetNull)
+  uploadedFiles   File[]   @relation("UploadedFiles")
+  sessions        Session[]
+  ownedGroups     Group[]  @relation("GroupOwner")
+  groupMemberships GroupMember[]
+  joinRequests    GroupJoinRequest[] @relation("JoinRequestAuthor")
+  reviewedJoinRequests GroupJoinRequest[] @relation("JoinRequestReviewer")
+  createdLessons  Lesson[] @relation("LessonCreator")
+  createdAssignments Assignment[] @relation("AssignmentCreator")
+  submissions     Submission[] @relation("SubmissionAuthor")
+  reviewedSubmissions Submission[] @relation("SubmissionReviewer")
+  createdScheduleEvents ScheduleEvent[] @relation("ScheduleEventCreator")
+  createdChats    Chat[] @relation("ChatCreator")
+  chatMemberships ChatMember[]
+  messages        Message[] @relation("MessageAuthor")
+
+  @@map("users")
+}
+
+model Session {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  refreshTokenHash String   @map("refresh_token_hash") @db.VarChar(255)
+  userAgent        String?  @map("user_agent") @db.Text
+  ipAddress        String?  @map("ip_address") @db.Inet
+  lastUsedAt       DateTime? @map("last_used_at") @db.Timestamptz(6)
+  expiresAt        DateTime @map("expires_at") @db.Timestamptz(6)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([userId, revokedAt])
+  @@map("sessions")
+}
+
+model File {
+  id               String   @id @default(uuid()) @db.Uuid
+  storageKey       String   @unique @map("storage_key") @db.VarChar(255)
+  originalName     String   @map("original_name") @db.VarChar(255)
+  mimeType         String   @map("mime_type") @db.VarChar(100)
+  sizeBytes        BigInt   @map("size_bytes") @db.BigInt
+  uploadedByUserId String   @map("uploaded_by_user_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+  uploadedByUser   User     @relation("UploadedFiles", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  avatarUsers      User[]   @relation("UserAvatar")
+  lessonFiles      LessonFile[]
+  assignmentFiles  AssignmentFile[]
+  submissionFiles  SubmissionFile[]
+  messageFiles     MessageFile[]
+
+  @@index([uploadedByUserId])
+  @@map("files")
+}
+
+model Group {
+  id          String          @id @default(uuid()) @db.Uuid
+  code        String          @unique @db.VarChar(20)
+  name        String          @db.VarChar(150)
+  description String?         @db.Text
+  ownerId     String          @map("owner_id") @db.Uuid
+  accessMode  GroupAccessMode @map("access_mode")
+  status      GroupStatus     @default(ACTIVE)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  archivedAt  DateTime?       @map("archived_at") @db.Timestamptz(6)
+  deletedAt   DateTime?       @map("deleted_at") @db.Timestamptz(6)
+  owner       User            @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  settings    GroupSettings?
+  members     GroupMember[]
+  joinRequests GroupJoinRequest[]
+  lessons     Lesson[]
+  assignments Assignment[]
+  scheduleEvents ScheduleEvent[]
+  chats       Chat[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@map("groups")
+}
+
+model GroupSettings {
+  groupId             String   @id @map("group_id") @db.Uuid
+  chatEnabled         Boolean  @default(true) @map("chat_enabled")
+  lessonsEnabled      Boolean  @default(true) @map("lessons_enabled")
+  assignmentsEnabled  Boolean  @default(true) @map("assignments_enabled")
+  scheduleEnabled     Boolean  @default(true) @map("schedule_enabled")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  group               Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@map("group_settings")
+}
+
+model GroupMember {
+  groupId   String    @map("group_id") @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  role      GroupRole @default(USER)
+  joinedAt  DateTime  @default(now()) @map("joined_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  group     Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, userId])
+  @@index([userId])
+  @@index([groupId, role])
+  @@map("group_members")
+}
+
+model GroupJoinRequest {
+  id               String            @id @default(uuid()) @db.Uuid
+  groupId          String            @map("group_id") @db.Uuid
+  userId           String            @map("user_id") @db.Uuid
+  status           JoinRequestStatus @default(PENDING)
+  reviewedByUserId String?           @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt       DateTime?         @map("reviewed_at") @db.Timestamptz(6)
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  group            Group             @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user             User              @relation("JoinRequestAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedByUser   User?             @relation("JoinRequestReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([groupId, userId])
+  @@index([groupId, status])
+  @@index([userId])
+  @@index([reviewedByUserId])
+  @@map("group_join_requests")
+}
+
+model Lesson {
+  id              String       @id @default(uuid()) @db.Uuid
+  groupId         String       @map("group_id") @db.Uuid
+  title           String       @db.VarChar(200)
+  content         String?      @db.Text
+  status          LessonStatus @default(DRAFT)
+  sortOrder       Int          @map("sort_order")
+  startsAt        DateTime?    @map("starts_at") @db.Timestamptz(6)
+  endsAt          DateTime?    @map("ends_at") @db.Timestamptz(6)
+  publishedAt     DateTime?    @map("published_at") @db.Timestamptz(6)
+  archivedAt      DateTime?    @map("archived_at") @db.Timestamptz(6)
+  createdByUserId String       @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  group           Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdByUser   User         @relation("LessonCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  files           LessonFile[]
+  assignments     Assignment[]
+
+  @@index([groupId])
+  @@index([createdByUserId])
+  @@index([groupId, status])
+  @@index([groupId, startsAt])
+  @@map("lessons")
+}
+
+model LessonFile {
+  lessonId    String   @map("lesson_id") @db.Uuid
+  fileId      String   @map("file_id") @db.Uuid
+  sortOrder   Int      @default(0) @map("sort_order")
+  attachedAt  DateTime @default(now()) @map("attached_at") @db.Timestamptz(6)
+  lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  file        File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@id([lessonId, fileId])
+  @@index([fileId])
+  @@map("lesson_files")
+}
+
+model Assignment {
+  id              String           @id @default(uuid()) @db.Uuid
+  groupId         String           @map("group_id") @db.Uuid
+  lessonId        String?          @map("lesson_id") @db.Uuid
+  title           String           @db.VarChar(200)
+  content         String?          @db.Text
+  status          AssignmentStatus @default(DRAFT)
+  dueAt           DateTime?        @map("due_at") @db.Timestamptz(6)
+  maxScore        Int?             @map("max_score")
+  publishedAt     DateTime?        @map("published_at") @db.Timestamptz(6)
+  archivedAt      DateTime?        @map("archived_at") @db.Timestamptz(6)
+  createdByUserId String           @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  group           Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  lesson          Lesson?          @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  createdByUser   User             @relation("AssignmentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  files           AssignmentFile[]
+  submissions     Submission[]
+
+  @@index([groupId])
+  @@index([lessonId])
+  @@index([createdByUserId])
+  @@index([groupId, status])
+  @@index([groupId, dueAt])
+  @@map("assignments")
+}
+
+model AssignmentFile {
+  assignmentId String   @map("assignment_id") @db.Uuid
+  fileId       String   @map("file_id") @db.Uuid
+  sortOrder    Int      @default(0) @map("sort_order")
+  attachedAt   DateTime @default(now()) @map("attached_at") @db.Timestamptz(6)
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  file         File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@id([assignmentId, fileId])
+  @@index([fileId])
+  @@map("assignment_files")
+}
+
+model Submission {
+  id               String           @id @default(uuid()) @db.Uuid
+  assignmentId     String           @map("assignment_id") @db.Uuid
+  authorId         String           @map("author_id") @db.Uuid
+  attemptNumber    Int              @map("attempt_number")
+  text             String?          @db.Text
+  status           SubmissionStatus @default(DRAFT)
+  score            Int?
+  feedback         String?          @db.Text
+  submittedAt      DateTime?        @map("submitted_at") @db.Timestamptz(6)
+  reviewedByUserId String?          @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt       DateTime?        @map("reviewed_at") @db.Timestamptz(6)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  assignment       Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  author           User             @relation("SubmissionAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  reviewedByUser   User?            @relation("SubmissionReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  files            SubmissionFile[]
+
+  @@unique([assignmentId, authorId, attemptNumber])
+  @@index([authorId])
+  @@index([reviewedByUserId])
+  @@index([assignmentId, status])
+  @@map("submissions")
+}
+
+model SubmissionFile {
+  submissionId String   @map("submission_id") @db.Uuid
+  fileId       String   @map("file_id") @db.Uuid
+  sortOrder    Int      @default(0) @map("sort_order")
+  attachedAt   DateTime @default(now()) @map("attached_at") @db.Timestamptz(6)
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  file         File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@id([submissionId, fileId])
+  @@index([fileId])
+  @@map("submission_files")
+}
+
+model ScheduleEvent {
+  id              String              @id @default(uuid()) @db.Uuid
+  groupId         String              @map("group_id") @db.Uuid
+  title           String              @db.VarChar(200)
+  description     String?             @db.Text
+  startsAt        DateTime            @map("starts_at") @db.Timestamptz(6)
+  endsAt          DateTime            @map("ends_at") @db.Timestamptz(6)
+  location        String?             @db.VarChar(255)
+  status          ScheduleEventStatus @default(PLANNED)
+  createdByUserId String              @map("created_by_user_id") @db.Uuid
+  cancelledAt     DateTime?           @map("cancelled_at") @db.Timestamptz(6)
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  group           Group               @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdByUser   User                @relation("ScheduleEventCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([groupId])
+  @@index([createdByUserId])
+  @@index([groupId, startsAt])
+  @@index([groupId, status])
+  @@map("schedule_events")
+}
+
+model Chat {
+  id              String    @id @default(uuid()) @db.Uuid
+  chatType        ChatType  @map("chat_type")
+  groupId         String?   @map("group_id") @db.Uuid
+  title           String?   @db.VarChar(150)
+  directChatKey   String?   @unique @map("direct_chat_key") @db.VarChar(100)
+  createdByUserId String    @map("created_by_user_id") @db.Uuid
+  lastMessageAt   DateTime? @map("last_message_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  group           Group?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdByUser   User      @relation("ChatCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  members         ChatMember[]
+  messages        Message[]
+
+  @@index([chatType])
+  @@index([groupId])
+  @@index([createdByUserId])
+  @@index([lastMessageAt])
+  @@map("chats")
+}
+
+model ChatMember {
+  chatId      String    @map("chat_id") @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  joinedAt    DateTime  @default(now()) @map("joined_at") @db.Timestamptz(6)
+  lastReadAt  DateTime? @map("last_read_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  chat        Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([chatId, userId])
+  @@index([userId])
+  @@map("chat_members")
+}
+
+model Message {
+  id        String    @id @default(uuid()) @db.Uuid
+  chatId    String    @map("chat_id") @db.Uuid
+  authorId  String    @map("author_id") @db.Uuid
+  text      String?   @db.Text
+  editedAt  DateTime? @map("edited_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  chat      Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  author    User      @relation("MessageAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  files     MessageFile[]
+
+  @@index([chatId, createdAt])
+  @@index([authorId])
+  @@map("messages")
+}
+
+model MessageFile {
+  messageId  String   @map("message_id") @db.Uuid
+  fileId     String   @map("file_id") @db.Uuid
+  sortOrder  Int      @default(0) @map("sort_order")
+  attachedAt DateTime @default(now()) @map("attached_at") @db.Timestamptz(6)
+  message    Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  file       File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, fileId])
+  @@index([fileId])
+  @@map("message_files")
+}

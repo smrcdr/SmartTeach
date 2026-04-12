@@ -1,0 +1,46 @@
+{
+  "name": "@smarteach/api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node --env-file=../../.env ../../node_modules/@nestjs/cli/bin/nest.js start --watch",
+    "build": "nest build",
+    "start": "node --env-file=../../.env ../../dist/apps/api/main.js",
+    "test": "node --env-file=../../.env --import tsx --test src/tests/**/*.test.ts",
+    "prisma:generate": "node --env-file=../../.env ../../node_modules/prisma/build/index.js generate --config ./prisma.config.ts",
+    "db:migrate": "node --env-file=../../.env ../../node_modules/prisma/build/index.js migrate dev --config ./prisma.config.ts",
+    "db:seed": "node --env-file=../../.env ../../node_modules/prisma/build/index.js db seed --config ./prisma.config.ts"
+  },
+  "prisma": {
+    "seed": "tsx ./prisma/seed.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.18",
+    "@nestjs/config": "^4.0.4",
+    "@nestjs/core": "^11.1.18",
+    "@nestjs/platform-express": "^11.1.18",
+    "@nestjs/swagger": "^11.2.7",
+    "@prisma/adapter-pg": "^7.7.0",
+    "@prisma/client": "^7.7.0",
+    "bcryptjs": "^3.0.3",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "minio": "^8.0.7",
+    "pg": "^8.20.0",
+    "redis": "^5.11.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.19",
+    "@nestjs/schematics": "^11.0.10",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.6.0",
+    "prisma": "^7.7.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
