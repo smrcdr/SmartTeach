@@ -11,7 +11,29 @@ type YamlModule = {
   load: (value: string) => unknown
 }
 
+type OpenApiParameter = {
+  name?: string
+  in?: string
+  schema?: {
+    type?: string
+    format?: string
+  }
+}
+
 let app: INestApplication
+
+const uuidPathParameterNames = new Set([
+  'assignmentId',
+  'chatId',
+  'eventId',
+  'fileId',
+  'groupId',
+  'lessonId',
+  'messageId',
+  'requestId',
+  'submissionId',
+  'userId',
+])
 
 before(async () => {
   app = await createApp({
@@ -39,6 +61,36 @@ test('docs/openapi.yml stays in sync with runtime Swagger document', () => {
   )
 })
 
+test('apps/web/public/openapi.yml stays in sync with docs/openapi.yml', () => {
+  const yaml = require('js-yaml') as YamlModule
+  const docsDocument = yaml.load(
+    readFileSync(resolve(__dirname, '../../../../docs/openapi.yml'), 'utf8'),
+  )
+  const webDocument = yaml.load(
+    readFileSync(resolve(__dirname, '../../../../apps/web/public/openapi.yml'), 'utf8'),
+  )
+
+  assert.equal(
+    JSON.stringify(canonicalize(webDocument)),
+    JSON.stringify(canonicalize(docsDocument)),
+  )
+})
+
+test('runtime Swagger document marks UUID path parameters with format uuid', () => {
+  const config = app.get(AppConfigService)
+  const document = createOpenApiDocument(app, config.publicApiBaseUrl) as unknown as {
+    paths?: Record<string, Record<string, { parameters?: OpenApiParameter[] }>>
+  }
+  const uuidPathParameters = collectUuidPathParameters(document)
+
+  assert.ok(uuidPathParameters.length > 0)
+
+  for (const parameter of uuidPathParameters) {
+    assert.equal(parameter.schema?.type, 'string')
+    assert.equal(parameter.schema?.format, 'uuid')
+  }
+})
+
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map((entry) => canonicalize(entry))
@@ -52,5 +104,20 @@ function canonicalize(value: unknown): unknown {
     Object.entries(value)
       .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
       .map(([key, entry]) => [key, canonicalize(entry)]),
+  )
+}
+
+function collectUuidPathParameters(document: {
+  paths?: Record<string, Record<string, { parameters?: OpenApiParameter[] }>>
+}) {
+  return Object.values(document.paths ?? {}).flatMap((pathItem) =>
+    Object.values(pathItem).flatMap((operation) =>
+      (operation.parameters ?? []).filter(
+        (parameter) =>
+          parameter.in === 'path' &&
+          typeof parameter.name === 'string' &&
+          uuidPathParameterNames.has(parameter.name),
+      ),
+    ),
   )
 }

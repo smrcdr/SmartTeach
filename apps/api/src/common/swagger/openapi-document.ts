@@ -27,6 +27,12 @@ type OpenApiTag = {
   description: string
 }
 
+type OpenApiParameter = OpenApiRecord & {
+  name?: string
+  in?: string
+  schema?: OpenApiRecord
+}
+
 type OpenApiSecurityRequirement = Record<string, string[]>
 
 type OpenApiOperation = OpenApiRecord & {
@@ -92,6 +98,19 @@ const BEARER_AUTH: OpenApiSecurityRequirement = {
 }
 
 const OPENAPI_SERVER_DESCRIPTION = 'Локальный REST API'
+
+const UUID_PATH_PARAMETER_NAMES = new Set([
+  'assignmentId',
+  'chatId',
+  'eventId',
+  'fileId',
+  'groupId',
+  'lessonId',
+  'messageId',
+  'requestId',
+  'submissionId',
+  'userId',
+])
 
 export function createOpenApiDocument(
   app: INestApplication,
@@ -197,7 +216,9 @@ function normalizeOperation(operation: OpenApiOperation) {
   delete normalizedOperation.operationId
 
   if (Array.isArray(normalizedOperation.parameters)) {
-    normalizedOperation.parameters = normalizedOperation.parameters.filter(Boolean)
+    normalizedOperation.parameters = normalizedOperation.parameters
+      .filter(Boolean)
+      .map((parameter) => normalizeParameter(parameter))
 
     if (normalizedOperation.parameters.length === 0) {
       delete normalizedOperation.parameters
@@ -215,6 +236,28 @@ function normalizeOperation(operation: OpenApiOperation) {
   return normalizedOperation
 }
 
+function normalizeParameter(parameter: unknown) {
+  if (!parameter || typeof parameter !== 'object') {
+    return parameter
+  }
+
+  const normalizedParameter = sortObjectEntries({
+    ...(parameter as OpenApiParameter),
+  }) as OpenApiParameter
+
+  if (!isUuidPathParameter(normalizedParameter)) {
+    return normalizedParameter
+  }
+
+  normalizedParameter.schema = sortObjectEntries({
+    ...(normalizedParameter.schema ?? {}),
+    format: 'uuid',
+    type: 'string',
+  })
+
+  return normalizedParameter
+}
+
 function isOperationObject(value: unknown): value is OpenApiOperation {
   if (!value || typeof value !== 'object') {
     return false
@@ -225,6 +268,14 @@ function isOperationObject(value: unknown): value is OpenApiOperation {
 
 function isDefaultBearerSecurity(security: unknown) {
   return JSON.stringify(security) === JSON.stringify([BEARER_AUTH])
+}
+
+function isUuidPathParameter(parameter: OpenApiParameter) {
+  return (
+    parameter.in === 'path' &&
+    typeof parameter.name === 'string' &&
+    UUID_PATH_PARAMETER_NAMES.has(parameter.name)
+  )
 }
 
 function visitOpenApiValue(

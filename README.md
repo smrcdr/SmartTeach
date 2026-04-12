@@ -40,13 +40,29 @@ Prisma-файлы backend теперь лежат в `apps/api/prisma`.
    docker compose -f infra/docker-compose.yml up -d
    ```
 
-4. При необходимости сгенерируйте Prisma Client:
+4. Примените Prisma migrations:
+
+   ```bash
+   npm run db:migrate
+   ```
+
+   Команда также синхронизирует Prisma Client с текущей схемой.
+
+5. Заполните локальную БД тестовыми данными:
+
+   ```bash
+   npm run db:seed
+   ```
+
+   Seed нужен для предзаполненных backend-сценариев и локальных API-тестов.
+
+6. При необходимости отдельно пересоберите Prisma Client:
 
    ```bash
    npm run prisma:generate
    ```
 
-5. Запустите приложения:
+7. Запустите приложения:
 
    ```bash
    npm run dev

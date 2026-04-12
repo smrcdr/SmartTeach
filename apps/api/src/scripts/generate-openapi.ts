@@ -1,5 +1,5 @@
-import { writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import { createApp } from '../main'
 import { AppConfigService } from '../config/app-config.service'
 import { createOpenApiDocument } from '../common/swagger/openapi-document'
@@ -17,7 +17,10 @@ async function main() {
     const config = app.get(AppConfigService)
     const document = createOpenApiDocument(app, config.publicApiBaseUrl)
     const yaml = require('js-yaml') as YamlModule
-    const outputPath = resolve(__dirname, '../../../../docs/openapi.yml')
+    const outputPaths = [
+      resolve(__dirname, '../../../../docs/openapi.yml'),
+      resolve(__dirname, '../../../../apps/web/public/openapi.yml'),
+    ]
     const yamlDocument = yaml.dump(document, {
       lineWidth: -1,
       noRefs: true,
@@ -25,7 +28,10 @@ async function main() {
       sortKeys: false,
     })
 
-    writeFileSync(outputPath, yamlDocument)
+    for (const outputPath of outputPaths) {
+      mkdirSync(dirname(outputPath), { recursive: true })
+      writeFileSync(outputPath, yamlDocument)
+    }
   } finally {
     await app.close()
   }
