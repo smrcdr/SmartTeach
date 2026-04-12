@@ -1,13 +1,16 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { AssignmentStatus, GroupRole, GroupStatus, Prisma, SubmissionStatus } from '@prisma/client'
+import { AssignmentStatus, GroupRole, Prisma, SubmissionStatus } from '@prisma/client'
 import { PrismaService } from '../../database/prisma/prisma.service'
+import { AuthorizationService } from '../../security/authorization.service'
 import { MinioService } from '../../storage/minio/minio.service'
+import { buildAvatarUrlByFileId } from '../users/user-avatar.utils'
 import { CreateSubmissionRequestDto } from './dto/create-submission-request.dto'
 import { ListSubmissionsQueryDto } from './dto/list-submissions-query.dto'
 import { SubmissionDto } from './dto/submission.dto'
@@ -27,6 +30,8 @@ type PrismaExecutor = Prisma.TransactionClient | PrismaService
 export class AssignmentsService {
   constructor(
     @Inject(PrismaService) private readonly prismaService: PrismaService,
+    @Inject(AuthorizationService)
+    private readonly authorizationService: AuthorizationService,
     @Inject(MinioService) private readonly minioService: MinioService,
   ) {}
 
@@ -141,7 +146,7 @@ export class AssignmentsService {
     )
     const fileIds = payload.fileIds !== undefined ? this.normalizeFileIds(payload.fileIds) : undefined
 
-    if (payload.lessonId !== undefined) {
+    if (payload.lessonId !== undefined && payload.lessonId !== null) {
       await this.assertLessonBelongsToGroup(groupId, payload.lessonId)
     }
 
@@ -159,11 +164,16 @@ export class AssignmentsService {
     const data: Prisma.AssignmentUpdateInput = {
       ...(payload.lessonId !== undefined
         ? {
-            lesson: {
-              connect: {
-                id: payload.lessonId,
-              },
-            },
+            lesson:
+              payload.lessonId === null
+                ? {
+                    disconnect: true,
+                  }
+                : {
+                    connect: {
+                      id: payload.lessonId,
+                    },
+                  },
           }
         : {}),
       ...(payload.title !== undefined
@@ -270,47 +280,64 @@ export class AssignmentsService {
     const status = payload.status ?? SubmissionStatus.DRAFT
     const fileIds = this.normalizeFileIds(payload.fileIds)
 
-    if (status === SubmissionStatus.REVIEWED) {
-      throw new BadRequestException({
-        message: 'Validation failed',
-        errors: ['status: REVIEWED is not allowed when creating a submission'],
-      })
-    }
-
     await this.assertAttachableSubmissionFiles(fileIds, userId)
 
-    const submission = await this.prismaService.$transaction(async (tx) => {
-      const aggregate = await tx.submission.aggregate({
-        where: {
-          assignmentId,
-          authorId: userId,
-        },
-        _max: {
-          attemptNumber: true,
-        },
+    let submission: SubmissionRecord
+
+    try {
+      submission = await this.prismaService.$transaction(async (tx) => {
+        await this.lockSubmissionAttempts(tx, assignmentId, userId)
+
+        const aggregate = await tx.submission.aggregate({
+          where: {
+            assignmentId,
+            authorId: userId,
+          },
+          _max: {
+            attemptNumber: true,
+          },
+        })
+        const attemptNumber = (aggregate._max.attemptNumber ?? 0) + 1
+
+        const createdSubmission = await tx.submission.create({
+          data: {
+            assignmentId,
+            authorId: userId,
+            attemptNumber,
+            text: this.normalizeNullableText(payload.text),
+            status,
+            submittedAt: status === SubmissionStatus.SUBMITTED ? new Date() : null,
+          },
+          select: {
+            id: true,
+          },
+        })
+
+        await this.syncSubmissionFiles(tx, createdSubmission.id, fileIds)
+
+        return this.getSubmissionRecordOrThrow(tx, assignmentId, createdSubmission.id)
       })
-      const attemptNumber = (aggregate._max.attemptNumber ?? 0) + 1
-
-      const createdSubmission = await tx.submission.create({
-        data: {
-          assignmentId,
-          authorId: userId,
-          attemptNumber,
-          text: this.normalizeNullableText(payload.text),
-          status,
-          submittedAt: status === SubmissionStatus.SUBMITTED ? new Date() : null,
-        },
-        select: {
-          id: true,
-        },
-      })
-
-      await this.syncSubmissionFiles(tx, createdSubmission.id, fileIds)
-
-      return this.getSubmissionRecordOrThrow(tx, assignmentId, createdSubmission.id)
-    })
+    } catch (error) {
+      await this.rethrowSubmissionWriteConflict(error, assignmentId, userId, status)
+      throw error
+    }
 
     return this.mapSubmissionRecordToDto(submission)
+  }
+
+  private async lockSubmissionAttempts(
+    executor: Prisma.TransactionClient,
+    assignmentId: string,
+    userId: string,
+  ) {
+    const lockKey = `submission-attempt:${assignmentId}:${userId}`
+
+    await executor.$queryRaw(Prisma.sql`
+      SELECT 1
+      FROM (
+        SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))
+      ) AS submission_attempt_lock
+    `)
   }
 
   async getSubmission(
@@ -329,8 +356,12 @@ export class AssignmentsService {
       submissionId,
     )
 
-    if (!ASSIGNMENT_MANAGE_ROLES.has(membership.role) && submission.authorId !== userId) {
-      throw new ForbiddenException('You cannot access this submission')
+    if (!ASSIGNMENT_MANAGE_ROLES.has(membership.role)) {
+      this.authorizationService.assertOwnership(
+        submission.authorId,
+        userId,
+        'You cannot access this submission',
+      )
     }
 
     return this.mapSubmissionRecordToDto(submission)
@@ -362,14 +393,20 @@ export class AssignmentsService {
       payload.status === SubmissionStatus.REVIEWED
     const fileIds = payload.fileIds !== undefined ? this.normalizeFileIds(payload.fileIds) : undefined
 
-    if (!isAuthor && !canReview) {
-      throw new ForbiddenException('You cannot update this submission')
+    if (!canReview) {
+      this.authorizationService.assertOwnership(
+        submission.authorId,
+        userId,
+        'You cannot update this submission',
+      )
     }
 
     if (contentPatchRequested) {
-      if (!isAuthor) {
-        throw new ForbiddenException('You cannot edit this submission')
-      }
+      this.authorizationService.assertOwnership(
+        submission.authorId,
+        userId,
+        'You cannot edit this submission',
+      )
 
       if (submission.status === SubmissionStatus.REVIEWED) {
         throw new ForbiddenException('Reviewed submissions are read-only')
@@ -431,22 +468,36 @@ export class AssignmentsService {
       return this.mapSubmissionRecordToDto(submission)
     }
 
-    const updatedSubmission = await this.prismaService.$transaction(async (tx) => {
-      if (Object.keys(data).length > 0) {
-        await tx.submission.update({
-          where: {
-            id: submissionId,
-          },
-          data,
-        })
-      }
+    const nextSubmissionStatus = (data.status as SubmissionStatus | undefined) ?? submission.status
 
-      if (contentPatchRequested && fileIds !== undefined) {
-        await this.syncSubmissionFiles(tx, submissionId, fileIds)
-      }
+    let updatedSubmission: SubmissionRecord
 
-      return this.getSubmissionRecordOrThrow(tx, assignmentId, submissionId)
-    })
+    try {
+      updatedSubmission = await this.prismaService.$transaction(async (tx) => {
+        if (Object.keys(data).length > 0) {
+          await tx.submission.update({
+            where: {
+              id: submissionId,
+            },
+            data,
+          })
+        }
+
+        if (contentPatchRequested && fileIds !== undefined) {
+          await this.syncSubmissionFiles(tx, submissionId, fileIds)
+        }
+
+        return this.getSubmissionRecordOrThrow(tx, assignmentId, submissionId)
+      })
+    } catch (error) {
+      await this.rethrowSubmissionWriteConflict(
+        error,
+        assignmentId,
+        submission.authorId,
+        nextSubmissionStatus,
+      )
+      throw error
+    }
 
     return this.mapSubmissionRecordToDto(updatedSubmission)
   }
@@ -459,58 +510,15 @@ export class AssignmentsService {
       requireWritable?: boolean
     } = {},
   ) {
-    const group = await this.prismaService.group.findUnique({
-      where: {
-        id: groupId,
-      },
-      select: {
-        id: true,
-        status: true,
-        settings: {
-          select: {
-            assignmentsEnabled: true,
-          },
-        },
-      },
+    const context = await this.authorizationService.authorizeGroupAccess(groupId, userId, {
+      requiredFeature: 'assignmentsEnabled',
+      featureErrorMessage: 'Assignments module is disabled for this group',
+      requiredRoles: options.requireManage ? [...ASSIGNMENT_MANAGE_ROLES] : undefined,
+      roleErrorMessage: 'You cannot manage assignments in this group',
+      requireWritable: options.requireWritable ?? false,
     })
 
-    if (!group || group.status === GroupStatus.DELETED) {
-      throw new NotFoundException('Group not found')
-    }
-
-    const membership = await this.prismaService.groupMember.findUnique({
-      where: {
-        groupId_userId: {
-          groupId,
-          userId,
-        },
-      },
-      select: {
-        role: true,
-      },
-    })
-
-    if (!membership) {
-      throw new ForbiddenException('You are not a member of this group')
-    }
-
-    if (!group.settings) {
-      throw new NotFoundException('Group settings not found')
-    }
-
-    if (!group.settings.assignmentsEnabled) {
-      throw new ForbiddenException('Assignments module is disabled for this group')
-    }
-
-    if (options.requireManage && !ASSIGNMENT_MANAGE_ROLES.has(membership.role)) {
-      throw new ForbiddenException('You cannot manage assignments in this group')
-    }
-
-    if (options.requireWritable && group.status === GroupStatus.ARCHIVED) {
-      throw new ForbiddenException('Archived groups are read-only')
-    }
-
-    return membership
+    return context.membership!
   }
 
   private async assertLessonBelongsToGroup(groupId: string, lessonId: string) {
@@ -870,6 +878,43 @@ export class AssignmentsService {
     }
   }
 
+  private async rethrowSubmissionWriteConflict(
+    error: unknown,
+    assignmentId: string,
+    authorId: string,
+    nextStatus: SubmissionStatus,
+  ): Promise<never | void> {
+    if (!this.isUniqueConstraintError(error)) {
+      return
+    }
+
+    if (nextStatus === SubmissionStatus.DRAFT) {
+      const existingDraft = await this.prismaService.submission.findFirst({
+        where: {
+          assignmentId,
+          authorId,
+          status: SubmissionStatus.DRAFT,
+        },
+        select: {
+          id: true,
+        },
+      })
+
+      if (existingDraft) {
+        throw new ConflictException('You already have a draft submission for this assignment')
+      }
+    }
+
+    throw new ConflictException('Failed to create a unique submission attempt. Retry the request.')
+  }
+
+  private isUniqueConstraintError(error: unknown) {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    )
+  }
+
   private async mapSubmissionRecordToDto(submission: SubmissionRecord): Promise<SubmissionDto> {
     const fileUrls = await Promise.all(
       submission.files.map((link) => this.minioService.getObjectUrl(link.file.storageKey)),
@@ -877,7 +922,11 @@ export class AssignmentsService {
     const fileUrlsById = new Map(
       submission.files.map((link, index) => [link.file.id, fileUrls[index] ?? '']),
     )
+    const avatarUrlByFileId = await buildAvatarUrlByFileId(
+      this.minioService,
+      [submission.author, ...(submission.reviewedByUser ? [submission.reviewedByUser] : [])],
+    )
 
-    return mapSubmissionToDto(submission, fileUrlsById)
+    return mapSubmissionToDto(submission, fileUrlsById, avatarUrlByFileId)
   }
 }

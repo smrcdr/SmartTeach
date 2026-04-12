@@ -288,6 +288,20 @@ test('submission endpoints create attempts, scope visibility and allow manager r
 
   assert.equal(foreignFileCreateResult.response.status, 403)
 
+  const reviewedStatusCreateResult = await request(
+    `/groups/${group.id}/assignments/${assignment.id}/submissions`,
+    {
+      method: 'POST',
+      token: student.accessToken,
+      body: {
+        text: 'Попытка создать уже проверенную работу.',
+        status: 'REVIEWED',
+      },
+    },
+  )
+
+  assert.equal(reviewedStatusCreateResult.response.status, 400)
+
   const firstSubmissionCreateResult = await request<SubmissionResponse>(
     `/groups/${group.id}/assignments/${assignment.id}/submissions`,
     {
@@ -543,6 +557,169 @@ test('submission endpoints create attempts, scope visibility and allow manager r
       sortOrder: 1,
     },
   ])
+})
+
+test('submission endpoints return conflict for a second draft attempt', async () => {
+  const owner = await registerUser('draft-owner')
+  const student = await registerUser('draft-student')
+  const group = await createGroup(owner.accessToken)
+  const assignment = await createAssignment(group.id, owner.user.id, 'Draft invariant assignment')
+
+  await prisma.groupMember.create({
+    data: {
+      groupId: group.id,
+      userId: student.user.id,
+      role: GroupRole.USER,
+    },
+  })
+
+  const firstDraftCreateResult = await request<SubmissionResponse>(
+    `/groups/${group.id}/assignments/${assignment.id}/submissions`,
+    {
+      method: 'POST',
+      token: student.accessToken,
+      body: {
+        text: 'Черновик первой попытки.',
+        status: 'DRAFT',
+      },
+    },
+  )
+
+  assert.equal(firstDraftCreateResult.response.status, 201)
+  assert.ok(firstDraftCreateResult.body)
+
+  const secondDraftCreateResult = await request<{ statusCode: number; message: string }>(
+    `/groups/${group.id}/assignments/${assignment.id}/submissions`,
+    {
+      method: 'POST',
+      token: student.accessToken,
+      body: {
+        text: 'Черновик второй попытки.',
+        status: 'DRAFT',
+      },
+    },
+  )
+
+  assert.equal(secondDraftCreateResult.response.status, 409)
+  assert.equal(
+    secondDraftCreateResult.body?.message,
+    'You already have a draft submission for this assignment',
+  )
+
+  const submittedCreateResult = await request<SubmissionResponse>(
+    `/groups/${group.id}/assignments/${assignment.id}/submissions`,
+    {
+      method: 'POST',
+      token: student.accessToken,
+      body: {
+        text: 'Отправленная попытка без чернового статуса.',
+        status: 'SUBMITTED',
+      },
+    },
+  )
+
+  assert.equal(submittedCreateResult.response.status, 201)
+  assert.ok(submittedCreateResult.body)
+
+  const draftSwitchResult = await request<{ statusCode: number; message: string }>(
+    `/groups/${group.id}/assignments/${assignment.id}/submissions/${submittedCreateResult.body.id}`,
+    {
+      method: 'PATCH',
+      token: student.accessToken,
+      body: {
+        status: 'DRAFT',
+      },
+    },
+  )
+
+  assert.equal(draftSwitchResult.response.status, 409)
+  assert.equal(
+    draftSwitchResult.body?.message,
+    'You already have a draft submission for this assignment',
+  )
+
+  const storedSubmissions = await prisma.submission.findMany({
+    where: {
+      assignmentId: assignment.id,
+      authorId: student.user.id,
+    },
+    orderBy: {
+      attemptNumber: 'asc',
+    },
+    select: {
+      attemptNumber: true,
+      status: true,
+    },
+  })
+
+  assert.deepEqual(storedSubmissions, [
+    {
+      attemptNumber: 1,
+      status: 'DRAFT',
+    },
+    {
+      attemptNumber: 2,
+      status: 'SUBMITTED',
+    },
+  ])
+})
+
+test('submission endpoints assign unique sequential attempt numbers for concurrent creates', async () => {
+  const owner = await registerUser('race-owner')
+  const student = await registerUser('race-student')
+  const group = await createGroup(owner.accessToken)
+  const assignment = await createAssignment(group.id, owner.user.id, 'Concurrent submissions assignment')
+
+  await prisma.groupMember.create({
+    data: {
+      groupId: group.id,
+      userId: student.user.id,
+      role: GroupRole.USER,
+    },
+  })
+
+  const concurrentResults = await Promise.all(
+    Array.from({ length: 6 }, (_, index) =>
+      request<SubmissionResponse>(`/groups/${group.id}/assignments/${assignment.id}/submissions`, {
+        method: 'POST',
+        token: student.accessToken,
+        body: {
+          text: `Concurrent attempt ${index + 1}`,
+          status: 'SUBMITTED',
+        },
+      }),
+    ),
+  )
+
+  assert.deepEqual(
+    concurrentResults.map((result) => result.response.status),
+    [201, 201, 201, 201, 201, 201],
+  )
+  assert.deepEqual(
+    concurrentResults
+      .map((result) => {
+        assert.ok(result.body)
+
+        return result.body.attemptNumber
+      })
+      .sort((left, right) => left - right),
+    [1, 2, 3, 4, 5, 6],
+  )
+
+  const listResult = await request<SubmissionResponse[]>(
+    `/groups/${group.id}/assignments/${assignment.id}/submissions`,
+    {
+      method: 'GET',
+      token: student.accessToken,
+    },
+  )
+
+  assert.equal(listResult.response.status, 200)
+  assert.ok(listResult.body)
+  assert.deepEqual(
+    listResult.body.map((submission) => submission.attemptNumber),
+    [1, 2, 3, 4, 5, 6],
+  )
 })
 
 test('submission endpoints respect assignments_enabled flag and archived group write restrictions', async () => {

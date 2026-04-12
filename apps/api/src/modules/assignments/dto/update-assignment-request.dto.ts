@@ -15,7 +15,7 @@ function normalizeOptionalDateTime(value: unknown) {
 export class UpdateAssignmentRequestDto {
   static schema = z
     .object({
-      lessonId: z.string().uuid().optional(),
+      lessonId: z.string().uuid().nullable().optional(),
       title: z.string().trim().min(2).max(200).optional(),
       content: z.string().optional(),
       status: assignmentStatusSchema.optional(),
@@ -32,9 +32,10 @@ export class UpdateAssignmentRequestDto {
 
   @ApiPropertyOptional({
     format: 'uuid',
+    nullable: true,
     example: '77777777-7777-4777-8777-777777777777',
   })
-  lessonId?: string
+  lessonId?: string | null
 
   @ApiPropertyOptional({
     minLength: 2,

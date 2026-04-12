@@ -1,13 +1,16 @@
 import { ApiPropertyOptional } from '@nestjs/swagger'
 import { z } from 'zod'
-import { submissionStatusSchema, submissionStatusValues } from '../assignments.schemas'
+import {
+  submissionCreateStatusSchema,
+  submissionCreateStatusValues,
+} from '../assignments.schemas'
 
 export class CreateSubmissionRequestDto {
   static schema = z
     .object({
       text: z.string().optional(),
       fileIds: z.array(z.string().uuid()).optional(),
-      status: submissionStatusSchema.optional(),
+      status: submissionCreateStatusSchema.optional(),
     })
     .strict()
 
@@ -23,8 +26,8 @@ export class CreateSubmissionRequestDto {
   fileIds?: string[]
 
   @ApiPropertyOptional({
-    enum: submissionStatusValues,
+    enum: submissionCreateStatusValues,
     example: 'DRAFT',
   })
-  status?: (typeof submissionStatusValues)[number]
+  status?: (typeof submissionCreateStatusValues)[number]
 }

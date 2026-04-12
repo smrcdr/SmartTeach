@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import { fileSelect, mapFileToDto } from '../files/files.mapper'
 import { mapPublicUserToDto, publicUserSelect } from '../users/users.mapper'
+import type { AvatarUrlByFileId } from '../users/user-avatar.utils'
 import { SubmissionDto } from './dto/submission.dto'
 
 export const submissionSelect = {
@@ -47,6 +48,7 @@ export type SubmissionRecord = Prisma.SubmissionGetPayload<{
 export function mapSubmissionToDto(
   submission: SubmissionRecord,
   fileUrlsById: Map<string, string>,
+  avatarUrlByFileId?: AvatarUrlByFileId,
 ): SubmissionDto {
   return {
     id: submission.id,
@@ -65,7 +67,9 @@ export function mapSubmissionToDto(
     reviewedAt: submission.reviewedAt?.toISOString() ?? null,
     createdAt: submission.createdAt.toISOString(),
     updatedAt: submission.updatedAt.toISOString(),
-    author: mapPublicUserToDto(submission.author),
-    reviewer: submission.reviewedByUser ? mapPublicUserToDto(submission.reviewedByUser) : null,
+    author: mapPublicUserToDto(submission.author, avatarUrlByFileId),
+    reviewer: submission.reviewedByUser
+      ? mapPublicUserToDto(submission.reviewedByUser, avatarUrlByFileId)
+      : null,
   }
 }

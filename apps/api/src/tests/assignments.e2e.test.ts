@@ -381,6 +381,21 @@ test('assignment endpoints create, list, get and update assignments inside one g
   assert.ok(updatedFirstAssignmentResult.body.archivedAt)
   assert.deepEqual(updatedFirstAssignmentResult.body.files.map((file) => file.id), [secondFile.id])
 
+  const clearLessonResult = await request<AssignmentResponse>(
+    `/groups/${group.id}/assignments/${firstAssignmentCreateResult.body.id}`,
+    {
+      method: 'PATCH',
+      token: owner.accessToken,
+      body: {
+        lessonId: null,
+      },
+    },
+  )
+
+  assert.equal(clearLessonResult.response.status, 200)
+  assert.ok(clearLessonResult.body)
+  assert.equal(clearLessonResult.body.lessonId, null)
+
   const getAssignmentResult = await request<AssignmentResponse>(
     `/groups/${group.id}/assignments/${firstAssignmentCreateResult.body.id}`,
     {
@@ -393,6 +408,7 @@ test('assignment endpoints create, list, get and update assignments inside one g
   assert.ok(getAssignmentResult.body)
   assert.equal(getAssignmentResult.body.id, firstAssignmentCreateResult.body.id)
   assert.equal(getAssignmentResult.body.status, 'ARCHIVED')
+  assert.equal(getAssignmentResult.body.lessonId, null)
   assert.deepEqual(getAssignmentResult.body.files.map((file) => file.id), [secondFile.id])
 
   const foreignLessonCreateResult = await request(`/groups/${group.id}/assignments`, {
@@ -440,6 +456,7 @@ test('assignment endpoints create, list, get and update assignments inside one g
     select: {
       status: true,
       title: true,
+      lessonId: true,
       maxScore: true,
       publishedAt: true,
       archivedAt: true,
@@ -458,6 +475,7 @@ test('assignment endpoints create, list, get and update assignments inside one g
   assert.ok(storedFirstAssignment)
   assert.equal(storedFirstAssignment.status, 'ARCHIVED')
   assert.equal(storedFirstAssignment.title, 'Reviewed contract report')
+  assert.equal(storedFirstAssignment.lessonId, null)
   assert.equal(storedFirstAssignment.maxScore, 95)
   assert.ok(storedFirstAssignment.publishedAt instanceof Date)
   assert.ok(storedFirstAssignment.archivedAt instanceof Date)
