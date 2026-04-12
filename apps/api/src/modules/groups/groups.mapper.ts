@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import { mapPublicUserToDto, publicUserSelect } from '../users/users.mapper'
+import type { AvatarUrlByFileId } from '../users/user-avatar.utils'
 import { GroupDto } from './dto/group.dto'
 import { GroupSettingsDto } from './dto/group-settings.dto'
 
@@ -52,7 +53,7 @@ export function mapGroupSettingsToDto(settings: GroupSettingsRecord): GroupSetti
   }
 }
 
-export function mapGroupToDto(group: GroupRecord): GroupDto {
+export function mapGroupToDto(group: GroupRecord, avatarUrlByFileId?: AvatarUrlByFileId): GroupDto {
   if (!group.settings) {
     throw new Error(`Group ${group.id} is missing settings`)
   }
@@ -63,7 +64,7 @@ export function mapGroupToDto(group: GroupRecord): GroupDto {
     name: group.name,
     description: group.description,
     ownerId: group.ownerId,
-    owner: mapPublicUserToDto(group.owner),
+    owner: mapPublicUserToDto(group.owner, avatarUrlByFileId),
     accessMode: group.accessMode,
     status: group.status,
     settings: mapGroupSettingsToDto(group.settings),

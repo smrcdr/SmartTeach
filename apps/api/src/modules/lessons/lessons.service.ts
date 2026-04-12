@@ -5,8 +5,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { GroupRole, GroupStatus, LessonStatus, Prisma } from '@prisma/client'
+import { GroupRole, LessonStatus, Prisma } from '@prisma/client'
 import { PrismaService } from '../../database/prisma/prisma.service'
+import { AuthorizationService } from '../../security/authorization.service'
 import { MinioService } from '../../storage/minio/minio.service'
 import { CreateLessonRequestDto } from './dto/create-lesson-request.dto'
 import { LessonDto } from './dto/lesson.dto'
@@ -22,6 +23,8 @@ type PrismaExecutor = Prisma.TransactionClient | PrismaService
 export class LessonsService {
   constructor(
     @Inject(PrismaService) private readonly prismaService: PrismaService,
+    @Inject(AuthorizationService)
+    private readonly authorizationService: AuthorizationService,
     @Inject(MinioService) private readonly minioService: MinioService,
   ) {}
 
@@ -75,7 +78,7 @@ export class LessonsService {
     const status = payload.status ?? LessonStatus.DRAFT
     const fileIds = this.normalizeFileIds(payload.fileIds)
 
-    await this.assertAttachableFiles(fileIds, userId)
+    await this.assertAttachableFiles(fileIds, groupId)
 
     const lesson = await this.prismaService.$transaction(async (tx) => {
       const createdLesson = await tx.lesson.create({
@@ -127,12 +130,18 @@ export class LessonsService {
     const fileIds = payload.fileIds !== undefined ? this.normalizeFileIds(payload.fileIds) : undefined
 
     if (fileIds !== undefined) {
-      await this.assertAttachableFiles(fileIds, userId)
+      await this.assertAttachableFiles(fileIds, groupId, lessonId)
     }
 
     const dates = this.resolveDateRange({
-      startsAt: payload.startsAt ?? (existingLesson.startsAt?.toISOString() ?? null),
-      endsAt: payload.endsAt ?? (existingLesson.endsAt?.toISOString() ?? null),
+      startsAt:
+        payload.startsAt !== undefined
+          ? payload.startsAt
+          : (existingLesson.startsAt?.toISOString() ?? null),
+      endsAt:
+        payload.endsAt !== undefined
+          ? payload.endsAt
+          : (existingLesson.endsAt?.toISOString() ?? null),
     })
     const nextStatus = payload.status ?? existingLesson.status
     const statusMetadata = this.resolveStatusMetadata(
@@ -208,56 +217,13 @@ export class LessonsService {
       requireWritable?: boolean
     } = {},
   ) {
-    const group = await this.prismaService.group.findUnique({
-      where: {
-        id: groupId,
-      },
-      select: {
-        id: true,
-        status: true,
-        settings: {
-          select: {
-            lessonsEnabled: true,
-          },
-        },
-      },
+    await this.authorizationService.authorizeGroupAccess(groupId, userId, {
+      requiredFeature: 'lessonsEnabled',
+      featureErrorMessage: 'Lessons module is disabled for this group',
+      requiredRoles: options.requireManage ? [...LESSON_MANAGE_ROLES] : undefined,
+      roleErrorMessage: 'You cannot manage lessons in this group',
+      requireWritable: options.requireWritable ?? false,
     })
-
-    if (!group || group.status === GroupStatus.DELETED) {
-      throw new NotFoundException('Group not found')
-    }
-
-    const membership = await this.prismaService.groupMember.findUnique({
-      where: {
-        groupId_userId: {
-          groupId,
-          userId,
-        },
-      },
-      select: {
-        role: true,
-      },
-    })
-
-    if (!membership) {
-      throw new ForbiddenException('You are not a member of this group')
-    }
-
-    if (!group.settings) {
-      throw new NotFoundException('Group settings not found')
-    }
-
-    if (!group.settings.lessonsEnabled) {
-      throw new ForbiddenException('Lessons module is disabled for this group')
-    }
-
-    if (options.requireManage && !LESSON_MANAGE_ROLES.has(membership.role)) {
-      throw new ForbiddenException('You cannot manage lessons in this group')
-    }
-
-    if (options.requireWritable && group.status === GroupStatus.ARCHIVED) {
-      throw new ForbiddenException('Archived groups are read-only')
-    }
   }
 
   private async getLessonRecordOrThrow(
@@ -341,7 +307,7 @@ export class LessonsService {
     return normalizedFileIds
   }
 
-  private async assertAttachableFiles(fileIds: string[], userId: string) {
+  private async assertAttachableFiles(fileIds: string[], groupId: string, lessonId?: string) {
     if (fileIds.length === 0) {
       return
     }
@@ -359,6 +325,42 @@ export class LessonsService {
       },
     })
     const filesById = new Map(files.map((file) => [file.id, file]))
+    const managerUploaderIds = new Set(
+      (
+        await this.prismaService.groupMember.findMany({
+          where: {
+            groupId,
+            userId: {
+              in: [...new Set(files.map((file) => file.uploadedByUserId))],
+            },
+            role: {
+              in: [...LESSON_MANAGE_ROLES],
+            },
+          },
+          select: {
+            userId: true,
+          },
+        })
+      ).map((membership) => membership.userId),
+    )
+    const alreadyAttachedFileIds =
+      lessonId === undefined
+        ? new Set<string>()
+        : new Set(
+            (
+              await this.prismaService.lessonFile.findMany({
+                where: {
+                  lessonId,
+                  fileId: {
+                    in: fileIds,
+                  },
+                },
+                select: {
+                  fileId: true,
+                },
+              })
+            ).map((link) => link.fileId),
+          )
 
     for (const fileId of fileIds) {
       const file = filesById.get(fileId)
@@ -367,7 +369,7 @@ export class LessonsService {
         throw new NotFoundException('File not found')
       }
 
-      if (file.uploadedByUserId !== userId) {
+      if (!managerUploaderIds.has(file.uploadedByUserId) && !alreadyAttachedFileIds.has(fileId)) {
         throw new ForbiddenException('You cannot attach this file')
       }
     }

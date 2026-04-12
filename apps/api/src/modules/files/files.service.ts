@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -67,7 +68,7 @@ export class FilesService {
     }
   }
 
-  async getFileOrThrow(fileId: string) {
+  async getFileOrThrow(fileId: string, userId: string) {
     const file = await this.prismaService.file.findUnique({
       where: {
         id: fileId,
@@ -75,7 +76,7 @@ export class FilesService {
       select: fileSelect,
     })
 
-    if (!file || file.deletedAt) {
+    if (!file || file.deletedAt || file.uploadedByUserId !== userId) {
       throw new NotFoundException('File not found')
     }
 
@@ -91,6 +92,15 @@ export class FilesService {
         id: true,
         uploadedByUserId: true,
         deletedAt: true,
+        _count: {
+          select: {
+            avatarUsers: true,
+            lessonFiles: true,
+            assignmentFiles: true,
+            submissionFiles: true,
+            messageFiles: true,
+          },
+        },
       },
     })
 
@@ -100,6 +110,16 @@ export class FilesService {
 
     if (file.uploadedByUserId !== userId) {
       throw new ForbiddenException('You cannot delete this file')
+    }
+
+    if (
+      file._count.avatarUsers > 0 ||
+      file._count.lessonFiles > 0 ||
+      file._count.assignmentFiles > 0 ||
+      file._count.submissionFiles > 0 ||
+      file._count.messageFiles > 0
+    ) {
+      throw new ConflictException('File is still attached to existing resources')
     }
 
     await this.prismaService.file.update({

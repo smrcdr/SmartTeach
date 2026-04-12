@@ -339,7 +339,34 @@ test('groups endpoints create, filter, update and soft-delete groups', async () 
 
   assert.equal(deletedJoinedGroupsResult.response.status, 200)
   assert.ok(deletedJoinedGroupsResult.body)
-  assert.ok(deletedJoinedGroupsResult.body.some((group) => group.id === createdGroup.id))
+  assert.equal(
+    deletedJoinedGroupsResult.body.some((group) => group.id === createdGroup.id),
+    false,
+  )
+
+  const deletedGetByIdResult = await request(`/groups/${createdGroup.id}`, {
+    method: 'GET',
+    token: owner.accessToken,
+  })
+
+  assert.equal(deletedGetByIdResult.response.status, 404)
+
+  const deletedGetByCodeResult = await request(
+    `/groups/by-code/${encodeURIComponent(createdGroup.code)}`,
+    {
+      method: 'GET',
+      token: owner.accessToken,
+    },
+  )
+
+  assert.equal(deletedGetByCodeResult.response.status, 404)
+
+  const deletedSettingsResult = await request(`/groups/${createdGroup.id}/settings`, {
+    method: 'GET',
+    token: owner.accessToken,
+  })
+
+  assert.equal(deletedSettingsResult.response.status, 404)
 })
 
 test('group settings endpoints require membership for read and admin role for updates', async () => {
@@ -461,5 +488,66 @@ test('group settings endpoints require membership for read and admin role for up
     assignmentsEnabled: false,
     lessonsEnabled: true,
     scheduleEnabled: true,
+  })
+})
+
+test('archived groups keep settings readable but reject settings updates', async () => {
+  const owner = await registerUser('archived-settings-owner')
+
+  const createResult = await request<GroupResponse>('/groups', {
+    method: 'POST',
+    token: owner.accessToken,
+    body: {
+      name: 'Archived Settings Controls',
+      accessMode: 'OPEN',
+      settings: {
+        chatEnabled: true,
+        lessonsEnabled: true,
+        assignmentsEnabled: true,
+        scheduleEnabled: true,
+      },
+    },
+  })
+
+  assert.equal(createResult.response.status, 201)
+  assert.ok(createResult.body)
+  createdGroupIds.add(createResult.body.id)
+
+  const archiveResult = await request<GroupResponse>(`/groups/${createResult.body.id}`, {
+    method: 'PATCH',
+    token: owner.accessToken,
+    body: {
+      status: 'ARCHIVED',
+    },
+  })
+
+  assert.equal(archiveResult.response.status, 200)
+  assert.ok(archiveResult.body)
+  assert.equal(archiveResult.body.status, 'ARCHIVED')
+
+  const readSettingsResult = await request<GroupSettingsResponse>(
+    `/groups/${createResult.body.id}/settings`,
+    {
+      method: 'GET',
+      token: owner.accessToken,
+    },
+  )
+
+  assert.equal(readSettingsResult.response.status, 200)
+  assert.ok(readSettingsResult.body)
+  assert.equal(readSettingsResult.body.chatEnabled, true)
+
+  const updateSettingsResult = await request(`/groups/${createResult.body.id}/settings`, {
+    method: 'PATCH',
+    token: owner.accessToken,
+    body: {
+      chatEnabled: false,
+    },
+  })
+
+  assert.equal(updateSettingsResult.response.status, 403)
+  assert.deepEqual(updateSettingsResult.body, {
+    statusCode: 403,
+    message: 'Archived groups are read-only',
   })
 })

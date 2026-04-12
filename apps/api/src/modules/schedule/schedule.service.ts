@@ -7,11 +7,11 @@ import {
 } from '@nestjs/common'
 import {
   GroupRole,
-  GroupStatus,
   Prisma,
   ScheduleEventStatus,
 } from '@prisma/client'
 import { PrismaService } from '../../database/prisma/prisma.service'
+import { AuthorizationService } from '../../security/authorization.service'
 import { CreateScheduleEventRequestDto } from './dto/create-schedule-event-request.dto'
 import { ListScheduleEventsQueryDto } from './dto/list-schedule-events-query.dto'
 import { ListScheduleQueryDto } from './dto/list-schedule-query.dto'
@@ -26,7 +26,9 @@ import {
   scheduleAssignmentEntrySelect,
   scheduleEventSelect,
   scheduleLessonEntrySelect,
+  type ScheduleAssignmentEntryRecord,
   type ScheduleEventRecord,
+  type ScheduleLessonEntryRecord,
 } from './schedule.mapper'
 
 const SCHEDULE_MANAGE_ROLES = new Set<GroupRole>([GroupRole.OWNER, GroupRole.ADMIN])
@@ -38,73 +40,81 @@ const SCHEDULE_ENTRY_ORDER: Record<ScheduleEntryDto['sourceType'], number> = {
 
 @Injectable()
 export class ScheduleService {
-  constructor(@Inject(PrismaService) private readonly prismaService: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prismaService: PrismaService,
+    @Inject(AuthorizationService)
+    private readonly authorizationService: AuthorizationService,
+  ) {}
 
   async listSchedule(
     groupId: string,
     userId: string,
     query: ListScheduleQueryDto,
   ): Promise<ScheduleEntryDto[]> {
-    await this.assertGroupAccess(groupId, userId)
+    const access = await this.assertGroupAccess(groupId, userId)
 
     const range = this.resolveTimeRange(query.from, query.to)
     const [lessons, assignments, customEvents] = await Promise.all([
-      this.prismaService.lesson.findMany({
-        where: {
-          groupId,
-          startsAt: {
-            not: null,
-          },
-          endsAt: {
-            not: null,
-          },
-          ...this.buildWindowWhere<Prisma.LessonWhereInput>({
-            from: range.from,
-            to: range.to,
-            startsAtField: 'startsAt',
-            endsAtField: 'endsAt',
-          }),
-        },
-        select: scheduleLessonEntrySelect,
-        orderBy: [
-          {
-            startsAt: 'asc',
-          },
-          {
-            endsAt: 'asc',
-          },
-          {
-            id: 'asc',
-          },
-        ],
-      }),
-      this.prismaService.assignment.findMany({
-        where: {
-          groupId,
-          dueAt: {
-            not: null,
-            ...(range.from
-              ? {
-                  gte: range.from,
-                }
-              : {}),
-            ...(range.to
-              ? {
-                  lte: range.to,
-                }
-              : {}),
-          },
-        },
-        select: scheduleAssignmentEntrySelect,
-        orderBy: [
-          {
-            dueAt: 'asc',
-          },
-          {
-            id: 'asc',
-          },
-        ],
-      }),
+      access.lessonsEnabled
+        ? this.prismaService.lesson.findMany({
+            where: {
+              groupId,
+              startsAt: {
+                not: null,
+              },
+              endsAt: {
+                not: null,
+              },
+              ...this.buildWindowWhere<Prisma.LessonWhereInput>({
+                from: range.from,
+                to: range.to,
+                startsAtField: 'startsAt',
+                endsAtField: 'endsAt',
+              }),
+            },
+            select: scheduleLessonEntrySelect,
+            orderBy: [
+              {
+                startsAt: 'asc',
+              },
+              {
+                endsAt: 'asc',
+              },
+              {
+                id: 'asc',
+              },
+            ],
+          })
+        : Promise.resolve<ScheduleLessonEntryRecord[]>([]),
+      access.assignmentsEnabled
+        ? this.prismaService.assignment.findMany({
+            where: {
+              groupId,
+              dueAt: {
+                not: null,
+                ...(range.from
+                  ? {
+                      gte: range.from,
+                    }
+                  : {}),
+                ...(range.to
+                  ? {
+                      lte: range.to,
+                    }
+                  : {}),
+              },
+            },
+            select: scheduleAssignmentEntrySelect,
+            orderBy: [
+              {
+                dueAt: 'asc',
+              },
+              {
+                id: 'asc',
+              },
+            ],
+          })
+        : Promise.resolve<ScheduleAssignmentEntryRecord[]>([]),
       this.prismaService.scheduleEvent.findMany({
         where: {
           groupId,
@@ -320,58 +330,19 @@ export class ScheduleService {
       requireWritable?: boolean
     } = {},
   ) {
-    const group = await this.prismaService.group.findUnique({
-      where: {
-        id: groupId,
-      },
-      select: {
-        id: true,
-        status: true,
-        settings: {
-          select: {
-            scheduleEnabled: true,
-          },
-        },
-      },
+    const context = await this.authorizationService.authorizeGroupAccess(groupId, userId, {
+      requiredFeature: 'scheduleEnabled',
+      featureErrorMessage: 'Schedule module is disabled for this group',
+      requiredRoles: options.requireManage ? [...SCHEDULE_MANAGE_ROLES] : undefined,
+      roleErrorMessage: 'You cannot manage schedule events in this group',
+      requireWritable: options.requireWritable ?? false,
     })
 
-    if (!group || group.status === GroupStatus.DELETED) {
-      throw new NotFoundException('Group not found')
+    return {
+      role: context.membership!.role,
+      lessonsEnabled: context.settings.lessonsEnabled,
+      assignmentsEnabled: context.settings.assignmentsEnabled,
     }
-
-    const membership = await this.prismaService.groupMember.findUnique({
-      where: {
-        groupId_userId: {
-          groupId,
-          userId,
-        },
-      },
-      select: {
-        role: true,
-      },
-    })
-
-    if (!membership) {
-      throw new ForbiddenException('You are not a member of this group')
-    }
-
-    if (!group.settings) {
-      throw new NotFoundException('Group settings not found')
-    }
-
-    if (!group.settings.scheduleEnabled) {
-      throw new ForbiddenException('Schedule module is disabled for this group')
-    }
-
-    if (options.requireManage && !SCHEDULE_MANAGE_ROLES.has(membership.role)) {
-      throw new ForbiddenException('You cannot manage schedule events in this group')
-    }
-
-    if (options.requireWritable && group.status === GroupStatus.ARCHIVED) {
-      throw new ForbiddenException('Archived groups are read-only')
-    }
-
-    return membership
   }
 
   private async getScheduleEventRecordOrThrow(

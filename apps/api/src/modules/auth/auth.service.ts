@@ -12,11 +12,13 @@ import { PasswordHashService } from '../../security/password-hash.service'
 import type { AuthContext } from '../../security/auth.types'
 import { TokenHashService } from '../../security/token-hash.service'
 import { TokenService } from '../../security/token.service'
+import { MinioService } from '../../storage/minio/minio.service'
 import { UsersService } from '../users/users.service'
 import { LoginRequestDto } from './dto/login-request.dto'
 import { RefreshTokenRequestDto } from './dto/refresh-token-request.dto'
 import { RegisterRequestDto } from './dto/register-request.dto'
 import { authUserSelect, mapUserToDto, userSelect } from '../users/users.mapper'
+import { buildAvatarUrlByFileId } from '../users/user-avatar.utils'
 
 export type SessionMetadata = {
   userAgent: string | null
@@ -42,6 +44,8 @@ export class AuthService {
     private readonly tokenHashService: TokenHashService,
     @Inject(TokenService)
     private readonly tokenService: TokenService,
+    @Inject(MinioService)
+    private readonly minioService: MinioService,
     @Inject(UsersService)
     private readonly usersService: UsersService,
   ) {}
@@ -65,9 +69,10 @@ export class AuthService {
           ...tokenPair,
         }
       })
+      const avatarUrlByFileId = await buildAvatarUrlByFileId(this.minioService, [authSession.user])
 
       return {
-        user: mapUserToDto(authSession.user),
+        user: mapUserToDto(authSession.user, avatarUrlByFileId),
         accessToken: authSession.accessToken,
         refreshToken: authSession.refreshToken,
         sessionId: authSession.sessionId,
@@ -100,9 +105,10 @@ export class AuthService {
     }
 
     const tokenPair = await this.createSession(this.prismaService, user.id, metadata)
+    const avatarUrlByFileId = await buildAvatarUrlByFileId(this.minioService, [user])
 
     return {
-      user: mapUserToDto(user),
+      user: mapUserToDto(user, avatarUrlByFileId),
       accessToken: tokenPair.accessToken,
       refreshToken: tokenPair.refreshToken,
       sessionId: tokenPair.sessionId,
@@ -110,7 +116,7 @@ export class AuthService {
   }
 
   async refresh(payload: RefreshTokenRequestDto) {
-    const session = await this.validateRefreshToken(payload.refreshToken)
+    const session = this.parseRefreshToken(payload.refreshToken)
     const nextRefreshToken = this.generateRefreshToken(
       session.userId,
       session.sessionId,
@@ -120,16 +126,11 @@ export class AuthService {
       session.sessionId,
     )
 
-    await this.prismaService.session.update({
-      where: {
-        id: session.sessionId,
-      },
-      data: {
-        refreshTokenHash: this.tokenHashService.hash(nextRefreshToken),
-        expiresAt: this.buildRefreshExpiryDate(),
-        lastUsedAt: new Date(),
-      },
-    })
+    await this.rotateRefreshTokenOrThrow(
+      session,
+      payload.refreshToken,
+      nextRefreshToken,
+    )
 
     return {
       accessToken: nextAccessToken,
@@ -139,27 +140,20 @@ export class AuthService {
   }
 
   async logout(auth: AuthContext, payload: RefreshTokenRequestDto) {
-    const session = await this.validateRefreshToken(payload.refreshToken)
+    const session = this.parseRefreshToken(payload.refreshToken)
 
     if (session.userId !== auth.userId || session.sessionId !== auth.sessionId) {
       throw new UnauthorizedException()
     }
 
-    await this.prismaService.session.update({
-      where: {
-        id: session.sessionId,
-      },
-      data: {
-        revokedAt: new Date(),
-        lastUsedAt: new Date(),
-      },
-    })
+    await this.revokeSessionOrThrow(session, payload.refreshToken)
   }
 
   async getCurrentUser(userId: string) {
     const user = await this.usersService.getCurrentUserOrThrow(userId)
+    const avatarUrlByFileId = await buildAvatarUrlByFileId(this.minioService, [user])
 
-    return mapUserToDto(user)
+    return mapUserToDto(user, avatarUrlByFileId)
   }
 
   private async createSession(
@@ -190,47 +184,16 @@ export class AuthService {
     }
   }
 
-  private async validateRefreshToken(refreshToken: string) {
+  private parseRefreshToken(refreshToken: string) {
     const payload = this.verifyRefreshToken(refreshToken)
 
     if (typeof payload.sub !== 'string' || typeof payload.sessionId !== 'string') {
       throw new UnauthorizedException('Invalid refresh token')
     }
 
-    const session = await this.prismaService.session.findUnique({
-      where: {
-        id: payload.sessionId,
-      },
-      select: {
-        id: true,
-        userId: true,
-        refreshTokenHash: true,
-        expiresAt: true,
-        revokedAt: true,
-      },
-    })
-
-    if (
-      !session ||
-      session.userId !== payload.sub ||
-      session.revokedAt !== null ||
-      session.expiresAt <= new Date()
-    ) {
-      throw new UnauthorizedException()
-    }
-
-    const isTokenValid = this.tokenHashService.matches(
-      refreshToken,
-      session.refreshTokenHash,
-    )
-
-    if (!isTokenValid) {
-      throw new UnauthorizedException('Invalid refresh token')
-    }
-
     return {
-      userId: session.userId,
-      sessionId: session.id,
+      userId: payload.sub,
+      sessionId: payload.sessionId,
     }
   }
 
@@ -242,9 +205,63 @@ export class AuthService {
     }
   }
 
-  private buildRefreshExpiryDate() {
+  private async rotateRefreshTokenOrThrow(
+    session: { userId: string; sessionId: string },
+    currentRefreshToken: string,
+    nextRefreshToken: string,
+  ) {
+    const now = new Date()
+    const result = await this.prismaService.session.updateMany({
+      where: {
+        id: session.sessionId,
+        userId: session.userId,
+        refreshTokenHash: this.tokenHashService.hash(currentRefreshToken),
+        revokedAt: null,
+        expiresAt: {
+          gt: now,
+        },
+      },
+      data: {
+        refreshTokenHash: this.tokenHashService.hash(nextRefreshToken),
+        expiresAt: this.buildRefreshExpiryDate(now),
+        lastUsedAt: now,
+      },
+    })
+
+    if (result.count !== 1) {
+      throw new UnauthorizedException('Invalid refresh token')
+    }
+  }
+
+  private async revokeSessionOrThrow(
+    session: { userId: string; sessionId: string },
+    refreshToken: string,
+  ) {
+    const now = new Date()
+    const result = await this.prismaService.session.updateMany({
+      where: {
+        id: session.sessionId,
+        userId: session.userId,
+        refreshTokenHash: this.tokenHashService.hash(refreshToken),
+        revokedAt: null,
+        expiresAt: {
+          gt: now,
+        },
+      },
+      data: {
+        revokedAt: now,
+        lastUsedAt: now,
+      },
+    })
+
+    if (result.count !== 1) {
+      throw new UnauthorizedException('Invalid refresh token')
+    }
+  }
+
+  private buildRefreshExpiryDate(baseDate = new Date()) {
     return new Date(
-      Date.now() + this.appConfigService.jwtRefreshTtlSeconds * 1000,
+      baseDate.getTime() + this.appConfigService.jwtRefreshTtlSeconds * 1000,
     )
   }
 

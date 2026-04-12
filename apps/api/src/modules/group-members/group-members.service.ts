@@ -5,13 +5,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { GroupAccessMode, GroupRole, GroupStatus, JoinRequestStatus, Prisma } from '@prisma/client'
+import { GroupAccessMode, GroupRole, JoinRequestStatus, Prisma } from '@prisma/client'
 import { PrismaService } from '../../database/prisma/prisma.service'
-import { GroupsService } from '../groups/groups.service'
+import { AuthorizationService } from '../../security/authorization.service'
+import { MinioService } from '../../storage/minio/minio.service'
+import { buildAvatarUrlByFileId } from '../users/user-avatar.utils'
 import { CreateGroupMemberRequestDto } from './dto/create-group-member-request.dto'
 import { UpdateGroupMemberRequestDto } from './dto/update-group-member-request.dto'
 import { GroupMemberDto } from './dto/group-member.dto'
-import { groupMemberSelect, mapGroupMemberToDto } from './group-members.mapper'
+import { GroupMemberRecord, groupMemberSelect, mapGroupMemberToDto } from './group-members.mapper'
 
 const GROUP_MANAGE_ROLES = new Set<GroupRole>([GroupRole.OWNER, GroupRole.ADMIN])
 
@@ -19,11 +21,18 @@ const GROUP_MANAGE_ROLES = new Set<GroupRole>([GroupRole.OWNER, GroupRole.ADMIN]
 export class GroupMembersService {
   constructor(
     @Inject(PrismaService) private readonly prismaService: PrismaService,
-    @Inject(GroupsService) private readonly groupsService: GroupsService,
+    @Inject(AuthorizationService)
+    private readonly authorizationService: AuthorizationService,
+    @Inject(MinioService)
+    private readonly minioService: MinioService,
   ) {}
 
   async joinGroup(groupId: string, userId: string): Promise<GroupMemberDto> {
-    const group = await this.getGroupOrThrow(groupId)
+    const context = await this.authorizationService.authorizeGroupAccess(groupId, userId, {
+      requireMembership: false,
+      requireWritable: true,
+    })
+    const group = context.group
 
     if (group.accessMode !== GroupAccessMode.OPEN) {
       throw new ForbiddenException(
@@ -35,11 +44,14 @@ export class GroupMembersService {
 
     const member = await this.addMemberToGroup(groupId, userId, GroupRole.USER)
 
-    return mapGroupMemberToDto(member)
+    return this.mapGroupMemberRecordToDto(member)
   }
 
   async leaveGroup(groupId: string, userId: string) {
-    const membership = await this.groupsService.assertGroupMember(groupId, userId)
+    const context = await this.authorizationService.authorizeGroupAccess(groupId, userId, {
+      requireWritable: true,
+    })
+    const membership = context.membership!
 
     if (membership.role === GroupRole.OWNER) {
       throw new ForbiddenException('Transfer ownership before leaving the group')
@@ -56,7 +68,7 @@ export class GroupMembersService {
   }
 
   async listMembers(groupId: string, userId: string): Promise<GroupMemberDto[]> {
-    await this.groupsService.assertGroupMember(groupId, userId)
+    await this.authorizationService.authorizeGroupAccess(groupId, userId)
 
     const members = await this.prismaService.groupMember.findMany({
       where: {
@@ -76,7 +88,12 @@ export class GroupMembersService {
       ],
     })
 
-    return members.map(mapGroupMemberToDto)
+    const avatarUrlByFileId = await buildAvatarUrlByFileId(
+      this.minioService,
+      members.map((member) => member.user),
+    )
+
+    return members.map((member) => mapGroupMemberToDto(member, avatarUrlByFileId))
   }
 
   async createMember(
@@ -84,7 +101,9 @@ export class GroupMembersService {
     actorUserId: string,
     payload: CreateGroupMemberRequestDto,
   ): Promise<GroupMemberDto> {
-    const context = await this.getManageContext(groupId, actorUserId)
+    const context = await this.getManageContext(groupId, actorUserId, {
+      requireWritable: true,
+    })
     const role = payload.role ?? GroupRole.USER
 
     await this.requireUserExists(payload.userId)
@@ -99,7 +118,7 @@ export class GroupMembersService {
       reviewedByUserId: actorUserId,
     })
 
-    return mapGroupMemberToDto(member)
+    return this.mapGroupMemberRecordToDto(member)
   }
 
   async updateMemberRole(
@@ -108,11 +127,13 @@ export class GroupMembersService {
     actorUserId: string,
     payload: UpdateGroupMemberRequestDto,
   ): Promise<GroupMemberDto> {
-    const context = await this.getManageContext(groupId, actorUserId)
+    const context = await this.getManageContext(groupId, actorUserId, {
+      requireWritable: true,
+    })
     const targetMember = await this.getMemberOrThrow(groupId, targetUserId)
 
     if (targetMember.role === payload.role) {
-      return mapGroupMemberToDto(targetMember)
+      return this.mapGroupMemberRecordToDto(targetMember)
     }
 
     if (payload.role === GroupRole.OWNER) {
@@ -121,7 +142,7 @@ export class GroupMembersService {
       }
 
       if (targetUserId === context.group.ownerId) {
-        return mapGroupMemberToDto(targetMember)
+        return this.mapGroupMemberRecordToDto(targetMember)
       }
 
       const member = await this.prismaService.$transaction(async (tx) => {
@@ -160,7 +181,7 @@ export class GroupMembersService {
         })
       })
 
-      return mapGroupMemberToDto(member)
+      return this.mapGroupMemberRecordToDto(member)
     }
 
     if (targetUserId === context.group.ownerId) {
@@ -180,11 +201,13 @@ export class GroupMembersService {
       select: groupMemberSelect,
     })
 
-    return mapGroupMemberToDto(member)
+    return this.mapGroupMemberRecordToDto(member)
   }
 
   async removeMember(groupId: string, targetUserId: string, actorUserId: string) {
-    const context = await this.getManageContext(groupId, actorUserId)
+    const context = await this.getManageContext(groupId, actorUserId, {
+      requireWritable: true,
+    })
     const targetMember = await this.getMemberOrThrow(groupId, targetUserId)
 
     if (targetMember.userId === context.group.ownerId || targetMember.role === GroupRole.OWNER) {
@@ -201,40 +224,25 @@ export class GroupMembersService {
     })
   }
 
-  private async getManageContext(groupId: string, actorUserId: string) {
-    const group = await this.getGroupOrThrow(groupId)
-    const actorMembership = await this.groupsService.assertGroupMember(groupId, actorUserId)
-
-    if (!GROUP_MANAGE_ROLES.has(actorMembership.role)) {
-      throw new ForbiddenException('You cannot manage this group')
-    }
+  private async getManageContext(
+    groupId: string,
+    actorUserId: string,
+    options: {
+      requireWritable?: boolean
+    } = {},
+  ) {
+    const context = await this.authorizationService.authorizeGroupAccess(groupId, actorUserId, {
+      requireWritable: options.requireWritable ?? false,
+      requiredRoles: [...GROUP_MANAGE_ROLES],
+      roleErrorMessage: 'You cannot manage this group',
+    })
+    const actorMembership = context.membership!
 
     return {
-      group,
+      group: context.group,
       actorRole: actorMembership.role,
     }
   }
-
-  private async getGroupOrThrow(groupId: string) {
-    const group = await this.prismaService.group.findUnique({
-      where: {
-        id: groupId,
-      },
-      select: {
-        id: true,
-        ownerId: true,
-        accessMode: true,
-        status: true,
-      },
-    })
-
-    if (!group || group.status === GroupStatus.DELETED) {
-      throw new NotFoundException('Group not found')
-    }
-
-    return group
-  }
-
   private async requireUserExists(userId: string) {
     const user = await this.prismaService.user.findUnique({
       where: {
@@ -326,9 +334,7 @@ export class GroupMembersService {
         select: groupMemberSelect,
       })
 
-      if (options.reviewedByUserId) {
-        await this.approvePendingJoinRequests(tx, groupId, userId, options.reviewedByUserId)
-      }
+      await this.approvePendingJoinRequests(tx, groupId, userId, options.reviewedByUserId)
 
       return member
     })
@@ -338,19 +344,31 @@ export class GroupMembersService {
     tx: Prisma.TransactionClient,
     groupId: string,
     userId: string,
-    reviewedByUserId: string,
+    reviewedByUserId?: string,
   ) {
+    const data: Prisma.GroupJoinRequestUpdateManyMutationInput = {
+      status: JoinRequestStatus.APPROVED,
+      reviewedAt: new Date(),
+      ...(reviewedByUserId !== undefined
+        ? {
+            reviewedByUserId,
+          }
+        : {}),
+    }
+
     await tx.groupJoinRequest.updateMany({
       where: {
         groupId,
         userId,
         status: JoinRequestStatus.PENDING,
       },
-      data: {
-        status: JoinRequestStatus.APPROVED,
-        reviewedByUserId,
-        reviewedAt: new Date(),
-      },
+      data,
     })
+  }
+
+  private async mapGroupMemberRecordToDto(member: GroupMemberRecord) {
+    const avatarUrlByFileId = await buildAvatarUrlByFileId(this.minioService, [member.user])
+
+    return mapGroupMemberToDto(member, avatarUrlByFileId)
   }
 }

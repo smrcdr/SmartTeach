@@ -1,6 +1,7 @@
 import { ChatType, type Prisma } from '@prisma/client'
 import { fileSelect, mapFileToDto } from '../files/files.mapper'
 import { mapPublicUserToDto, publicUserSelect } from '../users/users.mapper'
+import type { AvatarUrlByFileId } from '../users/user-avatar.utils'
 import { ChatDto } from './dto/chat.dto'
 import { MessageDto } from './dto/message.dto'
 
@@ -97,17 +98,17 @@ export type MessageRecord = Prisma.MessageGetPayload<{
   select: typeof messageSelect
 }>
 
-export function mapChatToDto(chat: ChatRecord): ChatDto {
+export function mapChatToDto(chat: ChatRecord, avatarUrlByFileId?: AvatarUrlByFileId): ChatDto {
   const members =
     chat.chatType === ChatType.GROUP && chat.group
-      ? mapGroupChatMembers(chat)
+      ? mapGroupChatMembers(chat, avatarUrlByFileId)
       : chat.members.map((member) => ({
           userId: member.userId,
           joinedAt: member.joinedAt.toISOString(),
           lastReadAt: member.lastReadAt?.toISOString() ?? null,
           createdAt: member.createdAt.toISOString(),
           updatedAt: member.updatedAt.toISOString(),
-          user: mapPublicUserToDto(member.user),
+          user: mapPublicUserToDto(member.user, avatarUrlByFileId),
         }))
 
   return {
@@ -126,6 +127,7 @@ export function mapChatToDto(chat: ChatRecord): ChatDto {
 export function mapMessageToDto(
   message: MessageRecord,
   fileUrlsById: Map<string, string>,
+  avatarUrlByFileId?: AvatarUrlByFileId,
 ): MessageDto {
   const isDeleted = message.deletedAt !== null
 
@@ -140,11 +142,11 @@ export function mapMessageToDto(
     editedAt: message.editedAt?.toISOString() ?? null,
     deletedAt: message.deletedAt?.toISOString() ?? null,
     createdAt: message.createdAt.toISOString(),
-    author: mapPublicUserToDto(message.author),
+    author: mapPublicUserToDto(message.author, avatarUrlByFileId),
   }
 }
 
-function mapGroupChatMembers(chat: ChatRecord) {
+function mapGroupChatMembers(chat: ChatRecord, avatarUrlByFileId?: AvatarUrlByFileId) {
   const chatMembersByUserId = new Map(chat.members.map((member) => [member.userId, member]))
 
   return chat.group?.members.map((member) => {
@@ -156,7 +158,7 @@ function mapGroupChatMembers(chat: ChatRecord) {
       lastReadAt: chatMember?.lastReadAt?.toISOString() ?? null,
       createdAt: (chatMember?.createdAt ?? member.joinedAt).toISOString(),
       updatedAt: (chatMember?.updatedAt ?? member.updatedAt).toISOString(),
-      user: mapPublicUserToDto(chatMember?.user ?? member.user),
+      user: mapPublicUserToDto(chatMember?.user ?? member.user, avatarUrlByFileId),
     }
   }) ?? []
 }

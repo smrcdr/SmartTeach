@@ -102,6 +102,7 @@ type AuthSessionResponse = {
     id: string
   }
   accessToken: string
+  refreshToken: string
 }
 
 type GroupResponse = {
@@ -323,6 +324,27 @@ async function waitForSocketEvent<T>(socket: Socket, eventName: string) {
       cleanup()
       reject(new Error(`Timed out while waiting for ${eventName}`))
     }, 2_000)
+
+    const cleanup = () => {
+      clearTimeout(timeout)
+      socket.off(eventName, handleEvent)
+    }
+
+    const handleEvent = (payload: T) => {
+      cleanup()
+      resolve(payload)
+    }
+
+    socket.once(eventName, handleEvent)
+  })
+}
+
+async function waitForOptionalSocketEvent<T>(socket: Socket, eventName: string, timeoutMs = 1_500) {
+  return new Promise<T | null>((resolve) => {
+    const timeout = setTimeout(() => {
+      cleanup()
+      resolve(null)
+    }, timeoutMs)
 
     const cleanup = () => {
       clearTimeout(timeout)
@@ -642,6 +664,140 @@ test('chat gateway authenticates clients and streams message events to subscribe
     assert.ok(deletedEvent.deletedAt)
     assert.equal(deletedEvent.text, null)
     assert.deepEqual(deletedEvent.files, [])
+  } finally {
+    memberSocket.disconnect()
+  }
+})
+
+test('chat gateway revokes room access after logout', async () => {
+  const owner = await registerUser('ws-logout-owner')
+  const member = await registerUser('ws-logout-member')
+  const group = await createGroup(owner.accessToken)
+
+  await addGroupMember(group.id, member.user.id, GroupRole.USER)
+
+  const chatCreateResult = await request<ChatResponse>(`/groups/${group.id}/chats`, {
+    method: 'POST',
+    token: owner.accessToken,
+    body: {
+      title: 'Realtime logout chat',
+    },
+  })
+
+  assert.equal(chatCreateResult.response.status, 201)
+  assert.ok(chatCreateResult.body)
+
+  const memberSocket = await connectChatSocket(member.accessToken)
+
+  try {
+    const initialSubscription = await subscribeToChat(memberSocket, chatCreateResult.body.id)
+
+    assert.deepEqual(initialSubscription, {
+      ok: true,
+      chatId: chatCreateResult.body.id,
+    })
+
+    const logoutResult = await request('/auth/logout', {
+      method: 'POST',
+      token: member.accessToken,
+      body: {
+        refreshToken: member.refreshToken,
+      },
+    })
+
+    assert.equal(logoutResult.response.status, 204)
+
+    const resubscribeResult = await subscribeToChat(memberSocket, chatCreateResult.body.id)
+
+    assert.deepEqual(resubscribeResult, {
+      ok: false,
+      error: 'Unauthorized',
+    })
+
+    const unexpectedEventPromise = waitForOptionalSocketEvent<MessageResponse>(
+      memberSocket,
+      'chat.message.created',
+    )
+    const createMessageResult = await request<MessageResponse>(
+      `/chats/${chatCreateResult.body.id}/messages`,
+      {
+        method: 'POST',
+        token: owner.accessToken,
+        body: {
+          text: 'Сообщение после logout.',
+        },
+      },
+    )
+
+    assert.equal(createMessageResult.response.status, 201)
+    assert.equal(await unexpectedEventPromise, null)
+  } finally {
+    memberSocket.disconnect()
+  }
+})
+
+test('chat gateway revokes room access after member removal', async () => {
+  const owner = await registerUser('ws-removal-owner')
+  const member = await registerUser('ws-removal-member')
+  const group = await createGroup(owner.accessToken)
+
+  await addGroupMember(group.id, member.user.id, GroupRole.USER)
+
+  const chatCreateResult = await request<ChatResponse>(`/groups/${group.id}/chats`, {
+    method: 'POST',
+    token: owner.accessToken,
+    body: {
+      title: 'Realtime membership chat',
+    },
+  })
+
+  assert.equal(chatCreateResult.response.status, 201)
+  assert.ok(chatCreateResult.body)
+
+  const memberSocket = await connectChatSocket(member.accessToken)
+
+  try {
+    const initialSubscription = await subscribeToChat(memberSocket, chatCreateResult.body.id)
+
+    assert.deepEqual(initialSubscription, {
+      ok: true,
+      chatId: chatCreateResult.body.id,
+    })
+
+    const removeMemberResult = await request(
+      `/groups/${group.id}/members/${member.user.id}`,
+      {
+        method: 'DELETE',
+        token: owner.accessToken,
+      },
+    )
+
+    assert.equal(removeMemberResult.response.status, 204)
+
+    const resubscribeResult = await subscribeToChat(memberSocket, chatCreateResult.body.id)
+
+    assert.deepEqual(resubscribeResult, {
+      ok: false,
+      error: 'You are not a member of this group',
+    })
+
+    const unexpectedEventPromise = waitForOptionalSocketEvent<MessageResponse>(
+      memberSocket,
+      'chat.message.created',
+    )
+    const createMessageResult = await request<MessageResponse>(
+      `/chats/${chatCreateResult.body.id}/messages`,
+      {
+        method: 'POST',
+        token: owner.accessToken,
+        body: {
+          text: 'Сообщение после удаления участника.',
+        },
+      },
+    )
+
+    assert.equal(createMessageResult.response.status, 201)
+    assert.equal(await unexpectedEventPromise, null)
   } finally {
     memberSocket.disconnect()
   }

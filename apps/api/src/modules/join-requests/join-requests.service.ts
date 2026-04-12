@@ -6,19 +6,28 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { GroupAccessMode, GroupRole, GroupStatus, JoinRequestStatus } from '@prisma/client'
+import { GroupAccessMode, GroupRole, JoinRequestStatus, Prisma } from '@prisma/client'
 import { PrismaService } from '../../database/prisma/prisma.service'
-import { GroupsService } from '../groups/groups.service'
+import { AuthorizationService } from '../../security/authorization.service'
+import { MinioService } from '../../storage/minio/minio.service'
+import { buildAvatarUrlByFileId } from '../users/user-avatar.utils'
 import { GroupJoinRequestDto } from './dto/group-join-request.dto'
 import { JoinRequestDecisionRequestDto } from './dto/join-request-decision-request.dto'
 import { ListJoinRequestsQueryDto } from './dto/list-join-requests-query.dto'
-import { groupJoinRequestSelect, mapGroupJoinRequestToDto } from './join-requests.mapper'
+import {
+  GroupJoinRequestRecord,
+  groupJoinRequestSelect,
+  mapGroupJoinRequestToDto,
+} from './join-requests.mapper'
 
 @Injectable()
 export class JoinRequestsService {
   constructor(
     @Inject(PrismaService) private readonly prismaService: PrismaService,
-    @Inject(GroupsService) private readonly groupsService: GroupsService,
+    @Inject(AuthorizationService)
+    private readonly authorizationService: AuthorizationService,
+    @Inject(MinioService)
+    private readonly minioService: MinioService,
   ) {}
 
   async listJoinRequests(
@@ -26,7 +35,10 @@ export class JoinRequestsService {
     userId: string,
     query: ListJoinRequestsQueryDto,
   ): Promise<GroupJoinRequestDto[]> {
-    await this.groupsService.assertCanManageGroup(groupId, userId)
+    await this.authorizationService.authorizeGroupAccess(groupId, userId, {
+      requiredRoles: [GroupRole.OWNER, GroupRole.ADMIN],
+      roleErrorMessage: 'You cannot manage this group',
+    })
 
     const requests = await this.prismaService.groupJoinRequest.findMany({
       where: {
@@ -48,11 +60,20 @@ export class JoinRequestsService {
       ],
     })
 
-    return requests.map(mapGroupJoinRequestToDto)
+    const avatarUrlByFileId = await buildAvatarUrlByFileId(
+      this.minioService,
+      requests.flatMap((request) => [request.user, ...(request.reviewedByUser ? [request.reviewedByUser] : [])]),
+    )
+
+    return requests.map((request) => mapGroupJoinRequestToDto(request, avatarUrlByFileId))
   }
 
   async createJoinRequest(groupId: string, userId: string): Promise<GroupJoinRequestDto> {
-    const group = await this.getGroupOrThrow(groupId)
+    const context = await this.authorizationService.authorizeGroupAccess(groupId, userId, {
+      requireMembership: false,
+      requireWritable: true,
+    })
+    const group = context.group
 
     if (group.accessMode === GroupAccessMode.OPEN) {
       throw new ForbiddenException('Use direct join for open groups')
@@ -93,15 +114,20 @@ export class JoinRequestsService {
       throw new ConflictException('You already have a pending join request for this group')
     }
 
-    const request = await this.prismaService.groupJoinRequest.create({
-      data: {
-        groupId,
-        userId,
-      },
-      select: groupJoinRequestSelect,
-    })
+    try {
+      const request = await this.prismaService.groupJoinRequest.create({
+        data: {
+          groupId,
+          userId,
+        },
+        select: groupJoinRequestSelect,
+      })
 
-    return mapGroupJoinRequestToDto(request)
+      return this.mapJoinRequestRecordToDto(request)
+    } catch (error) {
+      this.rethrowCreateJoinRequestConflict(error)
+      throw error
+    }
   }
 
   async decideJoinRequest(
@@ -110,96 +136,117 @@ export class JoinRequestsService {
     actorUserId: string,
     payload: JoinRequestDecisionRequestDto,
   ): Promise<GroupJoinRequestDto> {
-    await this.groupsService.assertCanManageGroup(groupId, actorUserId)
+    await this.authorizationService.authorizeGroupAccess(groupId, actorUserId, {
+      requiredRoles: [GroupRole.OWNER, GroupRole.ADMIN],
+      requireWritable: true,
+      roleErrorMessage: 'You cannot manage this group',
+    })
 
-    const request = await this.prismaService.$transaction(async (tx) => {
-      const existingRequest = await tx.groupJoinRequest.findFirst({
-        where: {
-          id: requestId,
-          groupId,
-        },
-        select: {
-          id: true,
-          userId: true,
-          status: true,
-        },
-      })
-
-      if (!existingRequest) {
-        throw new NotFoundException('Join request not found')
-      }
-
-      if (existingRequest.status !== JoinRequestStatus.PENDING) {
-        throw new BadRequestException({
-          message: 'Validation failed',
-          errors: ['request: join request has already been reviewed'],
-        })
-      }
-
-      if (payload.decision === 'APPROVED') {
-        const membership = await tx.groupMember.findUnique({
+    try {
+      const request = await this.prismaService.$transaction(async (tx) => {
+        const existingRequest = await tx.groupJoinRequest.findFirst({
           where: {
-            groupId_userId: {
-              groupId,
-              userId: existingRequest.userId,
-            },
+            id: requestId,
+            groupId,
           },
           select: {
-            groupId: true,
+            id: true,
+            userId: true,
+            status: true,
           },
         })
 
-        if (membership) {
+        if (!existingRequest) {
+          throw new NotFoundException('Join request not found')
+        }
+
+        if (existingRequest.status !== JoinRequestStatus.PENDING) {
           throw new BadRequestException({
             message: 'Validation failed',
-            errors: ['request: user is already a group member'],
+            errors: ['request: join request has already been reviewed'],
           })
         }
 
-        await tx.groupMember.create({
-          data: {
-            groupId,
-            userId: existingRequest.userId,
-            role: GroupRole.USER,
+        if (payload.decision === 'APPROVED') {
+          const membership = await tx.groupMember.findUnique({
+            where: {
+              groupId_userId: {
+                groupId,
+                userId: existingRequest.userId,
+              },
+            },
+            select: {
+              groupId: true,
+            },
+          })
+
+          if (membership) {
+            throw new BadRequestException({
+              message: 'Validation failed',
+              errors: ['request: user is already a group member'],
+            })
+          }
+
+          await tx.groupMember.create({
+            data: {
+              groupId,
+              userId: existingRequest.userId,
+              role: GroupRole.USER,
+            },
+          })
+        }
+
+        return tx.groupJoinRequest.update({
+          where: {
+            id: requestId,
           },
+          data: {
+            status:
+              payload.decision === 'APPROVED'
+                ? JoinRequestStatus.APPROVED
+                : JoinRequestStatus.REJECTED,
+            reviewedByUserId: actorUserId,
+            reviewedAt: new Date(),
+          },
+          select: groupJoinRequestSelect,
         })
-      }
-
-      return tx.groupJoinRequest.update({
-        where: {
-          id: requestId,
-        },
-        data: {
-          status:
-            payload.decision === 'APPROVED'
-              ? JoinRequestStatus.APPROVED
-              : JoinRequestStatus.REJECTED,
-          reviewedByUserId: actorUserId,
-          reviewedAt: new Date(),
-        },
-        select: groupJoinRequestSelect,
       })
-    })
 
-    return mapGroupJoinRequestToDto(request)
+      return this.mapJoinRequestRecordToDto(request)
+    } catch (error) {
+      this.rethrowJoinDecisionConflict(error)
+      throw error
+    }
   }
 
-  private async getGroupOrThrow(groupId: string) {
-    const group = await this.prismaService.group.findUnique({
-      where: {
-        id: groupId,
-      },
-      select: {
-        id: true,
-        accessMode: true,
-        status: true,
-      },
-    })
-
-    if (!group || group.status === GroupStatus.DELETED) {
-      throw new NotFoundException('Group not found')
+  private rethrowCreateJoinRequestConflict(error: unknown): never | void {
+    if (this.isUniqueConstraintError(error)) {
+      throw new ConflictException('You already have a pending join request for this group')
     }
+  }
 
-    return group
+  private rethrowJoinDecisionConflict(error: unknown): never | void {
+    if (this.isUniqueConstraintError(error)) {
+      throw new BadRequestException({
+        message: 'Validation failed',
+        errors: ['request: user is already a group member'],
+      })
+    }
+  }
+
+  private isUniqueConstraintError(error: unknown) {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    )
+  }
+
+  private async mapJoinRequestRecordToDto(request: GroupJoinRequestRecord) {
+    const avatarUrlByFileId = await buildAvatarUrlByFileId(
+      this.minioService,
+      [request.user, ...(request.reviewedByUser ? [request.reviewedByUser] : [])],
+    )
+
+    return mapGroupJoinRequestToDto(request, avatarUrlByFileId)
   }
 }

@@ -6,13 +6,12 @@ import {
   SubscribeMessage,
   WebSocketGateway,
 } from '@nestjs/websockets'
-import { PrismaService } from '../../database/prisma/prisma.service'
 import type { AuthContext } from '../../security/auth.types'
-import { TokenService } from '../../security/token.service'
+import { SessionAuthService } from '../../security/session-auth.service'
 import { ChatRealtimePublisher } from './chat-realtime.publisher'
 import { subscribeToChatSchema } from './chats.schemas'
 import { ChatsService } from './chats.service'
-import type { Server, Socket } from 'socket.io'
+import type { Namespace, Socket } from 'socket.io'
 
 type ChatSocketData = {
   auth?: AuthContext
@@ -45,11 +44,11 @@ export class ChatGateway implements OnGatewayInit {
     @Inject(ChatsService) private readonly chatsService: ChatsService,
     @Inject(ChatRealtimePublisher)
     private readonly realtimePublisher: ChatRealtimePublisher,
-    @Inject(TokenService) private readonly tokenService: TokenService,
-    @Inject(PrismaService) private readonly prismaService: PrismaService,
+    @Inject(SessionAuthService)
+    private readonly sessionAuthService: SessionAuthService,
   ) {}
 
-  afterInit(server: Server) {
+  afterInit(server: Namespace) {
     this.realtimePublisher.attachServer(server)
     server.use((client, next) => {
       void this.authenticateClient(client as ChatSocket)
@@ -77,9 +76,11 @@ export class ChatGateway implements OnGatewayInit {
       }
     }
 
-    const auth = client.data.auth
+    let auth: AuthContext
 
-    if (!auth) {
+    try {
+      auth = await this.revalidateClientAuth(client)
+    } catch {
       return {
         ok: false,
         error: 'Unauthorized',
@@ -95,6 +96,8 @@ export class ChatGateway implements OnGatewayInit {
         chatId: parsedPayload.data.chatId,
       }
     } catch (error) {
+      client.leave(this.realtimePublisher.getChatRoom(parsedPayload.data.chatId))
+
       return {
         ok: false,
         error: this.getErrorMessage(error),
@@ -104,36 +107,26 @@ export class ChatGateway implements OnGatewayInit {
 
   private async authenticateClient(client: ChatSocket) {
     const accessToken = this.extractAccessToken(client)
-    const payload = this.verifyAccessToken(accessToken)
+    client.data.auth = await this.sessionAuthService.authenticateAccessToken(accessToken)
+  }
 
-    if (typeof payload.sub !== 'string' || typeof payload.sessionId !== 'string') {
-      throw new Error('Invalid access token')
-    }
+  private async revalidateClientAuth(client: ChatSocket) {
+    const auth = client.data.auth
 
-    const session = await this.prismaService.session.findUnique({
-      where: {
-        id: payload.sessionId,
-      },
-      select: {
-        userId: true,
-        expiresAt: true,
-        revokedAt: true,
-      },
-    })
-
-    if (
-      !session ||
-      session.userId !== payload.sub ||
-      session.revokedAt !== null ||
-      session.expiresAt <= new Date()
-    ) {
+    if (!auth) {
       throw new Error('Unauthorized')
     }
 
-    client.data.auth = {
-      userId: payload.sub,
-      sessionId: payload.sessionId,
-      accessTokenPayload: payload,
+    try {
+      const validatedAuth = await this.sessionAuthService.validateAuthContext(auth)
+
+      client.data.auth = validatedAuth
+
+      return validatedAuth
+    } catch {
+      this.clearClientAuthorization(client)
+
+      throw new Error('Unauthorized')
     }
   }
 
@@ -154,20 +147,10 @@ export class ChatGateway implements OnGatewayInit {
       throw new Error('Missing access token')
     }
 
-    const [scheme, token] = authorizationHeader.split(' ')
-
-    if (scheme !== 'Bearer' || !token) {
-      throw new Error('Invalid authorization header')
-    }
-
-    return token
-  }
-
-  private verifyAccessToken(accessToken: string) {
     try {
-      return this.tokenService.verifyAccessToken(accessToken)
+      return this.sessionAuthService.extractAccessTokenFromAuthorizationHeader(authorizationHeader)
     } catch {
-      throw new Error('Invalid access token')
+      throw new Error('Invalid authorization header')
     }
   }
 
@@ -194,5 +177,15 @@ export class ChatGateway implements OnGatewayInit {
     }
 
     return 'Unknown websocket error'
+  }
+
+  private clearClientAuthorization(client: ChatSocket) {
+    client.data.auth = undefined
+
+    for (const room of client.rooms) {
+      if (room !== client.id) {
+        client.leave(room)
+      }
+    }
   }
 }

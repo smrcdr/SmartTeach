@@ -2,7 +2,11 @@ import { ApiPropertyOptional } from '@nestjs/swagger'
 import { z } from 'zod'
 import { lessonStatusSchema, lessonStatusValues } from '../lessons.schemas'
 
-function normalizeOptionalDateTime(value: unknown) {
+function normalizeOptionalNullableDateTime(value: unknown) {
+  if (value === null) {
+    return null
+  }
+
   if (typeof value !== 'string') {
     return value
   }
@@ -20,16 +24,24 @@ export class UpdateLessonRequestDto {
       status: lessonStatusSchema.optional(),
       sortOrder: z.number().int().min(1).optional(),
       startsAt: z.preprocess(
-        normalizeOptionalDateTime,
-        z.string().datetime({
-          offset: true,
-        }).optional(),
+        normalizeOptionalNullableDateTime,
+        z
+          .string()
+          .datetime({
+            offset: true,
+          })
+          .nullable()
+          .optional(),
       ),
       endsAt: z.preprocess(
-        normalizeOptionalDateTime,
-        z.string().datetime({
-          offset: true,
-        }).optional(),
+        normalizeOptionalNullableDateTime,
+        z
+          .string()
+          .datetime({
+            offset: true,
+          })
+          .nullable()
+          .optional(),
       ),
       fileIds: z.array(z.string().uuid()).optional(),
     })
@@ -62,14 +74,16 @@ export class UpdateLessonRequestDto {
   @ApiPropertyOptional({
     format: 'date-time',
     example: '2026-04-20T09:00:00.000Z',
+    nullable: true,
   })
-  startsAt?: string
+  startsAt?: string | null
 
   @ApiPropertyOptional({
     format: 'date-time',
     example: '2026-04-20T10:30:00.000Z',
+    nullable: true,
   })
-  endsAt?: string
+  endsAt?: string | null
 
   @ApiPropertyOptional({
     type: [String],

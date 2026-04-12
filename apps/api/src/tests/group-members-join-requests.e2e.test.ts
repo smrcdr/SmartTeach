@@ -84,6 +84,8 @@ type GroupResponse = {
   id: string
   ownerId: string
   accessMode: 'OPEN' | 'BY_REQUEST' | 'CLOSED'
+  status: 'ACTIVE' | 'ARCHIVED' | 'DELETED'
+  archivedAt: string | null
 }
 
 type GroupMemberResponse = {
@@ -173,6 +175,23 @@ async function createGroup(
   assert.equal(result.response.status, 201)
   assert.ok(result.body)
   createdGroupIds.add(result.body.id)
+
+  return result.body
+}
+
+async function archiveGroup(token: string, groupId: string) {
+  const result = await request<GroupResponse>(`/groups/${groupId}`, {
+    method: 'PATCH',
+    token,
+    body: {
+      status: 'ARCHIVED',
+    },
+  })
+
+  assert.equal(result.response.status, 200)
+  assert.ok(result.body)
+  assert.equal(result.body.status, 'ARCHIVED')
+  assert.ok(result.body.archivedAt)
 
   return result.body
 }
@@ -487,4 +506,354 @@ test('join requests endpoints support submit, list, approve and reject flows', a
     role: GroupRole.USER,
   })
   assert.equal(rejectedMembership, null)
+})
+
+test('manual member add settles an existing pending join request', async () => {
+  const owner = await registerUser('requests-manual-owner')
+  const requester = await registerUser('requests-manual-requester')
+
+  const group = await createGroup(owner.accessToken, 'BY_REQUEST', 'Manual Membership Approval')
+
+  const createRequestResult = await request<GroupJoinRequestResponse>(
+    `/groups/${group.id}/join-requests`,
+    {
+      method: 'POST',
+      token: requester.accessToken,
+    },
+  )
+
+  assert.equal(createRequestResult.response.status, 201)
+  assert.ok(createRequestResult.body)
+  assert.equal(createRequestResult.body.status, 'PENDING')
+
+  const manualAddResult = await request<GroupMemberResponse>(`/groups/${group.id}/members`, {
+    method: 'POST',
+    token: owner.accessToken,
+    body: {
+      userId: requester.user.id,
+    },
+  })
+
+  assert.equal(manualAddResult.response.status, 201)
+  assert.ok(manualAddResult.body)
+  assert.equal(manualAddResult.body.userId, requester.user.id)
+
+  const pendingListResult = await request<GroupJoinRequestResponse[]>(
+    `/groups/${group.id}/join-requests?status=PENDING`,
+    {
+      method: 'GET',
+      token: owner.accessToken,
+    },
+  )
+
+  assert.equal(pendingListResult.response.status, 200)
+  assert.ok(pendingListResult.body)
+  assert.deepEqual(pendingListResult.body, [])
+
+  const approvedListResult = await request<GroupJoinRequestResponse[]>(
+    `/groups/${group.id}/join-requests?status=APPROVED`,
+    {
+      method: 'GET',
+      token: owner.accessToken,
+    },
+  )
+
+  assert.equal(approvedListResult.response.status, 200)
+  assert.ok(approvedListResult.body)
+  assert.equal(approvedListResult.body.length, 1)
+  assert.equal(approvedListResult.body[0]?.id, createRequestResult.body.id)
+  assert.equal(approvedListResult.body[0]?.reviewedByUserId, owner.user.id)
+})
+
+test('changing access mode away from BY_REQUEST rejects stale pending join requests', async () => {
+  const owner = await registerUser('requests-mode-owner')
+  const requester = await registerUser('requests-mode-requester')
+
+  const group = await createGroup(owner.accessToken, 'BY_REQUEST', 'Join Request Access Mode Change')
+
+  const createRequestResult = await request<GroupJoinRequestResponse>(
+    `/groups/${group.id}/join-requests`,
+    {
+      method: 'POST',
+      token: requester.accessToken,
+    },
+  )
+
+  assert.equal(createRequestResult.response.status, 201)
+  assert.ok(createRequestResult.body)
+  assert.equal(createRequestResult.body.status, 'PENDING')
+
+  const updateGroupResult = await request<GroupResponse>(`/groups/${group.id}`, {
+    method: 'PATCH',
+    token: owner.accessToken,
+    body: {
+      accessMode: 'OPEN',
+    },
+  })
+
+  assert.equal(updateGroupResult.response.status, 200)
+  assert.ok(updateGroupResult.body)
+  assert.equal(updateGroupResult.body.accessMode, 'OPEN')
+
+  const pendingListResult = await request<GroupJoinRequestResponse[]>(
+    `/groups/${group.id}/join-requests?status=PENDING`,
+    {
+      method: 'GET',
+      token: owner.accessToken,
+    },
+  )
+
+  assert.equal(pendingListResult.response.status, 200)
+  assert.ok(pendingListResult.body)
+  assert.deepEqual(pendingListResult.body, [])
+
+  const rejectedListResult = await request<GroupJoinRequestResponse[]>(
+    `/groups/${group.id}/join-requests?status=REJECTED`,
+    {
+      method: 'GET',
+      token: owner.accessToken,
+    },
+  )
+
+  assert.equal(rejectedListResult.response.status, 200)
+  assert.ok(rejectedListResult.body)
+  assert.equal(rejectedListResult.body.length, 1)
+  assert.equal(rejectedListResult.body[0]?.id, createRequestResult.body.id)
+  assert.equal(rejectedListResult.body[0]?.reviewedByUserId, owner.user.id)
+
+  const joinResult = await request<GroupMemberResponse>(`/groups/${group.id}/join`, {
+    method: 'POST',
+    token: requester.accessToken,
+  })
+
+  assert.equal(joinResult.response.status, 200)
+  assert.ok(joinResult.body)
+  assert.equal(joinResult.body.userId, requester.user.id)
+})
+
+test('join request creation preserves the single pending request invariant under concurrency', async () => {
+  const owner = await registerUser('requests-race-owner')
+  const requester = await registerUser('requests-race-requester')
+
+  const group = await createGroup(
+    owner.accessToken,
+    'BY_REQUEST',
+    'Concurrent Join Request Invariant',
+  )
+
+  const concurrentResults = await Promise.all([
+    request<GroupJoinRequestResponse>(`/groups/${group.id}/join-requests`, {
+      method: 'POST',
+      token: requester.accessToken,
+    }),
+    request<GroupJoinRequestResponse>(`/groups/${group.id}/join-requests`, {
+      method: 'POST',
+      token: requester.accessToken,
+    }),
+  ])
+
+  assert.deepEqual(
+    concurrentResults
+      .map((result) => result.response.status)
+      .sort((left, right) => left - right),
+    [201, 409],
+  )
+
+  const pendingRequests = await prisma.groupJoinRequest.findMany({
+    where: {
+      groupId: group.id,
+      userId: requester.user.id,
+      status: 'PENDING',
+    },
+    select: {
+      id: true,
+      status: true,
+    },
+  })
+
+  assert.equal(pendingRequests.length, 1)
+  assert.equal(pendingRequests[0]?.status, 'PENDING')
+})
+
+test('archived groups remain readable but reject member and join-request writes', async () => {
+  const owner = await registerUser('archived-owner')
+  const member = await registerUser('archived-member')
+  const managedMember = await registerUser('archived-managed-member')
+  const outsider = await registerUser('archived-outsider')
+  const requester = await registerUser('archived-requester')
+
+  const openGroup = await createGroup(owner.accessToken, 'OPEN', 'Archived Membership Controls')
+  const byRequestGroup = await createGroup(
+    owner.accessToken,
+    'BY_REQUEST',
+    'Archived Join Request Controls',
+  )
+
+  const joinMemberResult = await request<GroupMemberResponse>(`/groups/${openGroup.id}/join`, {
+    method: 'POST',
+    token: member.accessToken,
+  })
+
+  assert.equal(joinMemberResult.response.status, 200)
+  assert.ok(joinMemberResult.body)
+
+  const addManagedMemberResult = await request<GroupMemberResponse>(`/groups/${openGroup.id}/members`, {
+    method: 'POST',
+    token: owner.accessToken,
+    body: {
+      userId: managedMember.user.id,
+    },
+  })
+
+  assert.equal(addManagedMemberResult.response.status, 201)
+  assert.ok(addManagedMemberResult.body)
+
+  const createPendingRequestResult = await request<GroupJoinRequestResponse>(
+    `/groups/${byRequestGroup.id}/join-requests`,
+    {
+      method: 'POST',
+      token: requester.accessToken,
+    },
+  )
+
+  assert.equal(createPendingRequestResult.response.status, 201)
+  assert.ok(createPendingRequestResult.body)
+  assert.equal(createPendingRequestResult.body.status, 'PENDING')
+
+  await archiveGroup(owner.accessToken, openGroup.id)
+  await archiveGroup(owner.accessToken, byRequestGroup.id)
+
+  const archivedMembersResult = await request<GroupMemberResponse[]>(`/groups/${openGroup.id}/members`, {
+    method: 'GET',
+    token: member.accessToken,
+  })
+
+  assert.equal(archivedMembersResult.response.status, 200)
+  assert.ok(archivedMembersResult.body)
+  assert.equal(archivedMembersResult.body.length, 3)
+
+  const archivedJoinRequestsResult = await request<GroupJoinRequestResponse[]>(
+    `/groups/${byRequestGroup.id}/join-requests?status=PENDING`,
+    {
+      method: 'GET',
+      token: owner.accessToken,
+    },
+  )
+
+  assert.equal(archivedJoinRequestsResult.response.status, 200)
+  assert.ok(archivedJoinRequestsResult.body)
+  assert.equal(archivedJoinRequestsResult.body.length, 1)
+  assert.equal(archivedJoinRequestsResult.body[0]?.id, createPendingRequestResult.body.id)
+
+  const archivedJoinResult = await request(`/groups/${openGroup.id}/join`, {
+    method: 'POST',
+    token: outsider.accessToken,
+  })
+
+  assert.equal(archivedJoinResult.response.status, 403)
+
+  const archivedLeaveResult = await request(`/groups/${openGroup.id}/leave`, {
+    method: 'POST',
+    token: member.accessToken,
+  })
+
+  assert.equal(archivedLeaveResult.response.status, 403)
+
+  const archivedCreateMemberResult = await request(`/groups/${openGroup.id}/members`, {
+    method: 'POST',
+    token: owner.accessToken,
+    body: {
+      userId: outsider.user.id,
+    },
+  })
+
+  assert.equal(archivedCreateMemberResult.response.status, 403)
+
+  const archivedUpdateMemberResult = await request(
+    `/groups/${openGroup.id}/members/${managedMember.user.id}`,
+    {
+      method: 'PATCH',
+      token: owner.accessToken,
+      body: {
+        role: 'ADMIN',
+      },
+    },
+  )
+
+  assert.equal(archivedUpdateMemberResult.response.status, 403)
+
+  const archivedDeleteMemberResult = await request(
+    `/groups/${openGroup.id}/members/${managedMember.user.id}`,
+    {
+      method: 'DELETE',
+      token: owner.accessToken,
+    },
+  )
+
+  assert.equal(archivedDeleteMemberResult.response.status, 403)
+
+  const archivedCreateJoinRequestResult = await request(`/groups/${byRequestGroup.id}/join-requests`, {
+    method: 'POST',
+    token: outsider.accessToken,
+  })
+
+  assert.equal(archivedCreateJoinRequestResult.response.status, 403)
+
+  const archivedDecisionResult = await request(
+    `/groups/${byRequestGroup.id}/join-requests/${createPendingRequestResult.body.id}`,
+    {
+      method: 'PATCH',
+      token: owner.accessToken,
+      body: {
+        decision: 'APPROVED',
+      },
+    },
+  )
+
+  assert.equal(archivedDecisionResult.response.status, 403)
+
+  const storedOpenGroupMembers = await prisma.groupMember.findMany({
+    where: {
+      groupId: openGroup.id,
+    },
+    orderBy: {
+      userId: 'asc',
+    },
+    select: {
+      userId: true,
+      role: true,
+    },
+  })
+
+  assert.deepEqual(storedOpenGroupMembers, [
+    {
+      userId: managedMember.user.id,
+      role: GroupRole.USER,
+    },
+    {
+      userId: member.user.id,
+      role: GroupRole.USER,
+    },
+    {
+      userId: owner.user.id,
+      role: GroupRole.OWNER,
+    },
+  ].sort((left, right) => left.userId.localeCompare(right.userId)))
+
+  const storedPendingRequest = await prisma.groupJoinRequest.findUnique({
+    where: {
+      id: createPendingRequestResult.body.id,
+    },
+    select: {
+      status: true,
+      reviewedByUserId: true,
+      reviewedAt: true,
+    },
+  })
+
+  assert.deepEqual(storedPendingRequest, {
+    status: 'PENDING',
+    reviewedByUserId: null,
+    reviewedAt: null,
+  })
 })

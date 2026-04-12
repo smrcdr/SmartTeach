@@ -242,3 +242,58 @@ test('auth and users endpoints support full session lifecycle', async () => {
 
   assert.equal(revokedSessionMeResult.response.status, 401)
 })
+
+test('concurrent refresh keeps only one rotated token valid', async () => {
+  const email = `auth-race-${Date.now()}@smarteach.local`
+  const registerResult = await request<AuthSessionResponse>('/auth/register', {
+    method: 'POST',
+    body: {
+      email,
+      password: 'Password123!',
+      displayName: 'Concurrent Refresh User',
+    },
+  })
+
+  assert.equal(registerResult.response.status, 201)
+  assert.ok(registerResult.body)
+  createdUserIds.add(String(registerResult.body.user.id))
+
+  const refreshToken = String(registerResult.body.refreshToken)
+  const [firstRefreshResult, secondRefreshResult] = await Promise.all([
+    request<TokenPairResponse>('/auth/refresh', {
+      method: 'POST',
+      body: {
+        refreshToken,
+      },
+    }),
+    request<TokenPairResponse>('/auth/refresh', {
+      method: 'POST',
+      body: {
+        refreshToken,
+      },
+    }),
+  ])
+
+  const statuses = [
+    firstRefreshResult.response.status,
+    secondRefreshResult.response.status,
+  ].sort()
+
+  assert.deepEqual(statuses, [200, 401])
+
+  const successfulRefresh = [firstRefreshResult, secondRefreshResult].find(
+    (result) => result.response.status === 200,
+  )
+
+  assert.ok(successfulRefresh?.body)
+  assert.equal(successfulRefresh.body.sessionId, registerResult.body.sessionId)
+
+  const staleRefreshResult = await request('/auth/refresh', {
+    method: 'POST',
+    body: {
+      refreshToken,
+    },
+  })
+
+  assert.equal(staleRefreshResult.response.status, 401)
+})

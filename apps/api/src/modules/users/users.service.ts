@@ -38,8 +38,8 @@ export class UsersService {
   }
 
   async updateCurrentUser(userId: string, payload: UpdateMyProfileRequestDto) {
-    if (payload.avatarFileId !== undefined) {
-      await this.assertAvatarFileExists(payload.avatarFileId)
+    if (payload.avatarFileId !== undefined && payload.avatarFileId !== null) {
+      await this.assertAvatarFileIsAccessibleByUser(userId, payload.avatarFileId)
     }
 
     return this.prismaService.user.update({
@@ -67,10 +67,11 @@ export class UsersService {
     })
   }
 
-  private async assertAvatarFileExists(fileId: string) {
+  private async assertAvatarFileIsAccessibleByUser(userId: string, fileId: string) {
     const file = await this.prismaService.file.findFirst({
       where: {
         id: fileId,
+        uploadedByUserId: userId,
         deletedAt: null,
       },
       select: {

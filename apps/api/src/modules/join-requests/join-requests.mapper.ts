@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import { mapPublicUserToDto, publicUserSelect } from '../users/users.mapper'
+import type { AvatarUrlByFileId } from '../users/user-avatar.utils'
 import { GroupJoinRequestDto } from './dto/group-join-request.dto'
 
 export const groupJoinRequestSelect = {
@@ -23,7 +24,10 @@ export type GroupJoinRequestRecord = Prisma.GroupJoinRequestGetPayload<{
   select: typeof groupJoinRequestSelect
 }>
 
-export function mapGroupJoinRequestToDto(request: GroupJoinRequestRecord): GroupJoinRequestDto {
+export function mapGroupJoinRequestToDto(
+  request: GroupJoinRequestRecord,
+  avatarUrlByFileId?: AvatarUrlByFileId,
+): GroupJoinRequestDto {
   return {
     id: request.id,
     groupId: request.groupId,
@@ -33,7 +37,9 @@ export function mapGroupJoinRequestToDto(request: GroupJoinRequestRecord): Group
     reviewedAt: request.reviewedAt?.toISOString() ?? null,
     createdAt: request.createdAt.toISOString(),
     updatedAt: request.updatedAt.toISOString(),
-    user: mapPublicUserToDto(request.user),
-    reviewer: request.reviewedByUser ? mapPublicUserToDto(request.reviewedByUser) : null,
+    user: mapPublicUserToDto(request.user, avatarUrlByFileId),
+    reviewer: request.reviewedByUser
+      ? mapPublicUserToDto(request.reviewedByUser, avatarUrlByFileId)
+      : null,
   }
 }

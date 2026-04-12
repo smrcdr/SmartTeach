@@ -23,10 +23,12 @@ import { ErrorResponseDto } from '../../common/dto/error-response.dto'
 import { CurrentAuth } from '../../security/current-auth.decorator'
 import type { AuthContext } from '../../security/auth.types'
 import { AccessTokenAuthGuard } from '../../security/access-token-auth.guard'
+import { MinioService } from '../../storage/minio/minio.service'
 import { UpdateMyProfileRequestDto } from './dto/update-my-profile-request.dto'
 import { PublicUserDto } from './dto/public-user.dto'
 import { UserDto } from './dto/user.dto'
 import { mapPublicUserToDto, mapUserToDto } from './users.mapper'
+import { buildAvatarUrlByFileId } from './user-avatar.utils'
 import { UsersService } from './users.service'
 
 @ApiTags('Users')
@@ -37,7 +39,10 @@ import { UsersService } from './users.service'
   version: '1',
 })
 export class UsersController {
-  constructor(@Inject(UsersService) private readonly usersService: UsersService) {}
+  constructor(
+    @Inject(UsersService) private readonly usersService: UsersService,
+    @Inject(MinioService) private readonly minioService: MinioService,
+  ) {}
 
   @Patch('me')
   @HttpCode(HttpStatus.OK)
@@ -59,8 +64,9 @@ export class UsersController {
     @Body() payload: UpdateMyProfileRequestDto,
   ) {
     const user = await this.usersService.updateCurrentUser(auth.userId, payload)
+    const avatarUrlByFileId = await buildAvatarUrlByFileId(this.minioService, [user])
 
-    return mapUserToDto(user)
+    return mapUserToDto(user, avatarUrlByFileId)
   }
 
   @Get(':userId')
@@ -81,7 +87,8 @@ export class UsersController {
     @Param('userId', new ParseUUIDPipe({ version: '4' })) userId: string,
   ) {
     const user = await this.usersService.getPublicUserOrThrow(userId)
+    const avatarUrlByFileId = await buildAvatarUrlByFileId(this.minioService, [user])
 
-    return mapPublicUserToDto(user)
+    return mapPublicUserToDto(user, avatarUrlByFileId)
   }
 }

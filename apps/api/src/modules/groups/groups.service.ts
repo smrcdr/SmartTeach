@@ -6,15 +6,18 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { GroupRole, GroupStatus, Prisma } from '@prisma/client'
+import { GroupRole, GroupStatus, JoinRequestStatus, Prisma } from '@prisma/client'
 import { CodeGeneratorService } from '../../common/code-generator.service'
 import { PrismaService } from '../../database/prisma/prisma.service'
+import { AuthorizationService } from '../../security/authorization.service'
+import { MinioService } from '../../storage/minio/minio.service'
 import { CreateGroupRequestDto } from './dto/create-group-request.dto'
 import { ListGroupsQueryDto } from './dto/list-groups-query.dto'
 import { UpdateGroupRequestDto } from './dto/update-group-request.dto'
 import { GroupDto } from './dto/group.dto'
 import { GroupSettingsDto } from './dto/group-settings.dto'
 import { mapGroupToDto, mapGroupSettingsToDto, groupSelect, groupSettingsSelect } from './groups.mapper'
+import { buildAvatarUrlByFileId } from '../users/user-avatar.utils'
 
 const PUBLIC_GROUP_ACCESS_MODES = ['OPEN', 'BY_REQUEST'] as const
 const GROUP_MANAGE_ROLES = new Set<GroupRole>([GroupRole.OWNER, GroupRole.ADMIN])
@@ -23,8 +26,12 @@ const GROUP_MANAGE_ROLES = new Set<GroupRole>([GroupRole.OWNER, GroupRole.ADMIN]
 export class GroupsService {
   constructor(
     @Inject(PrismaService) private readonly prismaService: PrismaService,
+    @Inject(AuthorizationService)
+    private readonly authorizationService: AuthorizationService,
     @Inject(CodeGeneratorService)
     private readonly codeGeneratorService: CodeGeneratorService,
+    @Inject(MinioService)
+    private readonly minioService: MinioService,
   ) {}
 
   async listGroups(userId: string, query: ListGroupsQueryDto) {
@@ -89,7 +96,12 @@ export class GroupsService {
       ],
     })
 
-    return groups.map(mapGroupToDto)
+    const avatarUrlByFileId = await buildAvatarUrlByFileId(
+      this.minioService,
+      groups.map((group) => group.owner),
+    )
+
+    return groups.map((group) => mapGroupToDto(group, avatarUrlByFileId))
   }
 
   async createGroup(ownerId: string, payload: CreateGroupRequestDto): Promise<GroupDto> {
@@ -122,7 +134,7 @@ export class GroupsService {
           }),
         )
 
-        return mapGroupToDto(group)
+        return this.mapGroupRecordToDto(group)
       } catch (error) {
         if (this.isGroupCodeConflict(error)) {
           continue
@@ -155,7 +167,7 @@ export class GroupsService {
       throw new NotFoundException('Group not found')
     }
 
-    return mapGroupToDto(group)
+    return this.mapGroupRecordToDto(group)
   }
 
   async getGroupByIdOrThrow(userId: string, groupId: string) {
@@ -175,7 +187,7 @@ export class GroupsService {
       throw new NotFoundException('Group not found')
     }
 
-    return mapGroupToDto(group)
+    return this.mapGroupRecordToDto(group)
   }
 
   async updateGroup(groupId: string, userId: string, payload: UpdateGroupRequestDto) {
@@ -187,6 +199,10 @@ export class GroupsService {
     }
 
     const group = await this.assertCanManageGroup(groupId, userId)
+    const shouldRejectPendingJoinRequests =
+      payload.accessMode !== undefined &&
+      payload.accessMode !== group.accessMode &&
+      payload.accessMode !== 'BY_REQUEST'
 
     const data: Prisma.GroupUpdateInput = {
       ...(payload.name !== undefined
@@ -216,15 +232,33 @@ export class GroupsService {
       return this.getGroupByIdOrThrow(userId, groupId)
     }
 
-    const updatedGroup = await this.prismaService.group.update({
-      where: {
-        id: groupId,
-      },
-      data,
-      select: groupSelect,
+    const updatedGroup = await this.prismaService.$transaction(async (tx) => {
+      const nextGroup = await tx.group.update({
+        where: {
+          id: groupId,
+        },
+        data,
+        select: groupSelect,
+      })
+
+      if (shouldRejectPendingJoinRequests) {
+        await tx.groupJoinRequest.updateMany({
+          where: {
+            groupId,
+            status: JoinRequestStatus.PENDING,
+          },
+          data: {
+            status: JoinRequestStatus.REJECTED,
+            reviewedAt: new Date(),
+            reviewedByUserId: userId,
+          },
+        })
+      }
+
+      return nextGroup
     })
 
-    return mapGroupToDto(updatedGroup)
+    return this.mapGroupRecordToDto(updatedGroup)
   }
 
   async deleteGroup(groupId: string, userId: string) {
@@ -242,9 +276,7 @@ export class GroupsService {
   }
 
   async getGroupSettingsOrThrow(groupId: string, userId: string): Promise<GroupSettingsDto> {
-    await this.assertGroupMember(groupId, userId, {
-      allowDeleted: true,
-    })
+    await this.assertGroupMember(groupId, userId)
 
     const settings = await this.prismaService.groupSettings.findUnique({
       where: {
@@ -265,7 +297,9 @@ export class GroupsService {
     userId: string,
     payload: Partial<GroupSettingsDto>,
   ): Promise<GroupSettingsDto> {
-    await this.assertCanManageGroup(groupId, userId)
+    await this.assertCanManageGroup(groupId, userId, {
+      requireWritable: true,
+    })
 
     const data: Prisma.GroupSettingsUpdateInput = {
       ...(payload.chatEnabled !== undefined
@@ -312,21 +346,10 @@ export class GroupsService {
       allowDeleted?: boolean
     } = {},
   ) {
-    await this.ensureGroupExists(groupId, {
+    const context = await this.authorizationService.authorizeGroupAccess(groupId, userId, {
       allowDeleted: options.allowDeleted ?? false,
     })
-
-    const membership = await this.prismaService.groupMember.findUnique({
-      where: {
-        groupId_userId: {
-          groupId,
-          userId,
-        },
-      },
-      select: {
-        role: true,
-      },
-    })
+    const membership = context.membership
 
     if (!membership) {
       throw new ForbiddenException('You are not a member of this group')
@@ -335,39 +358,20 @@ export class GroupsService {
     return membership
   }
 
-  async assertCanManageGroup(groupId: string, userId: string) {
-    const group = await this.ensureGroupExists(groupId)
-    const membership = await this.assertGroupMember(groupId, userId)
-
-    if (!GROUP_MANAGE_ROLES.has(membership.role)) {
-      throw new ForbiddenException('You cannot manage this group')
-    }
-
-    return group
-  }
-
-  private async ensureGroupExists(
+  async assertCanManageGroup(
     groupId: string,
+    userId: string,
     options: {
-      allowDeleted?: boolean
+      requireWritable?: boolean
     } = {},
   ) {
-    const group = await this.prismaService.group.findUnique({
-      where: {
-        id: groupId,
-      },
-      select: {
-        id: true,
-        status: true,
-        archivedAt: true,
-      },
+    const context = await this.authorizationService.authorizeGroupAccess(groupId, userId, {
+      requiredRoles: [...GROUP_MANAGE_ROLES],
+      requireWritable: options.requireWritable ?? false,
+      roleErrorMessage: 'You cannot manage this group',
     })
 
-    if (!group || (!options.allowDeleted && group.status === GroupStatus.DELETED)) {
-      throw new NotFoundException('Group not found')
-    }
-
-    return group
+    return context.group
   }
 
   private buildVisibleWhere(userId: string): Prisma.GroupWhereInput {
@@ -386,11 +390,20 @@ export class GroupsService {
 
   private buildJoinedOnlyWhere(userId: string): Prisma.GroupWhereInput {
     return {
-      members: {
-        some: {
-          userId,
+      AND: [
+        {
+          status: {
+            not: GroupStatus.DELETED,
+          },
         },
-      },
+        {
+          members: {
+            some: {
+              userId,
+            },
+          },
+        },
+      ],
     }
   }
 
@@ -421,5 +434,11 @@ export class GroupsService {
       Array.isArray(error.meta?.target) &&
       error.meta.target.includes('code')
     )
+  }
+
+  private async mapGroupRecordToDto(group: Prisma.GroupGetPayload<{ select: typeof groupSelect }>) {
+    const avatarUrlByFileId = await buildAvatarUrlByFileId(this.minioService, [group.owner])
+
+    return mapGroupToDto(group, avatarUrlByFileId)
   }
 }

@@ -31,6 +31,14 @@ export class UserDto {
   })
   avatarFileId!: string | null
 
+  @ApiPropertyOptional({
+    format: 'uri',
+    nullable: true,
+    example:
+      'http://localhost:9000/smarteach-files/avatars/2026/04/12/aBcD1234xYz9.png?X-Amz-Algorithm=AWS4-HMAC-SHA256',
+  })
+  avatarUrl!: string | null
+
   @ApiProperty({
     format: 'date-time',
     example: '2026-04-12T00:00:00.000Z',

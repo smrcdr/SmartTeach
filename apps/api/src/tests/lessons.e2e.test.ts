@@ -505,3 +505,103 @@ test('lessons endpoints respect lessons_enabled flag and archived group write re
 
   assert.equal(archivedUpdateBlockedResult.response.status, 403)
 })
+
+test('lessons endpoints allow manager-owned attachments to be reused and lesson dates to be cleared', async () => {
+  const owner = await registerUser('collab-owner')
+  const admin = await registerUser('collab-admin')
+  const member = await registerUser('collab-member')
+  const group = await createGroup(owner.accessToken)
+  const adminFile = await createOwnedFile(admin.user.id, 'shared-admin-material')
+  const memberFile = await createOwnedFile(member.user.id, 'member-material')
+
+  await prisma.groupMember.createMany({
+    data: [
+      {
+        groupId: group.id,
+        userId: admin.user.id,
+        role: GroupRole.ADMIN,
+      },
+      {
+        groupId: group.id,
+        userId: member.user.id,
+        role: GroupRole.USER,
+      },
+    ],
+  })
+
+  const memberFileCreateResult = await request(`/groups/${group.id}/lessons`, {
+    method: 'POST',
+    token: owner.accessToken,
+    body: {
+      title: 'Member file should stay unavailable',
+      fileIds: [memberFile.id],
+    },
+  })
+
+  assert.equal(memberFileCreateResult.response.status, 403)
+
+  const collaborativeCreateResult = await request<LessonResponse>(`/groups/${group.id}/lessons`, {
+    method: 'POST',
+    token: owner.accessToken,
+    body: {
+      title: 'Collaborative lesson',
+      startsAt: '2026-05-10T09:00:00.000Z',
+      endsAt: '2026-05-10T10:00:00.000Z',
+      fileIds: [adminFile.id],
+    },
+  })
+
+  assert.equal(collaborativeCreateResult.response.status, 201)
+  assert.ok(collaborativeCreateResult.body)
+  assert.equal(collaborativeCreateResult.body.startsAt, '2026-05-10T09:00:00.000Z')
+  assert.equal(collaborativeCreateResult.body.endsAt, '2026-05-10T10:00:00.000Z')
+  assert.deepEqual(collaborativeCreateResult.body.files.map((file) => file.id), [adminFile.id])
+
+  const clearDatesResult = await request<LessonResponse>(
+    `/groups/${group.id}/lessons/${collaborativeCreateResult.body.id}`,
+    {
+      method: 'PATCH',
+      token: owner.accessToken,
+      body: {
+        startsAt: null,
+        endsAt: null,
+        fileIds: [adminFile.id],
+      },
+    },
+  )
+
+  assert.equal(clearDatesResult.response.status, 200)
+  assert.ok(clearDatesResult.body)
+  assert.equal(clearDatesResult.body.startsAt, null)
+  assert.equal(clearDatesResult.body.endsAt, null)
+  assert.deepEqual(clearDatesResult.body.files.map((file) => file.id), [adminFile.id])
+
+  const storedLesson = await prisma.lesson.findUnique({
+    where: {
+      id: collaborativeCreateResult.body.id,
+    },
+    select: {
+      startsAt: true,
+      endsAt: true,
+      files: {
+        select: {
+          fileId: true,
+          sortOrder: true,
+        },
+        orderBy: {
+          sortOrder: 'asc',
+        },
+      },
+    },
+  })
+
+  assert.ok(storedLesson)
+  assert.equal(storedLesson.startsAt, null)
+  assert.equal(storedLesson.endsAt, null)
+  assert.deepEqual(storedLesson.files, [
+    {
+      fileId: adminFile.id,
+      sortOrder: 1,
+    },
+  ])
+})

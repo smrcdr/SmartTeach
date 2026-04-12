@@ -7,9 +7,11 @@ import {
 } from '@nestjs/common'
 import { ChatType, GroupRole, GroupStatus, Prisma } from '@prisma/client'
 import { PrismaService } from '../../database/prisma/prisma.service'
+import { AuthorizationService } from '../../security/authorization.service'
 import { MinioService } from '../../storage/minio/minio.service'
 import { ChatRealtimePublisher } from './chat-realtime.publisher'
 import { chatSelect, ChatRecord, mapChatToDto, mapMessageToDto, MessageRecord, messageSelect } from './chats.mapper'
+import { buildAvatarUrlByFileId } from '../users/user-avatar.utils'
 import { CreateDirectChatRequestDto } from './dto/create-direct-chat-request.dto'
 import { ChatDto } from './dto/chat.dto'
 import { GroupChatCreateRequestDto } from './dto/group-chat-create-request.dto'
@@ -29,6 +31,8 @@ type PrismaExecutor = Prisma.TransactionClient | PrismaService
 export class ChatsService {
   constructor(
     @Inject(PrismaService) private readonly prismaService: PrismaService,
+    @Inject(AuthorizationService)
+    private readonly authorizationService: AuthorizationService,
     @Inject(MinioService) private readonly minioService: MinioService,
     @Inject(ChatRealtimePublisher)
     private readonly chatRealtimePublisher: ChatRealtimePublisher,
@@ -56,7 +60,7 @@ export class ChatsService {
       ],
     })
 
-    return chats.map(mapChatToDto)
+    return this.mapChatRecordsToDto(chats)
   }
 
   async createGroupChat(
@@ -103,7 +107,7 @@ export class ChatsService {
       return this.getGroupChatRecordOrThrow(tx, groupId, createdChat.id)
     })
 
-    return mapChatToDto(chat)
+    return this.mapChatRecordToDto(chat)
   }
 
   async updateGroupChat(
@@ -120,7 +124,7 @@ export class ChatsService {
     const existingChat = await this.getGroupChatRecordOrThrow(this.prismaService, groupId, chatId)
 
     if (payload.title === undefined) {
-      return mapChatToDto(existingChat)
+      return this.mapChatRecordToDto(existingChat)
     }
 
     const title = payload.title.trim()
@@ -139,7 +143,7 @@ export class ChatsService {
       select: chatSelect,
     })
 
-    return mapChatToDto(updatedChat)
+    return this.mapChatRecordToDto(updatedChat)
   }
 
   async deleteGroupChat(groupId: string, chatId: string, userId: string) {
@@ -179,7 +183,7 @@ export class ChatsService {
       ],
     })
 
-    return chats.map(mapChatToDto)
+    return this.mapChatRecordsToDto(chats)
   }
 
   async createOrGetDirectChat(
@@ -237,7 +241,7 @@ export class ChatsService {
         return this.getDirectChatByKeyOrThrow(tx, directChatKey)
       })
 
-      return mapChatToDto(chat)
+      return this.mapChatRecordToDto(chat)
     } catch (error) {
       if (!this.isDirectChatKeyConflict(error)) {
         throw error
@@ -245,7 +249,7 @@ export class ChatsService {
 
       const chat = await this.getDirectChatByKeyOrThrow(this.prismaService, directChatKey)
 
-      return mapChatToDto(chat)
+      return this.mapChatRecordToDto(chat)
     }
   }
 
@@ -254,7 +258,7 @@ export class ChatsService {
 
     const chat = await this.getChatRecordOrThrow(this.prismaService, chatId)
 
-    return mapChatToDto(chat)
+    return this.mapChatRecordToDto(chat)
   }
 
   async ensureChatAccess(chatId: string, userId: string) {
@@ -361,9 +365,11 @@ export class ChatsService {
 
     const existingMessage = await this.getMessageRecordOrThrow(this.prismaService, chatId, messageId)
 
-    if (existingMessage.authorId !== userId) {
-      throw new ForbiddenException('You cannot edit this message')
-    }
+    this.authorizationService.assertOwnership(
+      existingMessage.authorId,
+      userId,
+      'You cannot edit this message',
+    )
 
     if (existingMessage.deletedAt) {
       throw new ForbiddenException('Deleted messages are read-only')
@@ -471,58 +477,16 @@ export class ChatsService {
       requireChatEnabled?: boolean
     } = {},
   ) {
-    const group = await this.prismaService.group.findUnique({
-      where: {
-        id: groupId,
-      },
-      select: {
-        id: true,
-        status: true,
-        settings: {
-          select: {
-            chatEnabled: true,
-          },
-        },
-        members: {
-          where: {
-            userId,
-          },
-          select: {
-            role: true,
-          },
-          take: 1,
-        },
-      },
+    const context = await this.authorizationService.authorizeGroupAccess(groupId, userId, {
+      requiredFeature: options.requireChatEnabled ?? true ? 'chatEnabled' : undefined,
+      featureErrorMessage: 'Chats module is disabled for this group',
+      requiredRoles: options.requireManage ? [...CHAT_MANAGE_ROLES] : undefined,
+      roleErrorMessage: 'You cannot manage chats in this group',
+      requireWritable: options.requireWritable ?? false,
     })
 
-    if (!group || group.status === GroupStatus.DELETED) {
-      throw new NotFoundException('Group not found')
-    }
-
-    const membership = group.members[0]
-
-    if (!membership) {
-      throw new ForbiddenException('You are not a member of this group')
-    }
-
-    if (!group.settings) {
-      throw new NotFoundException('Group settings not found')
-    }
-
-    if ((options.requireChatEnabled ?? true) && !group.settings.chatEnabled) {
-      throw new ForbiddenException('Chats module is disabled for this group')
-    }
-
-    if (options.requireManage && !CHAT_MANAGE_ROLES.has(membership.role)) {
-      throw new ForbiddenException('You cannot manage chats in this group')
-    }
-
-    if (options.requireWritable && group.status === GroupStatus.ARCHIVED) {
-      throw new ForbiddenException('Archived groups are read-only')
-    }
-
     return {
-      role: membership.role,
+      role: context.membership!.role,
     }
   }
 
@@ -855,7 +819,9 @@ export class ChatsService {
         : [],
     )
 
-    return mapMessageToDto(message, fileUrlsById)
+    const avatarUrlByFileId = await buildAvatarUrlByFileId(this.minioService, [message.author])
+
+    return mapMessageToDto(message, fileUrlsById, avatarUrlByFileId)
   }
 
   private async mapMessageRecordsToDto(messages: MessageRecord[]): Promise<MessageDto[]> {
@@ -870,7 +836,12 @@ export class ChatsService {
       ),
     )
 
-    return messages.map((message) => mapMessageToDto(message, fileUrlsById))
+    const avatarUrlByFileId = await buildAvatarUrlByFileId(
+      this.minioService,
+      messages.map((message) => message.author),
+    )
+
+    return messages.map((message) => mapMessageToDto(message, fileUrlsById, avatarUrlByFileId))
   }
 
   private async buildFileUrlsById(files: Array<{ id: string; storageKey: string }>) {
@@ -898,6 +869,30 @@ export class ChatsService {
         ['directChatKey', 'direct_chat_key'].includes(String(field)),
       )
     )
+  }
+
+  private async mapChatRecordToDto(chat: ChatRecord) {
+    const avatarUrlByFileId = await buildAvatarUrlByFileId(
+      this.minioService,
+      chat.chatType === ChatType.GROUP && chat.group
+        ? chat.group.members.map((member) => member.user)
+        : chat.members.map((member) => member.user),
+    )
+
+    return mapChatToDto(chat, avatarUrlByFileId)
+  }
+
+  private async mapChatRecordsToDto(chats: ChatRecord[]) {
+    const avatarUrlByFileId = await buildAvatarUrlByFileId(
+      this.minioService,
+      chats.flatMap((chat) =>
+        chat.chatType === ChatType.GROUP && chat.group
+          ? chat.group.members.map((member) => member.user)
+          : chat.members.map((member) => member.user),
+      ),
+    )
+
+    return chats.map((chat) => mapChatToDto(chat, avatarUrlByFileId))
   }
 
   private areStringArraysEqual(left: string[], right: string[]) {

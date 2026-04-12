@@ -6,7 +6,7 @@ export class UpdateMyProfileRequestDto {
     .object({
       displayName: z.string().trim().min(2).max(100).optional(),
       bio: z.string().trim().max(1000).optional(),
-      avatarFileId: z.string().uuid().optional(),
+      avatarFileId: z.string().uuid().nullable().optional(),
     })
     .strict()
 
@@ -26,6 +26,7 @@ export class UpdateMyProfileRequestDto {
   @ApiPropertyOptional({
     format: 'uuid',
     example: 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+    nullable: true,
   })
-  avatarFileId?: string
+  avatarFileId?: string | null
 }

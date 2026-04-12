@@ -428,6 +428,106 @@ test('schedule endpoints aggregate lessons, deadlines and custom events', async 
   assert.equal(missingEventResult.response.status, 404)
 })
 
+test('schedule feed hides lesson and assignment entries when their feature flags are disabled', async () => {
+  const owner = await registerUser('owner-feature-flags')
+  const group = await createGroup(owner.accessToken)
+
+  const createLessonResult = await request(`/groups/${group.id}/lessons`, {
+    method: 'POST',
+    token: owner.accessToken,
+    body: {
+      title: 'Feature-flagged lesson',
+      status: 'PUBLISHED',
+      sortOrder: 1,
+      startsAt: '2026-04-14T09:00:00.000Z',
+      endsAt: '2026-04-14T10:00:00.000Z',
+    },
+  })
+
+  assert.equal(createLessonResult.response.status, 201)
+
+  const createAssignmentResult = await request(`/groups/${group.id}/assignments`, {
+    method: 'POST',
+    token: owner.accessToken,
+    body: {
+      title: 'Feature-flagged assignment',
+      status: 'PUBLISHED',
+      dueAt: '2026-04-16T18:00:00.000Z',
+    },
+  })
+
+  assert.equal(createAssignmentResult.response.status, 201)
+
+  const createEventResult = await request<ScheduleEventResponse>(
+    `/groups/${group.id}/schedule/events`,
+    {
+      method: 'POST',
+      token: owner.accessToken,
+      body: {
+        title: 'Custom event survives feature toggles',
+        startsAt: '2026-04-15T12:00:00.000Z',
+        endsAt: '2026-04-15T13:00:00.000Z',
+      },
+    },
+  )
+
+  assert.equal(createEventResult.response.status, 201)
+  assert.ok(createEventResult.body)
+
+  const fullScheduleResult = await request<ScheduleEntryResponse[]>(`/groups/${group.id}/schedule`, {
+    token: owner.accessToken,
+  })
+
+  assert.equal(fullScheduleResult.response.status, 200)
+  assert.deepEqual(
+    fullScheduleResult.body?.map((entry) => entry.sourceType),
+    ['LESSON', 'CUSTOM_EVENT', 'ASSIGNMENT_DEADLINE'],
+  )
+
+  const disableLessonsResult = await request(`/groups/${group.id}/settings`, {
+    method: 'PATCH',
+    token: owner.accessToken,
+    body: {
+      lessonsEnabled: false,
+    },
+  })
+
+  assert.equal(disableLessonsResult.response.status, 200)
+
+  const scheduleWithoutLessons = await request<ScheduleEntryResponse[]>(`/groups/${group.id}/schedule`, {
+    token: owner.accessToken,
+  })
+
+  assert.equal(scheduleWithoutLessons.response.status, 200)
+  assert.deepEqual(
+    scheduleWithoutLessons.body?.map((entry) => entry.sourceType),
+    ['CUSTOM_EVENT', 'ASSIGNMENT_DEADLINE'],
+  )
+
+  const disableAssignmentsResult = await request(`/groups/${group.id}/settings`, {
+    method: 'PATCH',
+    token: owner.accessToken,
+    body: {
+      assignmentsEnabled: false,
+    },
+  })
+
+  assert.equal(disableAssignmentsResult.response.status, 200)
+
+  const scheduleWithCustomEventsOnly = await request<ScheduleEntryResponse[]>(
+    `/groups/${group.id}/schedule`,
+    {
+      token: owner.accessToken,
+    },
+  )
+
+  assert.equal(scheduleWithCustomEventsOnly.response.status, 200)
+  assert.deepEqual(
+    scheduleWithCustomEventsOnly.body?.map((entry) => entry.sourceType),
+    ['CUSTOM_EVENT'],
+  )
+})
+
 test('schedule endpoints enforce membership, role, feature flag and archive rules', async () => {
   const owner = await registerUser('owner-guards')
   const member = await registerUser('member-guards')

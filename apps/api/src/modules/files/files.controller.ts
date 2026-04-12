@@ -17,6 +17,7 @@ import { FileInterceptor } from '@nestjs/platform-express'
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiBody,
   ApiConsumes,
   ApiCreatedResponse,
@@ -83,7 +84,7 @@ export class FilesController {
   @Get(':fileId')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Получить метаданные файла',
+    summary: 'Получить метаданные собственного файла',
   })
   @ApiOkResponse({
     type: FileObjectDto,
@@ -94,8 +95,11 @@ export class FilesController {
   @ApiNotFoundResponse({
     type: ErrorResponseDto,
   })
-  getFile(@Param('fileId', new ParseUUIDPipe({ version: '4' })) fileId: string) {
-    return this.filesService.getFileOrThrow(fileId)
+  getFile(
+    @CurrentAuth() auth: AuthContext,
+    @Param('fileId', new ParseUUIDPipe({ version: '4' })) fileId: string,
+  ) {
+    return this.filesService.getFileOrThrow(fileId, auth.userId)
   }
 
   @Delete(':fileId')
@@ -111,6 +115,9 @@ export class FilesController {
     type: ErrorResponseDto,
   })
   @ApiForbiddenResponse({
+    type: ErrorResponseDto,
+  })
+  @ApiConflictResponse({
     type: ErrorResponseDto,
   })
   @ApiNotFoundResponse({

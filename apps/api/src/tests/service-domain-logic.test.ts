@@ -189,7 +189,7 @@ test('assignment and lesson status transitions keep publication metadata consist
 })
 
 test('group archive state transitions only stamp archivedAt on first archive', () => {
-  const service = new GroupsService({} as never, {} as never, {} as never)
+  const service = new GroupsService({} as never, {} as never, {} as never, {} as never)
   const resolveArchivedAt = getPrivateMethod<
     (
       currentArchivedAt: Date | null,

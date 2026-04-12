@@ -100,6 +100,15 @@ type FileResponse = {
   createdAt: string
 }
 
+type UserResponse = {
+  id: string
+  email?: string
+  displayName: string
+  bio: string | null
+  avatarFileId: string | null
+  avatarUrl: string | null
+}
+
 async function request<T = JsonRecord>(
   path: string,
   init: RequestOptions = {},
@@ -256,6 +265,25 @@ test('files endpoints upload metadata and soft-delete files', async () => {
   assert.equal(getDeletedResult.response.status, 404)
 })
 
+test('file upload requires authentication', async () => {
+  const formData = new FormData()
+
+  formData.set('folder', 'misc')
+  formData.set(
+    'file',
+    new Blob(['unauthenticated upload'], {
+      type: 'text/plain',
+    }),
+    'unauthenticated.txt',
+  )
+
+  const uploadResult = await requestMultipart('/files', formData, {
+    method: 'POST',
+  })
+
+  assert.equal(uploadResult.response.status, 401)
+})
+
 test('file deletion is forbidden for users who did not upload the file', async () => {
   const ownerSession = await registerUser('deleter-owner')
   const otherSession = await registerUser('deleter-other')
@@ -286,6 +314,13 @@ test('file deletion is forbidden for users who did not upload the file', async (
 
   assert.equal(forbiddenDeleteResult.response.status, 403)
 
+  const otherGetResult = await request(`/files/${uploadResult.body.id}`, {
+    method: 'GET',
+    token: otherSession.accessToken,
+  })
+
+  assert.equal(otherGetResult.response.status, 404)
+
   const ownerGetResult = await request<FileResponse>(`/files/${uploadResult.body.id}`, {
     method: 'GET',
     token: ownerSession.accessToken,
@@ -293,4 +328,112 @@ test('file deletion is forbidden for users who did not upload the file', async (
 
   assert.equal(ownerGetResult.response.status, 200)
   assert.ok(ownerGetResult.body)
+})
+
+test('avatar file must belong to the current user and must be detached before deletion', async () => {
+  const ownerSession = await registerUser('avatar-owner')
+  const otherSession = await registerUser('avatar-other')
+  const formData = new FormData()
+
+  formData.set('folder', 'avatars')
+  formData.set(
+    'file',
+    new Blob(['avatar attachment'], {
+      type: 'text/plain',
+    }),
+    'avatar.txt',
+  )
+
+  const uploadResult = await requestMultipart<FileResponse>('/files', formData, {
+    method: 'POST',
+    token: ownerSession.accessToken,
+  })
+
+  assert.equal(uploadResult.response.status, 201)
+  assert.ok(uploadResult.body)
+  createdFileIds.add(uploadResult.body.id)
+
+  const foreignAvatarResult = await request('/users/me', {
+    method: 'PATCH',
+    token: otherSession.accessToken,
+    body: {
+      avatarFileId: uploadResult.body.id,
+    },
+  })
+
+  assert.equal(foreignAvatarResult.response.status, 400)
+  assert.deepEqual(foreignAvatarResult.body, {
+    statusCode: 400,
+    message: 'Validation failed',
+    errors: ['avatarFileId: File not found'],
+  })
+
+  const attachAvatarResult = await request<UserResponse>('/users/me', {
+    method: 'PATCH',
+    token: ownerSession.accessToken,
+    body: {
+      avatarFileId: uploadResult.body.id,
+    },
+  })
+
+  assert.equal(attachAvatarResult.response.status, 200)
+  assert.ok(attachAvatarResult.body)
+  assert.equal(attachAvatarResult.body.avatarFileId, uploadResult.body.id)
+  assert.match(String(attachAvatarResult.body.avatarUrl), /^https:\/\/files\.smarteach\.test\//)
+
+  const publicProfileResult = await request<UserResponse>(`/users/${ownerSession.user.id}`, {
+    method: 'GET',
+    token: otherSession.accessToken,
+  })
+
+  assert.equal(publicProfileResult.response.status, 200)
+  assert.ok(publicProfileResult.body)
+  assert.equal(publicProfileResult.body.avatarFileId, uploadResult.body.id)
+  assert.match(String(publicProfileResult.body.avatarUrl), /^https:\/\/files\.smarteach\.test\//)
+
+  const otherUserGetAvatarFileResult = await request(`/files/${uploadResult.body.id}`, {
+    method: 'GET',
+    token: otherSession.accessToken,
+  })
+
+  assert.equal(otherUserGetAvatarFileResult.response.status, 404)
+
+  const deleteAttachedAvatarResult = await request(`/files/${uploadResult.body.id}`, {
+    method: 'DELETE',
+    token: ownerSession.accessToken,
+  })
+
+  assert.equal(deleteAttachedAvatarResult.response.status, 409)
+  assert.deepEqual(deleteAttachedAvatarResult.body, {
+    statusCode: 409,
+    message: 'File is still attached to existing resources',
+  })
+
+  const clearAvatarResult = await request<UserResponse>('/users/me', {
+    method: 'PATCH',
+    token: ownerSession.accessToken,
+    body: {
+      avatarFileId: null,
+    },
+  })
+
+  assert.equal(clearAvatarResult.response.status, 200)
+  assert.ok(clearAvatarResult.body)
+  assert.equal(clearAvatarResult.body.avatarFileId, null)
+
+  const authMeResult = await request<UserResponse>('/auth/me', {
+    method: 'GET',
+    token: ownerSession.accessToken,
+  })
+
+  assert.equal(authMeResult.response.status, 200)
+  assert.ok(authMeResult.body)
+  assert.equal(authMeResult.body.avatarFileId, null)
+
+  const deleteDetachedAvatarResult = await request(`/files/${uploadResult.body.id}`, {
+    method: 'DELETE',
+    token: ownerSession.accessToken,
+  })
+
+  assert.equal(deleteDetachedAvatarResult.response.status, 204)
 })
