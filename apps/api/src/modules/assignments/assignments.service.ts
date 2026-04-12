@@ -1,17 +1,23 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { AssignmentStatus, GroupRole, GroupStatus, Prisma } from '@prisma/client'
+import { AssignmentStatus, GroupRole, GroupStatus, Prisma, SubmissionStatus } from '@prisma/client'
 import { PrismaService } from '../../database/prisma/prisma.service'
 import { MinioService } from '../../storage/minio/minio.service'
+import { CreateSubmissionRequestDto } from './dto/create-submission-request.dto'
+import { ListSubmissionsQueryDto } from './dto/list-submissions-query.dto'
+import { SubmissionDto } from './dto/submission.dto'
 import { AssignmentDto } from './dto/assignment.dto'
 import { CreateAssignmentRequestDto } from './dto/create-assignment-request.dto'
 import { ListAssignmentsQueryDto } from './dto/list-assignments-query.dto'
 import { UpdateAssignmentRequestDto } from './dto/update-assignment-request.dto'
+import { UpdateSubmissionRequestDto } from './dto/update-submission-request.dto'
 import { AssignmentRecord, assignmentSelect, mapAssignmentToDto } from './assignments.mapper'
+import { SubmissionRecord, mapSubmissionToDto, submissionSelect } from './submissions.mapper'
 
 const ASSIGNMENT_MANAGE_ROLES = new Set<GroupRole>([GroupRole.OWNER, GroupRole.ADMIN])
 
@@ -213,6 +219,238 @@ export class AssignmentsService {
     return this.mapAssignmentRecordToDto(updatedAssignment)
   }
 
+  async listSubmissions(
+    groupId: string,
+    assignmentId: string,
+    userId: string,
+    query: ListSubmissionsQueryDto,
+  ): Promise<SubmissionDto[]> {
+    const membership = await this.assertGroupAccess(groupId, userId)
+
+    await this.assertAssignmentBelongsToGroup(this.prismaService, groupId, assignmentId)
+
+    const canReviewAll = ASSIGNMENT_MANAGE_ROLES.has(membership.role) && query.mineOnly !== true
+    const submissions = await this.prismaService.submission.findMany({
+      where: {
+        assignmentId,
+        ...(canReviewAll
+          ? {}
+          : {
+              authorId: userId,
+            }),
+      },
+      select: submissionSelect,
+      orderBy: [
+        {
+          authorId: 'asc',
+        },
+        {
+          attemptNumber: 'asc',
+        },
+        {
+          id: 'asc',
+        },
+      ],
+    })
+
+    return Promise.all(submissions.map((submission) => this.mapSubmissionRecordToDto(submission)))
+  }
+
+  async createSubmission(
+    groupId: string,
+    assignmentId: string,
+    userId: string,
+    payload: CreateSubmissionRequestDto,
+  ): Promise<SubmissionDto> {
+    await this.assertGroupAccess(groupId, userId, {
+      requireWritable: true,
+    })
+    await this.assertAssignmentBelongsToGroup(this.prismaService, groupId, assignmentId)
+
+    const status = payload.status ?? SubmissionStatus.DRAFT
+    const fileIds = this.normalizeFileIds(payload.fileIds)
+
+    if (status === SubmissionStatus.REVIEWED) {
+      throw new BadRequestException({
+        message: 'Validation failed',
+        errors: ['status: REVIEWED is not allowed when creating a submission'],
+      })
+    }
+
+    await this.assertAttachableSubmissionFiles(fileIds, userId)
+
+    const submission = await this.prismaService.$transaction(async (tx) => {
+      const aggregate = await tx.submission.aggregate({
+        where: {
+          assignmentId,
+          authorId: userId,
+        },
+        _max: {
+          attemptNumber: true,
+        },
+      })
+      const attemptNumber = (aggregate._max.attemptNumber ?? 0) + 1
+
+      const createdSubmission = await tx.submission.create({
+        data: {
+          assignmentId,
+          authorId: userId,
+          attemptNumber,
+          text: this.normalizeNullableText(payload.text),
+          status,
+          submittedAt: status === SubmissionStatus.SUBMITTED ? new Date() : null,
+        },
+        select: {
+          id: true,
+        },
+      })
+
+      await this.syncSubmissionFiles(tx, createdSubmission.id, fileIds)
+
+      return this.getSubmissionRecordOrThrow(tx, assignmentId, createdSubmission.id)
+    })
+
+    return this.mapSubmissionRecordToDto(submission)
+  }
+
+  async getSubmission(
+    groupId: string,
+    assignmentId: string,
+    submissionId: string,
+    userId: string,
+  ): Promise<SubmissionDto> {
+    const membership = await this.assertGroupAccess(groupId, userId)
+
+    await this.assertAssignmentBelongsToGroup(this.prismaService, groupId, assignmentId)
+
+    const submission = await this.getSubmissionRecordOrThrow(
+      this.prismaService,
+      assignmentId,
+      submissionId,
+    )
+
+    if (!ASSIGNMENT_MANAGE_ROLES.has(membership.role) && submission.authorId !== userId) {
+      throw new ForbiddenException('You cannot access this submission')
+    }
+
+    return this.mapSubmissionRecordToDto(submission)
+  }
+
+  async updateSubmission(
+    groupId: string,
+    assignmentId: string,
+    submissionId: string,
+    userId: string,
+    payload: UpdateSubmissionRequestDto,
+  ): Promise<SubmissionDto> {
+    const membership = await this.assertGroupAccess(groupId, userId, {
+      requireWritable: true,
+    })
+
+    await this.assertAssignmentBelongsToGroup(this.prismaService, groupId, assignmentId)
+
+    const submission = await this.getSubmissionRecordOrThrow(this.prismaService, assignmentId, submissionId)
+    const isAuthor = submission.authorId === userId
+    const canReview = ASSIGNMENT_MANAGE_ROLES.has(membership.role)
+    const contentPatchRequested =
+      payload.text !== undefined ||
+      payload.fileIds !== undefined ||
+      (payload.status !== undefined && payload.status !== SubmissionStatus.REVIEWED)
+    const reviewPatchRequested =
+      payload.score !== undefined ||
+      payload.feedback !== undefined ||
+      payload.status === SubmissionStatus.REVIEWED
+    const fileIds = payload.fileIds !== undefined ? this.normalizeFileIds(payload.fileIds) : undefined
+
+    if (!isAuthor && !canReview) {
+      throw new ForbiddenException('You cannot update this submission')
+    }
+
+    if (contentPatchRequested) {
+      if (!isAuthor) {
+        throw new ForbiddenException('You cannot edit this submission')
+      }
+
+      if (submission.status === SubmissionStatus.REVIEWED) {
+        throw new ForbiddenException('Reviewed submissions are read-only')
+      }
+    }
+
+    if (reviewPatchRequested) {
+      if (!canReview) {
+        throw new ForbiddenException('You cannot review this submission')
+      }
+
+      if (payload.status !== undefined && payload.status !== SubmissionStatus.REVIEWED) {
+        throw new BadRequestException({
+          message: 'Validation failed',
+          errors: ['status: review updates must use REVIEWED status'],
+        })
+      }
+    }
+
+    if (contentPatchRequested && fileIds !== undefined) {
+      await this.assertAttachableSubmissionFiles(fileIds, userId, submissionId)
+    }
+
+    const data: Prisma.SubmissionUpdateInput = {}
+
+    if (contentPatchRequested) {
+      const nextStatus = payload.status ?? submission.status
+
+      if (payload.text !== undefined) {
+        data.text = this.normalizeNullableText(payload.text)
+      }
+
+      if (payload.status !== undefined) {
+        data.status = nextStatus
+        data.submittedAt =
+          nextStatus === SubmissionStatus.SUBMITTED ? submission.submittedAt ?? new Date() : null
+      }
+    }
+
+    if (reviewPatchRequested) {
+      data.status = SubmissionStatus.REVIEWED
+      data.reviewedAt = new Date()
+      data.reviewedByUser = {
+        connect: {
+          id: userId,
+        },
+      }
+
+      if (payload.score !== undefined) {
+        data.score = payload.score
+      }
+
+      if (payload.feedback !== undefined) {
+        data.feedback = this.normalizeNullableText(payload.feedback)
+      }
+    }
+
+    if (Object.keys(data).length === 0 && fileIds === undefined) {
+      return this.mapSubmissionRecordToDto(submission)
+    }
+
+    const updatedSubmission = await this.prismaService.$transaction(async (tx) => {
+      if (Object.keys(data).length > 0) {
+        await tx.submission.update({
+          where: {
+            id: submissionId,
+          },
+          data,
+        })
+      }
+
+      if (contentPatchRequested && fileIds !== undefined) {
+        await this.syncSubmissionFiles(tx, submissionId, fileIds)
+      }
+
+      return this.getSubmissionRecordOrThrow(tx, assignmentId, submissionId)
+    })
+
+    return this.mapSubmissionRecordToDto(updatedSubmission)
+  }
+
   private async assertGroupAccess(
     groupId: string,
     userId: string,
@@ -271,6 +509,8 @@ export class AssignmentsService {
     if (options.requireWritable && group.status === GroupStatus.ARCHIVED) {
       throw new ForbiddenException('Archived groups are read-only')
     }
+
+    return membership
   }
 
   private async assertLessonBelongsToGroup(groupId: string, lessonId: string) {
@@ -286,6 +526,26 @@ export class AssignmentsService {
 
     if (!lesson) {
       throw new NotFoundException('Lesson not found')
+    }
+  }
+
+  private async assertAssignmentBelongsToGroup(
+    executor: PrismaExecutor,
+    groupId: string,
+    assignmentId: string,
+  ) {
+    const assignment = await executor.assignment.findFirst({
+      where: {
+        id: assignmentId,
+        groupId,
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found')
     }
   }
 
@@ -307,6 +567,26 @@ export class AssignmentsService {
     }
 
     return assignment
+  }
+
+  private async getSubmissionRecordOrThrow(
+    executor: PrismaExecutor,
+    assignmentId: string,
+    submissionId: string,
+  ): Promise<SubmissionRecord> {
+    const submission = await executor.submission.findFirst({
+      where: {
+        id: submissionId,
+        assignmentId,
+      },
+      select: submissionSelect,
+    })
+
+    if (!submission) {
+      throw new NotFoundException('Submission not found')
+    }
+
+    return submission
   }
 
   private normalizeNullableText(value?: string) {
@@ -405,6 +685,60 @@ export class AssignmentsService {
     }
   }
 
+  private async assertAttachableSubmissionFiles(
+    fileIds: string[],
+    userId: string,
+    submissionId?: string,
+  ) {
+    if (fileIds.length === 0) {
+      return
+    }
+
+    const files = await this.prismaService.file.findMany({
+      where: {
+        id: {
+          in: fileIds,
+        },
+      },
+      select: {
+        id: true,
+        uploadedByUserId: true,
+        deletedAt: true,
+      },
+    })
+    const filesById = new Map(files.map((file) => [file.id, file]))
+    const alreadyAttachedFileIds =
+      submissionId === undefined
+        ? new Set<string>()
+        : new Set(
+            (
+              await this.prismaService.submissionFile.findMany({
+                where: {
+                  submissionId,
+                  fileId: {
+                    in: fileIds,
+                  },
+                },
+                select: {
+                  fileId: true,
+                },
+              })
+            ).map((link) => link.fileId),
+          )
+
+    for (const fileId of fileIds) {
+      const file = filesById.get(fileId)
+
+      if (!file || file.deletedAt) {
+        throw new NotFoundException('File not found')
+      }
+
+      if (file.uploadedByUserId !== userId && !alreadyAttachedFileIds.has(fileId)) {
+        throw new ForbiddenException('You cannot attach this file')
+      }
+    }
+  }
+
   private resolveStatusMetadata(
     currentStatus: AssignmentStatus,
     currentPublishedAt: Date | null,
@@ -490,5 +824,60 @@ export class AssignmentsService {
     )
 
     return mapAssignmentToDto(assignment, fileUrlsById)
+  }
+
+  private async syncSubmissionFiles(
+    executor: Prisma.TransactionClient,
+    submissionId: string,
+    fileIds: string[],
+  ) {
+    if (fileIds.length === 0) {
+      await executor.submissionFile.deleteMany({
+        where: {
+          submissionId,
+        },
+      })
+
+      return
+    }
+
+    await executor.submissionFile.deleteMany({
+      where: {
+        submissionId,
+        fileId: {
+          notIn: fileIds,
+        },
+      },
+    })
+
+    for (const [index, fileId] of fileIds.entries()) {
+      await executor.submissionFile.upsert({
+        where: {
+          submissionId_fileId: {
+            submissionId,
+            fileId,
+          },
+        },
+        update: {
+          sortOrder: index + 1,
+        },
+        create: {
+          submissionId,
+          fileId,
+          sortOrder: index + 1,
+        },
+      })
+    }
+  }
+
+  private async mapSubmissionRecordToDto(submission: SubmissionRecord): Promise<SubmissionDto> {
+    const fileUrls = await Promise.all(
+      submission.files.map((link) => this.minioService.getObjectUrl(link.file.storageKey)),
+    )
+    const fileUrlsById = new Map(
+      submission.files.map((link, index) => [link.file.id, fileUrls[index] ?? '']),
+    )
+
+    return mapSubmissionToDto(submission, fileUrlsById)
   }
 }
