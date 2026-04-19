@@ -2,12 +2,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 
 import {
+  createJoinRequest,
   createGroup,
   getGroup,
+  joinGroup,
   listGroups,
   lookupGroupByCode,
   type CreateGroupPayload,
   type Group,
+  type GroupJoinRequest,
+  type GroupMember,
   type ListGroupsQuery,
 } from '../api/groups.api'
 
@@ -60,6 +64,32 @@ export function useCreateGroupMutation() {
       })
 
       queryClient.setQueryData(groupQueryKeys.detail(group.id), group)
+    },
+  })
+}
+
+export function useJoinGroupMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (groupId: string) => joinGroup(groupId),
+    onSuccess: async (_member: GroupMember) => {
+      await queryClient.invalidateQueries({
+        queryKey: groupQueryKeys.all,
+      })
+    },
+  })
+}
+
+export function useCreateJoinRequestMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (groupId: string) => createJoinRequest(groupId),
+    onSuccess: async (_request: GroupJoinRequest) => {
+      await queryClient.invalidateQueries({
+        queryKey: groupQueryKeys.all,
+      })
     },
   })
 }

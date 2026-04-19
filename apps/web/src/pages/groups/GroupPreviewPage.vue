@@ -1,10 +1,19 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import GroupModuleBadges from '../../features/groups/components/GroupModuleBadges.vue'
-import { getGroupsErrorMessage } from '../../features/groups/api/groups.api'
-import { useGroup, useGroupsList } from '../../features/groups/composables/useGroups'
+import {
+  getGroupsErrorMessage,
+  isAlreadyGroupMemberError,
+  isPendingJoinRequestError,
+} from '../../features/groups/api/groups.api'
+import {
+  useCreateJoinRequestMutation,
+  useGroup,
+  useGroupsList,
+  useJoinGroupMutation,
+} from '../../features/groups/composables/useGroups'
 import {
   formatMembersCount,
   getEnabledGroupModules,
@@ -22,6 +31,10 @@ const router = useRouter()
 const groupId = computed(() => String(route.params.groupId ?? ''))
 const groupQuery = useGroup(groupId)
 const joinedGroupsQuery = useGroupsList('joined')
+const joinGroupMutation = useJoinGroupMutation()
+const createJoinRequestMutation = useCreateJoinRequestMutation()
+const actionError = ref('')
+const hasSubmittedJoinRequest = ref(false)
 
 const group = computed(() => groupQuery.data.value ?? null)
 const joinedGroupIds = computed(() => new Set((joinedGroupsQuery.data.value ?? []).map((entry) => entry.id)))
@@ -47,6 +60,90 @@ const errorMessage = computed(() => {
 
   return error ? getGroupsErrorMessage(error, 'Не удалось открыть карточку группы') : ''
 })
+const isPrimaryActionPending = computed(
+  () => joinGroupMutation.isPending.value || createJoinRequestMutation.isPending.value,
+)
+const primaryActionLabel = computed(() => {
+  if (!group.value) {
+    return 'Открываем группу'
+  }
+
+  if (shouldRedirectToWorkspace.value) {
+    return 'Перейти в workspace'
+  }
+
+  if (group.value.accessMode === 'OPEN') {
+    return joinGroupMutation.isPending.value ? 'Вступаем...' : 'Вступить'
+  }
+
+  if (group.value.accessMode === 'BY_REQUEST') {
+    if (hasSubmittedJoinRequest.value) {
+      return 'Заявка отправлена'
+    }
+
+    return createJoinRequestMutation.isPending.value ? 'Отправляем заявку...' : 'Подать заявку'
+  }
+
+  return 'Доступ закрыт'
+})
+const hasPrimaryAction = computed(() => {
+  if (!group.value) {
+    return false
+  }
+
+  return shouldRedirectToWorkspace.value || group.value.accessMode !== 'CLOSED'
+})
+const isPrimaryActionDisabled = computed(
+  () => !hasPrimaryAction.value || isPrimaryActionPending.value || hasSubmittedJoinRequest.value,
+)
+const accessPanelTitle = computed(() => {
+  if (!group.value) {
+    return 'Контекст доступа'
+  }
+
+  if (shouldRedirectToWorkspace.value) {
+    return 'Вы уже состоите в группе'
+  }
+
+  if (group.value.accessMode === 'OPEN') {
+    return 'Можно вступить сразу'
+  }
+
+  if (group.value.accessMode === 'BY_REQUEST') {
+    return hasSubmittedJoinRequest.value ? 'Заявка уже зафиксирована' : 'Нужна заявка на вступление'
+  }
+
+  return 'Доступ ограничен'
+})
+const accessPanelLead = computed(() => {
+  if (!group.value) {
+    return ''
+  }
+
+  if (shouldRedirectToWorkspace.value) {
+    return 'Этот экран служит только точкой входа. Для участников он сразу переводит в рабочую область группы.'
+  }
+
+  if (group.value.accessMode === 'OPEN') {
+    return 'После вступления вы сразу попадёте во внутренний workspace группы и увидите доступные модули.'
+  }
+
+  if (group.value.accessMode === 'BY_REQUEST') {
+    return hasSubmittedJoinRequest.value
+      ? 'Заявка уже отправлена. Теперь решение зависит от владельца или администратора группы.'
+      : 'Владелец или администратор увидит заявку и сможет одобрить или отклонить доступ.'
+  }
+
+  return 'Текущий backend не открывает отдельный outsider-flow для закрытых групп.'
+})
+
+watch(
+  groupId,
+  () => {
+    actionError.value = ''
+    hasSubmittedJoinRequest.value = false
+  },
+)
 
 watch(
   shouldRedirectToWorkspace,
@@ -55,12 +152,95 @@ watch(
       return
     }
 
-    await router.replace(`/groups/${groupId.value}/overview`)
+    await router.replace({
+      name: 'group-overview',
+      params: {
+        groupId: groupId.value,
+      },
+    })
   },
   {
     immediate: true,
   },
 )
+
+async function handlePrimaryAction() {
+  if (!group.value || isPrimaryActionDisabled.value) {
+    return
+  }
+
+  actionError.value = ''
+
+  if (shouldRedirectToWorkspace.value) {
+    await router.replace({
+      name: 'group-overview',
+      params: {
+        groupId: groupId.value,
+      },
+    })
+    return
+  }
+
+  if (group.value.accessMode === 'OPEN') {
+    await handleJoin()
+    return
+  }
+
+  if (group.value.accessMode === 'BY_REQUEST') {
+    await handleCreateJoinRequest()
+  }
+}
+
+async function handleJoin() {
+  try {
+    await joinGroupMutation.mutateAsync(groupId.value)
+    await joinedGroupsQuery.refetch()
+    await router.replace({
+      name: 'group-overview',
+      params: {
+        groupId: groupId.value,
+      },
+    })
+  } catch (error) {
+    if (isAlreadyGroupMemberError(error)) {
+      await joinedGroupsQuery.refetch()
+      await router.replace({
+        name: 'group-overview',
+        params: {
+          groupId: groupId.value,
+        },
+      })
+      return
+    }
+
+    actionError.value = getGroupsErrorMessage(error, 'Не удалось вступить в группу')
+  }
+}
+
+async function handleCreateJoinRequest() {
+  try {
+    await createJoinRequestMutation.mutateAsync(groupId.value)
+    hasSubmittedJoinRequest.value = true
+  } catch (error) {
+    if (isAlreadyGroupMemberError(error)) {
+      await joinedGroupsQuery.refetch()
+      await router.replace({
+        name: 'group-overview',
+        params: {
+          groupId: groupId.value,
+        },
+      })
+      return
+    }
+
+    if (isPendingJoinRequestError(error)) {
+      hasSubmittedJoinRequest.value = true
+      return
+    }
+
+    actionError.value = getGroupsErrorMessage(error, 'Не удалось отправить заявку на вступление')
+  }
+}
 </script>
 
 <template>
@@ -121,14 +301,30 @@ watch(
 
       <AppCard class="span-4" tone="accent">
         <span class="page-eyebrow">Контекст доступа</span>
-        <h2 class="side-title">Карточка группы уже отделена от полноценного workspace.</h2>
-        <p class="muted">{{ groupAccessModeDescriptions[group.accessMode] }}</p>
+        <h2 class="side-title">{{ accessPanelTitle }}</h2>
+        <p class="muted">{{ accessPanelLead }}</p>
 
         <div class="panel-note">
-          Если группа уже ваша, этот маршрут автоматически переведёт вас в workspace без дополнительного выбора.
+          {{ groupAccessModeDescriptions[group.accessMode] }}
+        </div>
+
+        <div v-if="hasSubmittedJoinRequest" class="preview-feedback preview-feedback--success">
+          Заявка отправлена. Пока она в ожидании, повторное действие на этом экране не требуется.
+        </div>
+
+        <div v-if="actionError" class="preview-feedback preview-feedback--error">
+          {{ actionError }}
         </div>
 
         <div class="page-actions">
+          <AppButton
+            v-if="hasPrimaryAction"
+            type="button"
+            :disabled="isPrimaryActionDisabled"
+            @click="handlePrimaryAction"
+          >
+            {{ primaryActionLabel }}
+          </AppButton>
           <AppButton to="/groups" variant="secondary">К каталогу</AppButton>
           <AppButton to="/groups/join" variant="ghost">Ввести другой код</AppButton>
         </div>
@@ -207,6 +403,22 @@ watch(
   font-size: 1.15rem;
   line-height: 1.12;
   letter-spacing: -0.03em;
+}
+
+.preview-feedback {
+  padding: 0.85rem 0.95rem;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.preview-feedback--success {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.preview-feedback--error {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
 }
 
 @media (max-width: 720px) {

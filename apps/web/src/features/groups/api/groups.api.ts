@@ -2,6 +2,8 @@ import type { components, paths } from '../../../shared/api/generated/openapi'
 import { apiClient } from '../../../shared/api/client/http'
 
 export type Group = components['schemas']['Group']
+export type GroupMember = components['schemas']['GroupMember']
+export type GroupJoinRequest = components['schemas']['GroupJoinRequest']
 export type CreateGroupPayload = components['schemas']['CreateGroupRequest']
 export type GroupAccessMode = Group['accessMode']
 export type GroupStatus = Group['status']
@@ -63,6 +65,38 @@ export async function getGroup(groupId: string) {
   throw new GroupsApiError(error, response.status, 'Не удалось загрузить группу')
 }
 
+export async function joinGroup(groupId: string) {
+  const { data, error, response } = await apiClient.POST('/groups/{groupId}/join', {
+    params: {
+      path: {
+        groupId,
+      },
+    },
+  })
+
+  if (data) {
+    return data
+  }
+
+  throw new GroupsApiError(error, response.status, 'Не удалось вступить в группу')
+}
+
+export async function createJoinRequest(groupId: string) {
+  const { data, error, response } = await apiClient.POST('/groups/{groupId}/join-requests', {
+    params: {
+      path: {
+        groupId,
+      },
+    },
+  })
+
+  if (data) {
+    return data
+  }
+
+  throw new GroupsApiError(error, response.status, 'Не удалось отправить заявку на вступление')
+}
+
 export async function lookupGroupByCode(code: string) {
   const normalizedCode = code.trim().toUpperCase()
   const { data, error, response } = await apiClient.GET('/groups/by-code/{code}', {
@@ -90,4 +124,16 @@ export function getGroupsErrorMessage(error: unknown, fallbackMessage: string) {
   }
 
   return fallbackMessage
+}
+
+export function isAlreadyGroupMemberError(error: unknown) {
+  return error instanceof GroupsApiError && error.statusCode === 409 && error.message === 'User is already a member of this group'
+}
+
+export function isPendingJoinRequestError(error: unknown) {
+  return (
+    error instanceof GroupsApiError &&
+    error.statusCode === 409 &&
+    error.message === 'You already have a pending join request for this group'
+  )
 }

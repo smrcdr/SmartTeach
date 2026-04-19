@@ -9,6 +9,7 @@ import ChatsPage from '../pages/chats/ChatsPage.vue'
 import CreateGroupPage from '../pages/groups/CreateGroupPage.vue'
 import GroupAssignmentsPage from '../pages/groups/GroupAssignmentsPage.vue'
 import GroupChatsPage from '../pages/groups/GroupChatsPage.vue'
+import GroupEntryPage from '../pages/groups/GroupEntryPage.vue'
 import GroupLessonsPage from '../pages/groups/GroupLessonsPage.vue'
 import GroupMembersPage from '../pages/groups/GroupMembersPage.vue'
 import GroupOverviewPage from '../pages/groups/GroupOverviewPage.vue'
@@ -87,10 +88,18 @@ export const routes: RouteRecordRaw[] = [
       },
       {
         path: 'groups/:groupId',
+        name: 'group-entry',
+        component: GroupEntryPage,
+        meta: {
+          title: 'Открываем группу | SmartTeach',
+        },
+      },
+      {
+        path: 'groups/:groupId/preview',
         name: 'group-preview',
         component: GroupPreviewPage,
         meta: {
-          title: 'Группа | SmartTeach',
+          title: 'Preview группы | SmartTeach',
         },
       },
       {
