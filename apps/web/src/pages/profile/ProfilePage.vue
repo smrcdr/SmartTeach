@@ -27,8 +27,9 @@ const avatarMode = ref<'keep' | 'replace' | 'remove'>('keep')
 const avatarError = ref('')
 const submitError = ref('')
 const successMessage = ref('')
+const isSubmitting = ref(false)
 
-const isBusy = computed(() => updateProfileMutation.isPending.value)
+const isBusy = computed(() => isSubmitting.value || updateProfileMutation.isPending.value)
 const currentBio = computed(() => currentUser.value?.bio ?? '')
 const effectiveAvatarUrl = computed(() => {
   if (selectedAvatarPreviewUrl.value) {
@@ -46,7 +47,7 @@ const displayNameError = computed(() => {
   const normalizedValue = displayName.value.trim()
 
   if (!normalizedValue) {
-    return 'Укажите display name'
+    return 'Укажите имя'
   }
 
   if (normalizedValue.length < 2) {
@@ -61,7 +62,7 @@ const displayNameError = computed(() => {
 })
 const bioError = computed(() => {
   if (bio.value.trim().length > 1000) {
-    return 'Bio не должно превышать 1000 символов'
+    return 'Описание не должно превышать 1000 символов'
   }
 
   return ''
@@ -157,7 +158,10 @@ async function handleSubmit() {
   submitError.value = ''
   successMessage.value = ''
 
+  const previousAvatarFileId = currentUser.value.avatarFileId ?? null
   let uploadedAvatarId: string | null = null
+
+  isSubmitting.value = true
 
   try {
     const payload = {
@@ -183,13 +187,25 @@ async function handleSubmit() {
     }
 
     await updateProfileMutation.mutateAsync(payload)
-    successMessage.value = 'Профиль обновлен'
+
+    if (previousAvatarFileId && avatarMode.value !== 'keep' && previousAvatarFileId !== uploadedAvatarId) {
+      try {
+        await deleteUploadedProfileFile(previousAvatarFileId)
+        successMessage.value = 'Профиль обновлен'
+      } catch {
+        successMessage.value = 'Профиль обновлен, но старый файл аватара не удалось удалить автоматически'
+      }
+    } else {
+      successMessage.value = 'Профиль обновлен'
+    }
   } catch (error) {
     if (uploadedAvatarId) {
       await Promise.allSettled([deleteUploadedProfileFile(uploadedAvatarId)])
     }
 
     submitError.value = getProfileErrorMessage(error, 'Не удалось сохранить изменения профиля')
+  } finally {
+    isSubmitting.value = false
   }
 }
 
@@ -294,14 +310,14 @@ function cleanupSelectedAvatarPreview() {
       <AppCard class="span-8 profile-form">
         <h2 class="section-title">Редактирование профиля</h2>
         <p class="muted">
-          В форме нет `phone`, `city`, `role`, `skills` или других несуществующих полей. Только то, что реально
-          поддерживает backend.
+          В форме нет телефона, города, роли, навыков или других несуществующих полей. Только то, что реально
+          поддерживает сервер.
         </p>
 
         <form class="profile-form__fields" @submit.prevent="handleSubmit" @reset.prevent="handleReset">
           <AppInput
             v-model="displayName"
-            label="Display name"
+            label="Имя"
             autocomplete="name"
             maxlength="100"
             :disabled="isBusy"
@@ -311,7 +327,7 @@ function cleanupSelectedAvatarPreview() {
 
           <AppTextarea
           v-model="bio"
-          label="Bio"
+          label="Описание"
             maxlength="1000"
             :disabled="isBusy"
             :error="bioError"

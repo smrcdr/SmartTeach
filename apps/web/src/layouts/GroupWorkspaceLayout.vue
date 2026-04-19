@@ -77,7 +77,7 @@ function normalizeOptionalText(value: unknown) {
 
     <AppErrorState
       v-else-if="errorMessage"
-      title="Не удалось открыть workspace группы"
+      title="Не удалось открыть рабочее пространство группы"
       :description="errorMessage"
     >
       <template #actions>

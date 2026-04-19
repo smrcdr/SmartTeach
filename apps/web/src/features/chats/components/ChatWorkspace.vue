@@ -99,7 +99,7 @@ const isListPending = computed(() => {
 const listErrorMessage = computed(() => {
   if (isGroupScope.value) {
     if (workspace.workspaceError.value) {
-      return getGroupsErrorMessage(workspace.workspaceError.value, 'Не удалось собрать workspace группы')
+      return getGroupsErrorMessage(workspace.workspaceError.value, 'Не удалось собрать рабочее пространство группы')
     }
 
     if (groupChatsQuery.error.value) {
@@ -148,11 +148,11 @@ const threadEmptyState = computed(() => {
     return chats.value.length === 0
       ? {
           title: 'Личных чатов пока нет',
-          description: 'Откройте профиль пользователя, карточку участника или автора submission, чтобы начать диалог.',
+          description: 'Откройте профиль пользователя, карточку участника или автора попытки, чтобы начать диалог.',
         }
       : {
           title: 'Выберите личный чат',
-          description: 'На desktop список остается слева, а активный диалог открывается справа.',
+          description: 'На широком экране список остается слева, а активный диалог открывается справа.',
         }
   }
 
@@ -163,25 +163,25 @@ const threadEmptyState = computed(() => {
       }
     : {
         title: 'Выберите групповой чат',
-        description: 'Лента сообщений откроется здесь без перехода на отдельную demo-страницу.',
+        description: 'Лента сообщений откроется здесь без перехода на отдельную страницу.',
       }
 })
 const sidebarCopy = computed(() => {
   if (isGroupScope.value) {
     return {
       title: 'Чаты группы',
-      description: 'Комнаты группы остаются частью workspace и не смешиваются с личными диалогами.',
+      description: 'Комнаты группы остаются частью рабочего пространства и не смешиваются с личными диалогами.',
     }
   }
 
   return selectedGlobalTab.value === 'DIRECT'
     ? {
         title: 'Личные чаты',
-        description: 'Direct-first поток собирает личные разговоры 1 на 1 в отдельной вкладке.',
+        description: 'Личные разговоры один на один собраны в отдельной вкладке.',
       }
     : {
         title: 'Групповые чаты',
-        description: 'Здесь видны комнаты всех групп, где chat-модуль уже включен и у вас есть доступ.',
+        description: 'Здесь видны комнаты всех групп, где уже включен модуль чатов и у вас есть доступ.',
       }
 })
 const sidebarEmptyState = computed(() => {
@@ -189,7 +189,7 @@ const sidebarEmptyState = computed(() => {
     return canCreateGroupChat.value
       ? {
           title: 'Еще нет ни одной комнаты',
-          description: 'Создайте первый чат и откройте групповое обсуждение прямо из workspace.',
+          description: 'Создайте первый чат и откройте групповое обсуждение прямо из рабочего пространства группы.',
         }
       : {
           title: 'Комнаты еще не созданы',

@@ -83,10 +83,10 @@ async function handleSubmit() {
       </AppCard>
 
       <AppCard class="span-5" tone="muted">
-        <h2 class="section-title">Что поддерживает этот flow</h2>
+        <h2 class="section-title">Что поддерживает этот сценарий</h2>
         <ul class="list-copy">
-          <li>код сразу проверяется через реальный backend endpoint `/groups/by-code/{code}`</li>
-          <li>открытая группа и группа по заявке ведут на отдельный preview вместо старых моков</li>
+          <li>код сразу проверяется через реальный серверный маршрут `/groups/by-code/{code}`</li>
+          <li>открытая группа и группа по заявке ведут на отдельный предпросмотр вместо старых моков</li>
           <li>закрытые или недоступные группы честно возвращают ошибку поиска</li>
         </ul>
       </AppCard>

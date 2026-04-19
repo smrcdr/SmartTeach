@@ -120,10 +120,10 @@ async function handleDecision(request: GroupJoinRequest, decision: 'APPROVED' | 
   <div class="page-shell">
     <header class="page-header">
       <span class="page-eyebrow">Рабочее пространство / Заявки</span>
-      <h1 class="page-title">Заявки на вступление остаются отдельным потоком owner/admin и не смешиваются с составом группы.</h1>
+      <h1 class="page-title">Заявки на вступление остаются отдельным потоком для владельца и администратора и не смешиваются с составом группы.</h1>
       <p class="page-lead">
-        Экран показывает ожидающие и уже обработанные заявки в группах с режимом доступа `BY_REQUEST`. После решения
-        список обновляется в том же workspace-контексте.
+        Экран показывает ожидающие и уже обработанные заявки в группах с режимом доступа по заявке. После решения
+        список обновляется в том же контексте группы.
       </p>
     </header>
 
@@ -164,7 +164,7 @@ async function handleDecision(request: GroupJoinRequest, decision: 'APPROVED' | 
         </div>
 
         <p class="muted">
-          Пункт `Заявки` виден только owner/admin и только в группах с режимом доступа `BY_REQUEST`, поэтому он не
+          Пункт `Заявки` виден только владельцу и администратору и только в группах с режимом доступа по заявке, поэтому он не
           торчит в боковой навигации для остальных сценариев.
         </p>
       </AppCard>
@@ -187,7 +187,7 @@ async function handleDecision(request: GroupJoinRequest, decision: 'APPROVED' | 
 
         <AppEmptyState
           v-if="pendingRequests.length === 0"
-          title="Pending-заявок нет"
+          title="Ожидающих заявок нет"
           description="Все текущие запросы уже обработаны, новых участников сейчас никто не ожидает."
         />
 
@@ -243,16 +243,16 @@ async function handleDecision(request: GroupJoinRequest, decision: 'APPROVED' | 
         <div class="requests-card__header">
           <div>
             <h2 class="requests-card__title">История решений</h2>
-            <p class="muted">Processed-заявки остаются видимыми, чтобы owner/admin видел прошлые approve/reject решения.</p>
+            <p class="muted">Обработанные заявки остаются видимыми, чтобы владелец и администратор видел прошлые решения.</p>
           </div>
 
-          <span class="pill">{{ processedRequests.length }} processed</span>
+          <span class="pill">Обработано: {{ processedRequests.length }}</span>
         </div>
 
         <AppEmptyState
           v-if="processedRequests.length === 0"
           title="Решений пока нет"
-          description="История начнёт заполняться после первых approve или reject действий."
+          description="История начнёт заполняться после первых одобрений или отклонений."
         />
 
         <ul v-else class="request-list request-list--processed">

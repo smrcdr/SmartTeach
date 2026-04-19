@@ -23,7 +23,7 @@ const moduleLabels = computed(() => getEnabledGroupModules(props.group.settings)
 const membersLabel = computed(() => formatMembersCount(props.group.membersCount))
 const accessLabel = computed(() => groupAccessModeLabels[props.group.accessMode])
 const statusLabel = computed(() => groupStatusLabels[props.group.status])
-const actionLabel = computed(() => (props.isJoined ? 'Перейти в workspace' : 'Открыть группу'))
+const actionLabel = computed(() => (props.isJoined ? 'Перейти в рабочее пространство' : 'Открыть группу'))
 const actionTarget = computed(() => (props.isJoined ? `/groups/${props.group.id}/overview` : `/groups/${props.group.id}`))
 
 function navigateToTarget() {

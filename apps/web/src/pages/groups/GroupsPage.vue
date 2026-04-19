@@ -102,7 +102,7 @@ const currentErrorMessage = computed(() =>
 const tabLead = computed(() =>
   activeTab.value === 'my'
     ? 'Рабочий список держит только ваши группы и не смешивает их с публичным каталогом.'
-    : 'Каталог оставляет уже присоединённые группы видимыми, чтобы вход в workspace был без лишних переходов.',
+    : 'Каталог оставляет уже присоединённые группы видимыми, чтобы вход в рабочее пространство был без лишних переходов.',
 )
 const isGlobalSearchContext = computed(
   () => activeTab.value === 'all' && Boolean(searchQuery.value) && normalizeRouteQueryValue(route.query.tab) !== 'my',

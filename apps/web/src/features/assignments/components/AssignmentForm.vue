@@ -228,7 +228,7 @@ function buildLocalFileKey(file: File) {
           type="number"
           min="0"
           step="1"
-          hint="Необязательное поле. Если оставить пустым, review будет только через feedback."
+          hint="Необязательное поле. Если оставить пустым, проверка будет идти только через комментарий."
           :error="maxScoreError"
           :disabled="disabled || isBusy"
         />
@@ -343,12 +343,12 @@ function buildLocalFileKey(file: File) {
 
       <ul class="list-copy">
         <li>Связь с уроком остаётся опциональной: задание может быть полностью самостоятельным внутри группы.</li>
-        <li>Если `maxScore` пустой, review flow работает только через feedback без числовой оценки.</li>
+        <li>Если `maxScore` пустой, проверка идёт только через комментарий без числовой оценки.</li>
         <li>Файлы привязываются к заданию только после явного сохранения выбранного действия.</li>
       </ul>
 
       <p v-if="hasImmutableOptionalValues" class="assignment-form__api-note">
-        Текущий backend-контракт позволяет изменить `dueAt` и `maxScore`, но не очистить их обратно в `null`.
+        Текущий контракт сервера позволяет изменить `dueAt` и `maxScore`, но не очистить их обратно в `null`.
       </p>
     </AppCard>
   </div>

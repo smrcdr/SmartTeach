@@ -187,7 +187,7 @@ async function handleRemoveMember(member: GroupMember) {
   }
 
   const shouldProceed = window.confirm(
-    `Удалить ${member.user.displayName} из группы "${group.value?.name ?? 'этой группы'}"? Участник потеряет доступ ко всем модулям workspace.`,
+    `Удалить ${member.user.displayName} из группы "${group.value?.name ?? 'этой группы'}"? Участник потеряет доступ ко всем разделам группы.`,
   )
 
   if (!shouldProceed) {
@@ -212,7 +212,7 @@ async function handleLeaveGroup() {
   }
 
   const shouldProceed = window.confirm(
-    `Покинуть группу "${group.value?.name ?? 'эту группу'}"? После выхода доступ к workspace будет сразу закрыт.`,
+    `Покинуть группу "${group.value?.name ?? 'эту группу'}"? После выхода доступ к рабочему пространству группы будет сразу закрыт.`,
   )
 
   if (!shouldProceed) {
@@ -262,7 +262,7 @@ async function handleLeaveGroup() {
     <AppEmptyState
       v-else-if="members.length === 0"
       title="В группе пока нет участников"
-      description="Когда backend вернёт состав группы, здесь появятся участники, роли и доступные управляющие действия."
+      description="Когда сервер вернёт состав группы, здесь появятся участники, роли и доступные управляющие действия."
     />
 
     <div v-else class="section-grid">

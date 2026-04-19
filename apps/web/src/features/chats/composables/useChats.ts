@@ -179,7 +179,9 @@ export function useUpdateMessageMutation(chatId: MaybeRefOrGetter<string>) {
     mutationFn: ({ messageId, payload }: { messageId: string; payload: UpdateMessagePayload }) =>
       updateMessage(resolvedChatId.value, messageId, payload),
     onSuccess: async (message: ChatMessage) => {
-      applyIncomingChatMessage(queryClient, message)
+      applyIncomingChatMessage(queryClient, message, {
+        historyMode: 'replace-existing',
+      })
     },
   })
 }
@@ -197,6 +199,8 @@ export function useDeleteMessageMutation(chatId: MaybeRefOrGetter<string>) {
         text: null,
         files: [],
         deletedAt: new Date().toISOString(),
+      }, {
+        historyMode: 'replace-existing',
       })
     },
   })

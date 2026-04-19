@@ -38,14 +38,14 @@ export const groupWorkspaceNav: GroupWorkspaceNavItem[] = [
   {
     key: 'assignments',
     label: 'Задания',
-    description: 'Условия, попытки и review flow',
+    description: 'Условия, попытки и проверка работ',
     routeName: 'group-assignments',
     module: 'assignments',
   },
   {
     key: 'schedule',
     label: 'Расписание',
-    description: 'Agenda с уроками, дедлайнами и событиями',
+    description: 'Лента с уроками, дедлайнами и событиями',
     routeName: 'group-schedule',
     module: 'schedule',
   },
@@ -66,7 +66,7 @@ export const groupWorkspaceNav: GroupWorkspaceNavItem[] = [
   {
     key: 'requests',
     label: 'Заявки',
-    description: 'BY_REQUEST сценарий для owner/admin',
+    description: 'Сценарий по заявкам для владельца и администратора',
     routeName: 'group-requests',
     module: 'requests',
     managerOnly: true,
@@ -75,7 +75,7 @@ export const groupWorkspaceNav: GroupWorkspaceNavItem[] = [
   {
     key: 'settings',
     label: 'Настройки',
-    description: 'Модули, архив и transfer ownership',
+    description: 'Модули, архив и передача владения',
     routeName: 'group-settings',
     module: 'settings',
     managerOnly: true,

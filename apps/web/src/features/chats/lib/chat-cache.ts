@@ -6,6 +6,7 @@ import { dedupeMessages, sortMessages } from './chats.ui'
 type ChatListScope = 'global' | 'group'
 type ChatPreviewMap = Record<string, ChatMessage | null>
 type ChatMessagesHistory = InfiniteData<ChatMessage[], string | null>
+type ChatHistoryPatchMode = 'upsert' | 'replace-existing'
 
 const CHAT_LIST_PREFIX = ['chats', 'list'] as const
 const CHAT_PREVIEW_MAP_PREFIX = ['chats', 'preview-maps'] as const
@@ -26,10 +27,16 @@ export const chatQueryKeys = {
   previewMap: (chatIds: string[]) => ['chats', 'preview-maps', chatIds] as const,
 }
 
-export function applyIncomingChatMessage(queryClient: QueryClient, message: ChatMessage) {
+export function applyIncomingChatMessage(
+  queryClient: QueryClient,
+  message: ChatMessage,
+  options: {
+    historyMode?: ChatHistoryPatchMode
+  } = {},
+) {
   patchChatListQueries(queryClient, message)
   patchChatDetail(queryClient, message)
-  patchChatMessageHistory(queryClient, message)
+  patchChatMessageHistory(queryClient, message, options.historyMode ?? 'upsert')
   patchChatPreviewMaps(queryClient, message)
 }
 
@@ -77,13 +84,19 @@ function patchChatDetail(queryClient: QueryClient, message: ChatMessage) {
   })
 }
 
-function patchChatMessageHistory(queryClient: QueryClient, message: ChatMessage) {
+function patchChatMessageHistory(
+  queryClient: QueryClient,
+  message: ChatMessage,
+  historyMode: ChatHistoryPatchMode,
+) {
   queryClient.setQueryData<ChatMessagesHistory | undefined>(chatQueryKeys.messages(message.chatId), (currentHistory) => {
     if (!currentHistory) {
-      return {
-        pageParams: [null],
-        pages: [[message]],
-      }
+      return historyMode === 'upsert'
+        ? {
+            pageParams: [null],
+            pages: [[message]],
+          }
+        : currentHistory
     }
 
     let hasKnownMessage = false
@@ -99,7 +112,7 @@ function patchChatMessageHistory(queryClient: QueryClient, message: ChatMessage)
       }),
     )
 
-    if (!hasKnownMessage) {
+    if (!hasKnownMessage && historyMode === 'upsert') {
       if (nextPages.length === 0) {
         nextPages.push([message])
       } else {

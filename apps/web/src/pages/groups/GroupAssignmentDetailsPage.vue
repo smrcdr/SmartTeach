@@ -104,7 +104,7 @@ const assignmentErrorMessage = computed(() => {
 const submissionsErrorMessage = computed(() => {
   const error = submissionsQuery.error.value
 
-  return error ? getAssignmentsErrorMessage(error, 'Не удалось загрузить submissions') : ''
+  return error ? getAssignmentsErrorMessage(error, 'Не удалось загрузить попытки') : ''
 })
 const submissions = computed(() => submissionsQuery.data.value ?? [])
 const submissionHistory = computed(() =>
@@ -173,7 +173,7 @@ function getLinkedLessonLabel() {
   }
 
   if (!hasLessonsModule.value) {
-    return 'Связанный урок скрыт: модуль lessons выключен'
+    return 'Связанный урок скрыт: модуль уроков выключен'
   }
 
   return linkedLesson.value?.title ?? 'Связанный урок'
@@ -525,7 +525,7 @@ function getSubmissionTimestamp(submission: Submission) {
           </div>
         </div>
 
-        <AppLoader v-if="submissionsQuery.isPending.value" label="Готовим timeline моих попыток" />
+        <AppLoader v-if="submissionsQuery.isPending.value" label="Готовим историю моих попыток" />
 
         <AppErrorState
           v-else-if="submissionsErrorMessage"

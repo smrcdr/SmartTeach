@@ -159,7 +159,7 @@ async function handleSubmit(submission: AssignmentEditorSubmission) {
 <template>
   <AppLoader
     v-if="workspace.isWorkspacePending.value || (assignmentQuery.isPending.value && !assignment) || isBlocked"
-    label="Готовим edit flow задания и проверяем права доступа"
+    label="Готовим форму редактирования задания и проверяем права доступа"
   />
 
   <AppErrorState

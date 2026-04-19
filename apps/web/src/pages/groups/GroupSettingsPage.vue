@@ -110,7 +110,7 @@ const moduleOptions: Array<{
   {
     key: 'chatEnabled',
     label: 'Чаты',
-    description: 'Участники видят глобальные и групповые чаты в workspace.',
+    description: 'Участники видят глобальные и групповые чаты в рабочем пространстве группы.',
   },
   {
     key: 'lessonsEnabled',
@@ -120,7 +120,7 @@ const moduleOptions: Array<{
   {
     key: 'assignmentsEnabled',
     label: 'Задания',
-    description: 'Workspace открывает поток заданий, попыток и проверки submissions.',
+    description: 'Раздел открывает поток заданий, попыток и проверки работ.',
   },
   {
     key: 'scheduleEnabled',
@@ -210,7 +210,7 @@ async function handleGeneralSubmit() {
 
   if (isClosingRequestFlow) {
     const shouldProceed = window.confirm(
-      'Переключение режима доступа завершит сценарий join requests: все pending-заявки будут автоматически отклонены. Продолжить?',
+      'Переключение режима доступа завершит сценарий заявок на вступление: все ожидающие заявки будут автоматически отклонены. Продолжить?',
     )
 
     if (!shouldProceed) {
@@ -390,9 +390,9 @@ async function handleDeleteGroup() {
         <div class="summary-card__block">
           <strong>Важно</strong>
           <ul class="list-copy">
-            <li>выключенный модуль исчезает из sidebar и быстрых переходов во всём workspace</li>
-            <li>архивная группа остаётся доступной для просмотра, но редактирующие CTA централизованно скрываются</li>
-            <li>удаление доступно только владельцу, даже если backend-права в будущем изменятся шире</li>
+            <li>выключенный модуль исчезает из боковой навигации и быстрых переходов во всём рабочем пространстве</li>
+            <li>архивная группа остаётся доступной для просмотра, но редактирующие действия централизованно скрываются</li>
+            <li>удаление доступно только владельцу, даже если серверные права в будущем изменятся шире</li>
           </ul>
         </div>
       </AppCard>
@@ -405,7 +405,7 @@ async function handleDeleteGroup() {
           </div>
 
           <fieldset class="modules">
-            <legend class="modules__legend">Feature toggles</legend>
+            <legend class="modules__legend">Переключатели модулей</legend>
 
             <label v-for="option in moduleOptions" :key="option.key" class="modules__item">
               <input

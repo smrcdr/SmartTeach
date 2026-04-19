@@ -84,11 +84,15 @@ export function useActiveChatRealtime(
       })
 
       socket.on('chat.message.updated', (message: ChatMessage) => {
-        applyIncomingChatMessage(queryClient, message)
+        applyIncomingChatMessage(queryClient, message, {
+          historyMode: 'replace-existing',
+        })
       })
 
       socket.on('chat.message.deleted', (message: ChatMessage) => {
-        applyIncomingChatMessage(queryClient, message)
+        applyIncomingChatMessage(queryClient, message, {
+          historyMode: 'replace-existing',
+        })
       })
 
       onCleanup(() => {
@@ -108,5 +112,7 @@ export function useActiveChatRealtime(
 }
 
 function buildChatSocketUrl() {
-  return new URL(getApiBaseUrl(), window.location.origin).origin
+  const apiBaseUrl = new URL(getApiBaseUrl(), window.location.origin)
+
+  return new URL('/chat', apiBaseUrl.origin).toString()
 }

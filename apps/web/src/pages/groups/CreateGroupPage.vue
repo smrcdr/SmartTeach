@@ -66,7 +66,7 @@ const moduleOptions: Array<{
   {
     key: 'chatEnabled',
     label: 'Чаты',
-    description: 'Глобальные и групповые обсуждения сразу доступны в новом workspace.',
+    description: 'Глобальные и групповые обсуждения сразу доступны в новом рабочем пространстве.',
   },
   {
     key: 'lessonsEnabled',
@@ -76,7 +76,7 @@ const moduleOptions: Array<{
   {
     key: 'assignmentsEnabled',
     label: 'Задания',
-    description: 'В группе появятся задания, попытки и проверка submissions.',
+    description: 'В группе появятся задания, попытки и проверка работ участников.',
   },
   {
     key: 'scheduleEnabled',
@@ -138,7 +138,7 @@ async function handleSubmit() {
           <AppInput
             v-model="form.name"
             label="Название группы"
-            placeholder="Например, Frontend Patterns Lab"
+            placeholder="Например, Лаборатория веб-разработки"
             :error="nameError"
             required
             class="span-full"
@@ -201,7 +201,7 @@ async function handleSubmit() {
           <strong>Важно</strong>
           <ul class="list-copy">
             <li>владелец автоматически становится первым участником</li>
-            <li>код группы создаётся на backend и не вводится вручную</li>
+            <li>код группы создаётся на сервере и не вводится вручную</li>
             <li>после сохранения открывается контекст группы</li>
           </ul>
         </div>
