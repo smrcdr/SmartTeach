@@ -254,9 +254,25 @@ watchEffect(() => {
 
         <ul v-else class="lesson-detail__assignment-list">
           <li v-for="assignment in linkedAssignments" :key="assignment.id" class="lesson-detail__assignment-item">
-            <strong>{{ assignment.title }}</strong>
-            <span class="pill">{{ assignmentStatusLabels[assignment.status] }}</span>
-            <span class="muted">{{ formatOptionalDueAt(assignment.dueAt) }}</span>
+            <div class="lesson-detail__assignment-copy">
+              <strong>{{ assignment.title }}</strong>
+              <span class="pill">{{ assignmentStatusLabels[assignment.status] }}</span>
+              <span class="muted">{{ formatOptionalDueAt(assignment.dueAt) }}</span>
+            </div>
+
+            <AppButton
+              variant="ghost"
+              size="sm"
+              :to="{
+                name: 'group-assignment-details',
+                params: {
+                  groupId,
+                  assignmentId: assignment.id,
+                },
+              }"
+            >
+              Открыть
+            </AppButton>
           </li>
         </ul>
       </AppCard>
@@ -318,19 +334,20 @@ watchEffect(() => {
 
 .lesson-detail__file-item,
 .lesson-detail__assignment-item {
-  display: grid;
-  gap: 0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   padding: 0.95rem 1rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.58);
 }
 
+.lesson-detail__assignment-copy,
 .lesson-detail__file-copy {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem;
+  display: grid;
+  gap: 0.35rem;
 }
 
 .lesson-detail__file-copy a {

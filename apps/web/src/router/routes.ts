@@ -7,6 +7,11 @@ import LoginPage from '../pages/auth/LoginPage.vue'
 import RegisterPage from '../pages/auth/RegisterPage.vue'
 import ChatsPage from '../pages/chats/ChatsPage.vue'
 import CreateGroupPage from '../pages/groups/CreateGroupPage.vue'
+import GroupAssignmentCreatePage from '../pages/groups/GroupAssignmentCreatePage.vue'
+import GroupAssignmentDetailsPage from '../pages/groups/GroupAssignmentDetailsPage.vue'
+import GroupAssignmentEditPage from '../pages/groups/GroupAssignmentEditPage.vue'
+import GroupAssignmentSubmissionDetailsPage from '../pages/groups/GroupAssignmentSubmissionDetailsPage.vue'
+import GroupAssignmentSubmissionsPage from '../pages/groups/GroupAssignmentSubmissionsPage.vue'
 import GroupAssignmentsPage from '../pages/groups/GroupAssignmentsPage.vue'
 import GroupChatsPage from '../pages/groups/GroupChatsPage.vue'
 import GroupEntryPage from '../pages/groups/GroupEntryPage.vue'
@@ -187,6 +192,52 @@ export const routes: RouteRecordRaw[] = [
             component: GroupAssignmentsPage,
             meta: {
               title: 'Задания группы | SmartTeach',
+              workspaceModule: 'assignments',
+            },
+          },
+          {
+            path: 'assignments/new',
+            name: 'group-assignment-create',
+            component: GroupAssignmentCreatePage,
+            meta: {
+              title: 'Новое задание | SmartTeach',
+              workspaceModule: 'assignments',
+            },
+          },
+          {
+            path: 'assignments/:assignmentId/edit',
+            name: 'group-assignment-edit',
+            component: GroupAssignmentEditPage,
+            meta: {
+              title: 'Редактирование задания | SmartTeach',
+              workspaceModule: 'assignments',
+            },
+          },
+          {
+            path: 'assignments/:assignmentId/submissions',
+            name: 'group-assignment-submissions',
+            component: GroupAssignmentSubmissionsPage,
+            meta: {
+              title: 'Submissions задания | SmartTeach',
+              workspaceModule: 'assignments',
+            },
+          },
+          {
+            path: 'assignments/:assignmentId/submissions/:submissionId',
+            name: 'group-assignment-submission-details',
+            component: GroupAssignmentSubmissionDetailsPage,
+            meta: {
+              title: 'Попытка по заданию | SmartTeach',
+              workspaceModule: 'assignments',
+            },
+          },
+          {
+            path: 'assignments/:assignmentId',
+            name: 'group-assignment-details',
+            component: GroupAssignmentDetailsPage,
+            meta: {
+              title: 'Задание группы | SmartTeach',
+              workspaceModule: 'assignments',
             },
           },
           {
