@@ -605,3 +605,52 @@ test('lessons endpoints allow manager-owned attachments to be reused and lesson 
     },
   ])
 })
+
+test('lessons endpoints reject endsAt without startsAt on create and update', async () => {
+  const owner = await registerUser('date-guard-owner')
+  const group = await createGroup(owner.accessToken)
+
+  const createWithoutStartResult = await request(`/groups/${group.id}/lessons`, {
+    method: 'POST',
+    token: owner.accessToken,
+    body: {
+      title: 'Invalid lesson slot',
+      endsAt: '2026-06-10T10:00:00.000Z',
+    },
+  })
+
+  assert.equal(createWithoutStartResult.response.status, 400)
+  assert.ok(createWithoutStartResult.body)
+  assert.ok(
+    Array.isArray(createWithoutStartResult.body.errors) &&
+      createWithoutStartResult.body.errors.includes('endsAt: cannot be set without startsAt'),
+  )
+
+  const validLessonCreateResult = await request<LessonResponse>(`/groups/${group.id}/lessons`, {
+    method: 'POST',
+    token: owner.accessToken,
+    body: {
+      title: 'Valid lesson slot',
+      startsAt: '2026-06-10T09:00:00.000Z',
+    },
+  })
+
+  assert.equal(validLessonCreateResult.response.status, 201)
+  assert.ok(validLessonCreateResult.body)
+
+  const updateWithoutStartResult = await request(`/groups/${group.id}/lessons/${validLessonCreateResult.body.id}`, {
+    method: 'PATCH',
+    token: owner.accessToken,
+    body: {
+      startsAt: null,
+      endsAt: '2026-06-10T10:00:00.000Z',
+    },
+  })
+
+  assert.equal(updateWithoutStartResult.response.status, 400)
+  assert.ok(updateWithoutStartResult.body)
+  assert.ok(
+    Array.isArray(updateWithoutStartResult.body.errors) &&
+      updateWithoutStartResult.body.errors.includes('endsAt: cannot be set without startsAt'),
+  )
+})

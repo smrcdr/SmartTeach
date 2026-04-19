@@ -255,8 +255,16 @@ export async function uploadAssignmentFile(file: File) {
   return uploadFile(file, 'assignments')
 }
 
+export async function uploadAssignmentFiles(files: File[]) {
+  return uploadFilesWithRollback(files, uploadAssignmentFile)
+}
+
 export async function uploadSubmissionFile(file: File) {
   return uploadFile(file, 'submissions')
+}
+
+export async function uploadSubmissionFiles(files: File[]) {
+  return uploadFilesWithRollback(files, uploadSubmissionFile)
 }
 
 export async function deleteUploadedFile(fileId: string) {
@@ -302,6 +310,29 @@ async function uploadFile(file: File, folder: 'assignments' | 'submissions') {
   }
 
   throw new AssignmentsApiError(error, response.status, 'Не удалось загрузить файл')
+}
+
+async function uploadFilesWithRollback(
+  files: File[],
+  uploadFn: (file: File) => Promise<AssignmentFile>,
+) {
+  if (files.length === 0) {
+    return []
+  }
+
+  const uploadResults = await Promise.allSettled(files.map((file) => uploadFn(file)))
+  const uploadedFiles = uploadResults.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []))
+  const failedUpload = uploadResults.find((result): result is PromiseRejectedResult => result.status === 'rejected')
+
+  if (!failedUpload) {
+    return uploadedFiles
+  }
+
+  if (uploadedFiles.length > 0) {
+    await Promise.allSettled(uploadedFiles.map((file) => deleteUploadedFile(file.id)))
+  }
+
+  throw failedUpload.reason
 }
 
 function normalizeAssignmentsQuery(query: Partial<ListAssignmentsQuery>) {

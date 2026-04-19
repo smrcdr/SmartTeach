@@ -162,13 +162,22 @@ export const routes: RouteRecordRaw[] = [
             },
           },
           {
-            path: 'lessons/create',
+            path: 'lessons/new',
             name: 'group-lesson-create',
             component: GroupLessonCreatePage,
             meta: {
               title: 'Новый урок | SmartTeach',
               workspaceModule: 'lessons',
             },
+          },
+          {
+            path: 'lessons/create',
+            redirect: (to) => ({
+              name: 'group-lesson-create',
+              params: {
+                groupId: to.params.groupId,
+              },
+            }),
           },
           {
             path: 'lessons/:lessonId/edit',

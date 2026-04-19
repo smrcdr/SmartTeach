@@ -266,6 +266,13 @@ export class LessonsService {
     const startsAt = params.startsAt ? new Date(params.startsAt) : null
     const endsAt = params.endsAt ? new Date(params.endsAt) : null
 
+    if (!startsAt && endsAt) {
+      throw new BadRequestException({
+        message: 'Validation failed',
+        errors: ['endsAt: cannot be set without startsAt'],
+      })
+    }
+
     if (startsAt && endsAt && startsAt.getTime() > endsAt.getTime()) {
       throw new BadRequestException({
         message: 'Validation failed',

@@ -85,6 +85,10 @@ export function getLessonDateValidationMessage(startsAt: string, endsAt: string)
   const normalizedStart = normalizeOptionalText(startsAt)
   const normalizedEnd = normalizeOptionalText(endsAt)
 
+  if (!normalizedStart && normalizedEnd) {
+    return 'Нельзя указать окончание урока без даты начала.'
+  }
+
   if (!normalizedStart || !normalizedEnd) {
     return ''
   }

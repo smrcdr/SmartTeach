@@ -7,7 +7,7 @@ import AssignmentForm from '../../features/assignments/components/AssignmentForm
 import {
   deleteUploadedFile,
   getAssignmentsErrorMessage,
-  uploadAssignmentFile,
+  uploadAssignmentFiles,
 } from '../../features/assignments/api/assignments.api'
 import { useAssignment, useUpdateAssignmentMutation } from '../../features/assignments/composables/useAssignments'
 import {
@@ -129,7 +129,7 @@ async function handleSubmit(submission: AssignmentEditorSubmission) {
   let uploadedFileIds: string[] = []
 
   try {
-    const uploadedFiles = await Promise.all(submission.newFiles.map((file) => uploadAssignmentFile(file)))
+    const uploadedFiles = await uploadAssignmentFiles(submission.newFiles)
 
     uploadedFileIds = uploadedFiles.map((file) => file.id)
 

@@ -9,7 +9,7 @@ import SubmissionStatusBadge from '../../features/assignments/components/Submiss
 import {
   deleteUploadedFile,
   getAssignmentsErrorMessage,
-  uploadSubmissionFile,
+  uploadSubmissionFiles,
 } from '../../features/assignments/api/assignments.api'
 import { useAssignment, useSubmission, useUpdateSubmissionMutation } from '../../features/assignments/composables/useAssignments'
 import { buildUpdateSubmissionPayload, type SubmissionEditorSubmission } from '../../features/assignments/lib/submission-form'
@@ -141,7 +141,7 @@ async function handleDraftSubmit(payload: SubmissionEditorSubmission) {
   let uploadedFileIds: string[] = []
 
   try {
-    const uploadedFiles = await Promise.all(payload.newFiles.map((file) => uploadSubmissionFile(file)))
+    const uploadedFiles = await uploadSubmissionFiles(payload.newFiles)
 
     uploadedFileIds = uploadedFiles.map((file) => file.id)
 

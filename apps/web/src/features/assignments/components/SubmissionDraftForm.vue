@@ -35,7 +35,7 @@ const keptFiles = ref<SubmissionEditorFile[]>([])
 const newFiles = ref<File[]>([])
 
 watch(
-  () => props.submission.id,
+  () => [props.submission.id, props.submission.updatedAt],
   () => {
     text.value = normalizeOptionalText(props.submission.text)
     keptFiles.value = [...props.submission.files]
