@@ -30,6 +30,7 @@ import GroupSettingsPage from '../pages/groups/GroupSettingsPage.vue'
 import GroupsPage from '../pages/groups/GroupsPage.vue'
 import JoinGroupPage from '../pages/groups/JoinGroupPage.vue'
 import ProfilePage from '../pages/profile/ProfilePage.vue'
+import PublicUserPage from '../pages/profile/PublicUserPage.vue'
 import HomePage from '../pages/public/HomePage.vue'
 
 export const routes: RouteRecordRaw[] = [
@@ -121,11 +122,27 @@ export const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'chats/:chatId',
+        name: 'chat-details',
+        component: ChatsPage,
+        meta: {
+          title: 'Диалог | SmartTeach',
+        },
+      },
+      {
         path: 'profile',
         name: 'profile',
         component: ProfilePage,
         meta: {
           title: 'Профиль | SmartTeach',
+        },
+      },
+      {
+        path: 'users/:userId',
+        name: 'public-user-profile',
+        component: PublicUserPage,
+        meta: {
+          title: 'Профиль пользователя | SmartTeach',
         },
       },
       {
@@ -284,6 +301,16 @@ export const routes: RouteRecordRaw[] = [
             component: GroupChatsPage,
             meta: {
               title: 'Чаты группы | SmartTeach',
+              workspaceModule: 'chats',
+            },
+          },
+          {
+            path: 'chats/:chatId',
+            name: 'group-chat-details',
+            component: GroupChatsPage,
+            meta: {
+              title: 'Диалог группы | SmartTeach',
+              workspaceModule: 'chats',
             },
           },
           {

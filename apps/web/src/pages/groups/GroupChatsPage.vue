@@ -1,21 +1,24 @@
 <script setup lang="ts">
-import GroupSectionPlaceholder from '../../features/groups/components/GroupSectionPlaceholder.vue'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 
-const highlights = [
-  'чат группы уже имеет отдельный route внутри workspace',
-  'каркас не смешивает локальные group chats с глобальным разделом чатов',
-  'mobile navigation уже учитывает быстрый вход в этот раздел через drawer',
-]
+import ChatWorkspace from '../../features/chats/components/ChatWorkspace.vue'
+
+const route = useRoute()
+const groupId = computed(() => String(route.params.groupId ?? ''))
 </script>
 
 <template>
-  <GroupSectionPlaceholder
-    eyebrow="Workspace / Chats"
-    title="Чаты группы"
-    description="Этот экран подготовлен под список тредов, сообщения и composer для group-level discussion flow."
-    :highlights="highlights"
-    next-step="Шаг 13 подключит chat list, создание групповых чатов и message composer поверх websocket transport."
-    primary-action-label="Глобальные чаты"
-    primary-action-to="/chats"
-  />
+  <div class="page-shell">
+    <header class="page-header">
+      <span class="page-eyebrow">Workspace / Chats</span>
+      <h1 class="page-title">Групповые комнаты остаются внутри workspace и не теряют контекст материалов.</h1>
+      <p class="page-lead">
+        История, composer и moderation flow живут в том же контуре, что и уроки, задания и участники конкретной
+        группы.
+      </p>
+    </header>
+
+    <ChatWorkspace scope="group" :group-id="groupId" />
+  </div>
 </template>

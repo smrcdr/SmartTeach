@@ -28,6 +28,7 @@ import AppErrorState from '../../shared/ui/AppErrorState.vue'
 import AppInput from '../../shared/ui/AppInput.vue'
 import AppLoader from '../../shared/ui/AppLoader.vue'
 import AppTextarea from '../../shared/ui/AppTextarea.vue'
+import UserDirectChatButton from '../../features/chats/components/UserDirectChatButton.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -362,6 +363,24 @@ async function handleReviewSubmit() {
             <dt>Автор</dt>
             <dd>{{ submission.author.displayName }}</dd>
           </div>
+          <div v-if="submission.author.id !== currentUserId" class="submission-detail__user-actions">
+            <dt>Контекст автора</dt>
+            <dd class="submission-detail__user-actions-row">
+              <AppButton
+                variant="ghost"
+                size="sm"
+                :to="{
+                  name: 'public-user-profile',
+                  params: {
+                    userId: submission.author.id,
+                  },
+                }"
+              >
+                Профиль
+              </AppButton>
+              <UserDirectChatButton :user-id="submission.author.id" />
+            </dd>
+          </div>
           <div>
             <dt>Статус</dt>
             <dd>{{ submission.status }}</dd>
@@ -486,6 +505,12 @@ async function handleReviewSubmit() {
 .submission-detail__facts dd {
   margin: 0;
   font-weight: 700;
+}
+
+.submission-detail__user-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
 }
 
 .submission-detail__file-list {

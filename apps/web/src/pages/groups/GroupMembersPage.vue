@@ -17,6 +17,7 @@ import AppCard from '../../shared/ui/AppCard.vue'
 import AppEmptyState from '../../shared/ui/AppEmptyState.vue'
 import AppErrorState from '../../shared/ui/AppErrorState.vue'
 import AppLoader from '../../shared/ui/AppLoader.vue'
+import UserDirectChatButton from '../../features/chats/components/UserDirectChatButton.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -312,6 +313,22 @@ async function handleLeaveGroup() {
                 </p>
 
                 <p class="member-item__meta">В группе с {{ formatJoinedAt(member.joinedAt) }}</p>
+
+                <div v-if="member.userId !== currentUserId" class="member-item__context-actions">
+                  <AppButton
+                    variant="ghost"
+                    size="sm"
+                    :to="{
+                      name: 'public-user-profile',
+                      params: {
+                        userId: member.userId,
+                      },
+                    }"
+                  >
+                    Профиль
+                  </AppButton>
+                  <UserDirectChatButton :user-id="member.userId" />
+                </div>
               </div>
             </div>
 
@@ -514,6 +531,12 @@ async function handleLeaveGroup() {
 .member-item__bio--muted,
 .member-item__meta {
   color: var(--color-subtle);
+}
+
+.member-item__context-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
 }
 
 .member-item__actions {

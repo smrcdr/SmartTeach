@@ -8,6 +8,7 @@ import {
 } from '../lib/assignments.ui'
 import SubmissionStatusBadge from './SubmissionStatusBadge.vue'
 import AppButton from '../../../shared/ui/AppButton.vue'
+import UserDirectChatButton from '../../chats/components/UserDirectChatButton.vue'
 
 defineProps<{
   groupId: string
@@ -25,6 +26,22 @@ defineProps<{
           <p class="muted">
             {{ normalizeOptionalText(group.author.bio) || 'Участник группы без дополнительного описания профиля.' }}
           </p>
+
+          <div class="submission-group__author-actions">
+            <AppButton
+              variant="ghost"
+              size="sm"
+              :to="{
+                name: 'public-user-profile',
+                params: {
+                  userId: group.author.id,
+                },
+              }"
+            >
+              Профиль
+            </AppButton>
+            <UserDirectChatButton :user-id="group.author.id" />
+          </div>
         </div>
 
         <div class="pill-list">
@@ -144,6 +161,13 @@ defineProps<{
 .submission-group__latest-side,
 .submission-group__attempt-actions {
   justify-items: end;
+}
+
+.submission-group__author-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
 }
 
 .submission-group__latest-meta {
