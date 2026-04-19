@@ -23,6 +23,8 @@ import GroupMembersPage from '../pages/groups/GroupMembersPage.vue'
 import GroupOverviewPage from '../pages/groups/GroupOverviewPage.vue'
 import GroupPreviewPage from '../pages/groups/GroupPreviewPage.vue'
 import GroupRequestsPage from '../pages/groups/GroupRequestsPage.vue'
+import GroupScheduleEventCreatePage from '../pages/groups/GroupScheduleEventCreatePage.vue'
+import GroupScheduleEventEditPage from '../pages/groups/GroupScheduleEventEditPage.vue'
 import GroupSchedulePage from '../pages/groups/GroupSchedulePage.vue'
 import GroupSettingsPage from '../pages/groups/GroupSettingsPage.vue'
 import GroupsPage from '../pages/groups/GroupsPage.vue'
@@ -241,11 +243,30 @@ export const routes: RouteRecordRaw[] = [
             },
           },
           {
+            path: 'schedule/events/new',
+            name: 'group-schedule-event-create',
+            component: GroupScheduleEventCreatePage,
+            meta: {
+              title: 'Новое событие группы | SmartTeach',
+              workspaceModule: 'schedule',
+            },
+          },
+          {
+            path: 'schedule/events/:eventId/edit',
+            name: 'group-schedule-event-edit',
+            component: GroupScheduleEventEditPage,
+            meta: {
+              title: 'Редактирование события | SmartTeach',
+              workspaceModule: 'schedule',
+            },
+          },
+          {
             path: 'schedule',
             name: 'group-schedule',
             component: GroupSchedulePage,
             meta: {
               title: 'Расписание группы | SmartTeach',
+              workspaceModule: 'schedule',
             },
           },
           {
