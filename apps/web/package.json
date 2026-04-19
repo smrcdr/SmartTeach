@@ -5,15 +5,21 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "openapi:types": "openapi-typescript public/openapi.yml -o src/shared/api/generated/openapi.ts",
     "build": "vue-tsc --noEmit -p tsconfig.json && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tanstack/vue-query": "^5.80.2",
+    "openapi-fetch": "^0.14.0",
+    "pinia": "^3.0.3",
+    "socket.io-client": "^4.8.1",
     "vue": "^3.5.13",
     "vue-router": "^4.5.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.4",
+    "openapi-typescript": "^7.8.0",
     "typescript": "^5.8.3",
     "vite": "^6.3.2",
     "vue-tsc": "^2.2.10"
