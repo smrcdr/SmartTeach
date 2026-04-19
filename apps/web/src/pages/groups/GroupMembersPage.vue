@@ -238,11 +238,11 @@ async function handleLeaveGroup() {
 <template>
   <div class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Workspace / Members</span>
+      <span class="page-eyebrow">Рабочее пространство / Участники</span>
       <h1 class="page-title">Состав группы, роли и сценарии владения управляются в одном рабочем контуре.</h1>
       <p class="page-lead">
         Все участники видят полный список состава. Владелец и администраторы получают отдельные действия для ролей,
-        удаления и передачи владения без выхода из group workspace.
+        удаления и передачи владения без выхода из рабочего пространства группы.
       </p>
     </header>
 
@@ -262,7 +262,7 @@ async function handleLeaveGroup() {
     <AppEmptyState
       v-else-if="members.length === 0"
       title="В группе пока нет участников"
-      description="Когда backend вернёт состав группы, здесь появятся участники, роли и доступные management actions."
+      description="Когда backend вернёт состав группы, здесь появятся участники, роли и доступные управляющие действия."
     />
 
     <div v-else class="section-grid">
@@ -309,7 +309,7 @@ async function handleLeaveGroup() {
                   {{ normalizeOptionalText(member.user.bio) }}
                 </p>
                 <p v-else class="member-item__bio member-item__bio--muted">
-                  Публичное bio не заполнено.
+                  Публичное описание не заполнено.
                 </p>
 
                 <p class="member-item__meta">В группе с {{ formatJoinedAt(member.joinedAt) }}</p>
@@ -374,7 +374,7 @@ async function handleLeaveGroup() {
         <h2 class="side-card__title">{{ currentMember ? groupMembershipRoleLabels[currentMember.role] : 'Участник группы' }}</h2>
         <p class="muted">
           {{ currentMember?.userId === group?.ownerId
-            ? 'Владелец не может выйти из группы напрямую: сначала нужно явно передать ownership другому участнику.'
+            ? 'Владелец не может выйти из группы напрямую: сначала нужно явно передать владение другому участнику.'
             : 'Выход из группы вынесен отдельно, чтобы не путать его с админским удалением участников.' }}
         </p>
 
@@ -405,10 +405,10 @@ async function handleLeaveGroup() {
         id="ownership-transfer"
         class="span-4 side-card"
       >
-        <span class="page-eyebrow">Ownership</span>
+        <span class="page-eyebrow">Владение</span>
         <h2 class="side-card__title">Передача владения</h2>
         <p class="muted">
-          Это отдельный явный flow: выбранный участник становится владельцем, а текущий owner автоматически остаётся
+          Это отдельный явный сценарий: выбранный участник становится владельцем, а текущий владелец автоматически остаётся
           в группе как администратор.
         </p>
 
@@ -437,7 +437,7 @@ async function handleLeaveGroup() {
 
         <AppEmptyState
           v-else
-          title="Некому передавать ownership"
+          title="Некому передавать владение"
           description="Для передачи владения в группе должен быть хотя бы ещё один участник."
         />
       </AppCard>
@@ -446,9 +446,9 @@ async function handleLeaveGroup() {
         <span class="page-eyebrow">Права доступа</span>
         <h2 class="side-card__title">Что учитывает экран участников</h2>
         <ul class="list-copy">
-          <li>обычные участники видят состав группы, но не получают destructive и role-management действий</li>
-          <li>администраторы и владелец управляют ролями и удалением только вне archived/read-only режима</li>
-          <li>ownership не скрыт внутри обычного выбора роли и вынесен в отдельный подтверждаемый сценарий</li>
+          <li>обычные участники видят состав группы, но не получают опасных действий и управления ролями</li>
+          <li>администраторы и владелец управляют ролями и удалением только вне архивного режима только для чтения</li>
+          <li>передача владения не скрыта внутри обычного выбора роли и вынесена в отдельный подтверждаемый сценарий</li>
         </ul>
       </AppCard>
     </div>

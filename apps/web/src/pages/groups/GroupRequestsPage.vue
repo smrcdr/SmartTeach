@@ -119,16 +119,16 @@ async function handleDecision(request: GroupJoinRequest, decision: 'APPROVED' | 
 <template>
   <div class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Workspace / Requests</span>
-      <h1 class="page-title">Join requests остаются отдельным owner/admin потоком и не смешиваются с общим составом группы.</h1>
+      <span class="page-eyebrow">Рабочее пространство / Заявки</span>
+      <h1 class="page-title">Заявки на вступление остаются отдельным потоком owner/admin и не смешиваются с составом группы.</h1>
       <p class="page-lead">
-        Экран показывает pending и уже обработанные заявки в группах c режимом доступа `BY_REQUEST`. После решения
+        Экран показывает ожидающие и уже обработанные заявки в группах с режимом доступа `BY_REQUEST`. После решения
         список обновляется в том же workspace-контексте.
       </p>
     </header>
 
     <div v-if="workspace.isReadOnly.value" class="panel-note">
-      Группа в архиве, поэтому заявки доступны только для просмотра. Решения approve/reject временно заблокированы.
+      Группа в архиве, поэтому заявки доступны только для просмотра. Решения об одобрении и отклонении временно заблокированы.
     </div>
 
     <AppLoader v-if="requestsQuery.isPending.value" label="Собираем заявки на вступление" />
@@ -142,7 +142,7 @@ async function handleDecision(request: GroupJoinRequest, decision: 'APPROVED' | 
     <AppEmptyState
       v-else-if="requests.length === 0"
       title="Заявок пока нет"
-      description="Когда пользователи подадут заявки на вступление, здесь появится pending и processed история."
+      description="Когда пользователи подадут заявки на вступление, здесь появится история ожидающих и обработанных заявок."
     />
 
     <div v-else class="section-grid">
@@ -173,10 +173,10 @@ async function handleDecision(request: GroupJoinRequest, decision: 'APPROVED' | 
         <div class="requests-card__header">
           <div>
             <h2 class="requests-card__title">Ожидают решения</h2>
-            <p class="muted">Новые заявки рассматриваются прямо в списке без переключения на отдельный moderation flow.</p>
+            <p class="muted">Новые заявки рассматриваются прямо в списке без перехода на отдельный экран модерации.</p>
           </div>
 
-          <span class="pill">{{ pendingRequests.length }} pending</span>
+          <span class="pill">{{ pendingRequests.length }} в ожидании</span>
         </div>
 
         <AppErrorState
@@ -212,7 +212,7 @@ async function handleDecision(request: GroupJoinRequest, decision: 'APPROVED' | 
                 <p v-if="normalizeOptionalText(request.user.bio)" class="request-item__bio">
                   {{ normalizeOptionalText(request.user.bio) }}
                 </p>
-                <p v-else class="request-item__bio request-item__bio--muted">Публичное bio не заполнено.</p>
+                <p v-else class="request-item__bio request-item__bio--muted">Публичное описание не заполнено.</p>
                 <p class="request-item__meta">Подана {{ formatDateTime(request.createdAt) }}</p>
               </div>
             </div>

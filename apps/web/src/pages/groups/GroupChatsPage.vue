@@ -11,10 +11,10 @@ const groupId = computed(() => String(route.params.groupId ?? ''))
 <template>
   <div class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Workspace / Chats</span>
-      <h1 class="page-title">Групповые комнаты остаются внутри workspace и не теряют контекст материалов.</h1>
+      <span class="page-eyebrow">Рабочее пространство / Чаты</span>
+      <h1 class="page-title">Групповые комнаты остаются внутри рабочего пространства и не теряют контекст материалов.</h1>
       <p class="page-lead">
-        История, composer и moderation flow живут в том же контуре, что и уроки, задания и участники конкретной
+        История, поле ввода и сценарии модерации живут в том же контуре, что и уроки, задания и участники конкретной
         группы.
       </p>
     </header>

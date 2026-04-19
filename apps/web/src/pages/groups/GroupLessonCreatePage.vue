@@ -77,11 +77,11 @@ async function handleSubmit(submission: LessonEditorSubmission) {
 
   <div v-else class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Workspace / Lessons / Create</span>
+      <span class="page-eyebrow">Рабочее пространство / Уроки / Создание</span>
       <h1 class="page-title">Новый урок создаётся на отдельной странице с явным выбором статуса.</h1>
       <p class="page-lead">
-        Форма поддерживает все agreed-поля шага 11: title, content, необязательные даты и вложения. После сохранения
-        lesson detail становится основной точкой входа в запись.
+        Форма поддерживает все поля шага 11: название, содержание, необязательные даты и вложения. После сохранения
+        страница урока становится основной точкой входа в запись.
       </p>
     </header>
 

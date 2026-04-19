@@ -85,7 +85,7 @@ const lessonOptions = computed(() => {
 })
 const lessonHint = computed(() => {
   if (!hasLessonsModule.value) {
-    return 'Модуль lessons выключен. Можно править задание, но новая привязка к уроку недоступна.'
+    return 'Модуль уроков выключен. Можно править задание, но новая привязка к уроку недоступна.'
   }
 
   if (lessonsQuery.isPending.value) {
@@ -97,7 +97,7 @@ const lessonHint = computed(() => {
   }
 
   if ((lessonsQuery.data.value ?? []).length === 0) {
-    return 'Уроков в группе пока нет, поэтому задание можно оставить standalone.'
+    return 'Уроков в группе пока нет, поэтому задание можно оставить самостоятельным.'
   }
 
   return 'При необходимости можно перепривязать задание к другому уроку или убрать связь совсем.'
@@ -184,11 +184,11 @@ async function handleSubmit(submission: AssignmentEditorSubmission) {
 
   <div v-else-if="assignment" class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Workspace / Assignments / Edit</span>
-      <h1 class="page-title">Редактирование задания вынесено из списка в отдельный full-page flow.</h1>
+      <span class="page-eyebrow">Рабочее пространство / Задания / Редактирование</span>
+      <h1 class="page-title">Редактирование задания вынесено из списка на отдельную страницу.</h1>
       <p class="page-lead">
-        Здесь меняются контент, дедлайн, lesson relation, файлы и итоговый статус задания. Review queue и submissions
-        остаются на detail-уровне.
+        Здесь меняются контент, дедлайн, связь с уроком, файлы и итоговый статус задания. Очередь проверки и попытки
+        остаются на уровне деталей.
       </p>
     </header>
 

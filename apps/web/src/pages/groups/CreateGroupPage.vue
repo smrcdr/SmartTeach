@@ -124,10 +124,10 @@ async function handleSubmit() {
 <template>
   <div class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Groups / Create</span>
+      <span class="page-eyebrow">Группы / Создание</span>
       <h1 class="page-title">Создание группы теперь начинается с одной рабочей формы без лишних промежуточных шагов.</h1>
       <p class="page-lead">
-        Код группы сгенерируется автоматически, а владелец сразу попадёт в собственный workspace после успешного
+        Код группы сгенерируется автоматически, а владелец сразу попадёт в собственное рабочее пространство после успешного
         создания.
       </p>
     </header>

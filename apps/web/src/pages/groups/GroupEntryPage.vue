@@ -60,8 +60,8 @@ watch(
 <template>
   <div class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Groups / Entry</span>
-      <h1 class="page-title">Проверяем, должны ли вы увидеть preview или сразу войти в workspace.</h1>
+      <span class="page-eyebrow">Группы / Вход</span>
+      <h1 class="page-title">Проверяем, должны ли вы увидеть предпросмотр или сразу войти в рабочее пространство.</h1>
       <p class="page-lead">
         Этот маршрут больше не показывает универсальный экран. Он только определяет ваш контекст по membership и
         переводит дальше.

@@ -123,7 +123,7 @@ async function moveLesson(lesson: Lesson, direction: 'up' | 'down') {
 <template>
   <div class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Workspace / Lessons</span>
+      <span class="page-eyebrow">Рабочее пространство / Уроки</span>
       <h1 class="page-title">Уроки управляются как рабочий модуль со статусами, ручным порядком и отдельными страницами.</h1>
       <p class="page-lead">
         Список остаётся операционным: дата показывает контекст урока, но не диктует порядок. Для участников видны
@@ -152,7 +152,7 @@ async function moveLesson(lesson: Lesson, direction: 'up' | 'down') {
     <AppCard v-if="canManageLessons" class="lessons-toolbar">
       <div class="lessons-toolbar__copy">
         <h2 class="lessons-toolbar__title">Фильтр статусов</h2>
-        <p class="muted">Ручной reorder доступен только в режиме `Все статусы`, чтобы не путать глобальный sort order.</p>
+        <p class="muted">Ручное изменение порядка доступно только в режиме `Все статусы`, чтобы не путать общий порядок списка.</p>
       </div>
 
       <div class="lessons-toolbar__filters">
@@ -182,7 +182,7 @@ async function moveLesson(lesson: Lesson, direction: 'up' | 'down') {
       {{ actionError }}
     </div>
 
-    <AppLoader v-if="lessonsQuery.isPending.value" label="Загружаем lessons module и текущий порядок уроков" />
+    <AppLoader v-if="lessonsQuery.isPending.value" label="Загружаем раздел уроков и текущий порядок" />
 
     <AppErrorState
       v-else-if="lessonsErrorMessage"

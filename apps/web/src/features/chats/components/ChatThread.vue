@@ -325,9 +325,9 @@ function getAttachmentLabel(file: ChatFile) {
         </div>
 
         <div class="chat-thread__status">
-          <span v-if="isReadOnly" class="pill">Read-only</span>
-          <span v-if="realtime.status.value === 'connecting'" class="pill">Подключаем realtime</span>
-          <span v-else-if="realtime.status.value === 'ready'" class="pill">Realtime активен</span>
+          <span v-if="isReadOnly" class="pill">Только чтение</span>
+          <span v-if="realtime.status.value === 'connecting'" class="pill">Подключаем обновления</span>
+          <span v-else-if="realtime.status.value === 'ready'" class="pill">Онлайн-обновление активно</span>
         </div>
       </header>
 

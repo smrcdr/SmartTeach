@@ -85,7 +85,7 @@ async function handleSubmit(submission: LessonEditorSubmission) {
 <template>
   <AppLoader
     v-if="workspace.isWorkspacePending.value || (lessonQuery.isPending.value && !lesson) || isBlocked"
-    label="Готовим edit flow урока и проверяем доступность редактирования"
+    label="Готовим страницу редактирования урока и проверяем доступ"
   />
 
   <AppErrorState
@@ -110,11 +110,11 @@ async function handleSubmit(submission: LessonEditorSubmission) {
 
   <div v-else-if="lesson" class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Workspace / Lessons / Edit</span>
-      <h1 class="page-title">Редактирование урока вынесено из списка в отдельный full-page flow.</h1>
+      <span class="page-eyebrow">Рабочее пространство / Уроки / Редактирование</span>
+      <h1 class="page-title">Редактирование урока вынесено из списка на отдельную страницу.</h1>
       <p class="page-lead">
         Здесь меняются контент, даты, вложения и итоговый статус записи. После сохранения пользователь возвращается в
-        detail view уже с новым состоянием урока.
+        детали урока уже с новым состоянием записи.
       </p>
     </header>
 

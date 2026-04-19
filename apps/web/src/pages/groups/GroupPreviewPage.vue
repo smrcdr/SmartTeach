@@ -66,7 +66,7 @@ const primaryActionLabel = computed(() => {
   }
 
   if (shouldRedirectToWorkspace.value) {
-    return 'Перейти в workspace'
+      return 'Перейти в рабочее пространство'
   }
 
   if (group.value.accessMode === 'OPEN') {
@@ -241,7 +241,7 @@ async function handleCreateJoinRequest() {
 <template>
   <div class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Group Preview</span>
+      <span class="page-eyebrow">Предпросмотр группы</span>
       <h1 class="page-title">{{ group?.name ?? 'Открываем группу' }}</h1>
       <p class="page-lead">{{ pageLead }}</p>
     </header>

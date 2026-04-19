@@ -110,7 +110,7 @@ export const routes: RouteRecordRaw[] = [
         name: 'group-preview',
         component: GroupPreviewPage,
         meta: {
-          title: 'Preview группы | SmartTeach',
+          title: 'Предпросмотр группы | SmartTeach',
         },
       },
       {

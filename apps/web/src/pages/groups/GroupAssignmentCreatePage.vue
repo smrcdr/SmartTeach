@@ -60,15 +60,15 @@ const lessonOptions = computed(() => {
 })
 const lessonHint = computed(() => {
   if (!hasLessonsModule.value) {
-    return 'Модуль lessons выключен, поэтому задание можно создать только как standalone.'
+    return 'Модуль уроков выключен, поэтому задание можно создать только как самостоятельное.'
   }
 
   if (lessonsQuery.isPending.value) {
-    return 'Загружаем список уроков для опциональной связи.'
+    return 'Загружаем список уроков для необязательной привязки.'
   }
 
   if (lessonsQuery.error.value) {
-    return 'Не удалось получить список уроков. Создание standalone assignment всё равно доступно.'
+    return 'Не удалось получить список уроков. Создание самостоятельного задания всё равно доступно.'
   }
 
   if ((lessonsQuery.data.value ?? []).length === 0) {
@@ -134,11 +134,11 @@ async function handleSubmit(submission: AssignmentEditorSubmission) {
 
   <div v-else class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Workspace / Assignments / Create</span>
+      <span class="page-eyebrow">Рабочее пространство / Задания / Создание</span>
       <h1 class="page-title">Новое задание создаётся на отдельной странице с явным выбором статуса.</h1>
       <p class="page-lead">
-        Форма покрывает полный agreed-набор полей шага 12: title, content, optional lesson link, optional due date,
-        optional max score и файлы.
+        Форма покрывает полный набор полей шага 12: название, описание, необязательную привязку к уроку, дедлайн,
+        максимальный балл и файлы.
       </p>
     </header>
 

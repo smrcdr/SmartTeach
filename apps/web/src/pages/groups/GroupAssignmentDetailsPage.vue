@@ -209,7 +209,7 @@ function getSubmissionTimestamp(submission: Submission) {
 <template>
   <AppLoader
     v-if="assignmentQuery.isPending.value || shouldHideAssignment || isAssignmentsModuleUnavailable"
-    label="Открываем задание и проверяем допустимый flow для текущей роли"
+    label="Открываем задание и проверяем допустимый сценарий для текущей роли"
   />
 
   <AppErrorState
@@ -234,13 +234,13 @@ function getSubmissionTimestamp(submission: Submission) {
 
   <div v-else-if="assignment" class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Workspace / Assignments / Detail</span>
+      <span class="page-eyebrow">Рабочее пространство / Задания / Детали</span>
       <h1 class="page-title">{{ assignment.title }}</h1>
       <p class="page-lead">
         {{
           workspace.canManageGroup.value
-            ? 'Admin-view разделяет условие задания и review queue: слева содержание и метаданные, справа grouped submissions по участникам.'
-            : 'Student-view держит условие, текущую работу и историю попыток в одном месте, не смешивая их с manager-review flow.'
+            ? 'Управляющий сценарий разделяет условие задания и очередь проверки: слева содержание и метаданные, справа попытки по участникам.'
+            : 'Пользовательский сценарий держит условие, текущую работу и историю попыток в одном месте, не смешивая их с потоком проверки.'
         }}
       </p>
 
@@ -263,7 +263,7 @@ function getSubmissionTimestamp(submission: Submission) {
             assignmentId,
           },
         }">
-          Review queue
+          Очередь проверки
         </AppButton>
         <AppButton
           v-if="workspace.canManageGroup.value && !workspace.isReadOnly.value"
@@ -281,8 +281,8 @@ function getSubmissionTimestamp(submission: Submission) {
     </header>
 
     <div v-if="workspace.isReadOnly.value" class="panel-note">
-      Группа находится в архиве. Assignment detail и история attempts остаются доступны, но создание новых записей и
-      review updates отключены.
+      Группа находится в архиве. Детали задания и история попыток остаются доступны, но создание новых записей и
+      обновления проверки отключены.
     </div>
 
     <div v-if="actionError" class="panel-note panel-note--danger">
@@ -294,7 +294,7 @@ function getSubmissionTimestamp(submission: Submission) {
         <div class="assignment-detail__header">
           <div>
             <h2 class="assignment-detail__title">Условие и метаданные</h2>
-            <p class="muted">Здесь остаётся контекст задания, а review queue вынесен в отдельную колонку.</p>
+            <p class="muted">Здесь остаётся контекст задания, а очередь проверки вынесена в отдельную колонку.</p>
           </div>
 
           <AssignmentStatusBadge :status="assignment.status" />
@@ -337,7 +337,7 @@ function getSubmissionTimestamp(submission: Submission) {
           <AppEmptyState
             v-if="assignment.files.length === 0"
             title="Файлы не приложены"
-            description="Условие задания уже рабочее и без вложений. Их можно добавить через edit flow."
+            description="Условие задания уже рабочее и без вложений. Их можно добавить через страницу редактирования."
           />
 
           <ul v-else class="assignment-detail__file-list">
@@ -354,25 +354,25 @@ function getSubmissionTimestamp(submission: Submission) {
       <AppCard class="span-7 assignment-detail__card">
         <div class="assignment-detail__header">
           <div>
-            <h2 class="assignment-detail__title">Grouped submissions</h2>
+            <h2 class="assignment-detail__title">Попытки по участникам</h2>
             <p class="muted">Правая колонка акцентирует последнюю попытку участника и сохраняет историю ниже.</p>
           </div>
 
           <span class="pill">Участников с попытками: {{ managerSubmissionGroups.length }}</span>
         </div>
 
-        <AppLoader v-if="submissionsQuery.isPending.value" label="Загружаем grouped submissions по участникам" />
+        <AppLoader v-if="submissionsQuery.isPending.value" label="Загружаем попытки по участникам" />
 
         <AppErrorState
           v-else-if="submissionsErrorMessage"
-          title="Не удалось загрузить submissions"
+          title="Не удалось загрузить попытки"
           :description="submissionsErrorMessage"
         />
 
         <AppEmptyState
           v-else-if="managerSubmissionGroups.length === 0"
           title="Попыток пока нет"
-          description="Когда участники создадут хотя бы один draft или отправят работу, review queue появится здесь и в отдельном submissions route."
+          description="Когда участники создадут хотя бы один черновик или отправят работу, очередь проверки появится здесь и на отдельной странице попыток."
         />
 
         <AssignmentSubmissionGroups
@@ -389,7 +389,7 @@ function getSubmissionTimestamp(submission: Submission) {
         <div class="assignment-detail__header">
           <div>
             <h2 class="assignment-detail__title">Условие задания</h2>
-            <p class="muted">Основное описание и материалы задания остаются отдельно от submission history.</p>
+            <p class="muted">Основное описание и материалы задания остаются отдельно от истории попыток.</p>
           </div>
 
           <AssignmentStatusBadge :status="assignment.status" />
@@ -421,7 +421,7 @@ function getSubmissionTimestamp(submission: Submission) {
         <div class="assignment-detail__header">
           <div>
             <h2 class="assignment-detail__title">Моя текущая работа</h2>
-            <p class="muted">Текущий draft и следующая попытка управляются отдельно от общей истории.</p>
+            <p class="muted">Текущий черновик и следующая попытка управляются отдельно от общей истории.</p>
           </div>
         </div>
 
@@ -444,14 +444,14 @@ function getSubmissionTimestamp(submission: Submission) {
 
         <AppErrorState
           v-else-if="submissionsErrorMessage"
-          title="Не удалось загрузить мои attempts"
+          title="Не удалось загрузить мои попытки"
           :description="submissionsErrorMessage"
         />
 
         <AppEmptyState
           v-else-if="!latestSubmission"
           title="Попыток пока нет"
-          description="Можно создать первый draft и возвращаться к нему, пока работа не готова к отправке."
+          description="Можно создать первый черновик и возвращаться к нему, пока работа не готова к отправке."
         >
           <template v-if="!workspace.isReadOnly.value" #actions>
             <AppButton :disabled="createSubmissionMutation.isPending.value" @click="startNewAttempt()">
@@ -476,7 +476,7 @@ function getSubmissionTimestamp(submission: Submission) {
                     currentDraft
                       ? 'Текущая работа остаётся редактируемой до отправки.'
                       : latestSubmission.status === 'SUBMITTED'
-                        ? 'Работа отправлена и ожидает review.'
+                        ? 'Работа отправлена и ждёт проверки.'
                         : 'Последняя попытка уже проверена. История сохранена и доступна ниже.'
                   }}
                 </p>
@@ -521,7 +521,7 @@ function getSubmissionTimestamp(submission: Submission) {
         <div class="assignment-detail__header">
           <div>
             <h2 class="assignment-detail__title">История попыток</h2>
-            <p class="muted">После новой попытки предыдущие submissions не теряются и остаются доступными поштучно.</p>
+            <p class="muted">После новой попытки предыдущие записи не теряются и остаются доступными поштучно.</p>
           </div>
         </div>
 
@@ -536,7 +536,7 @@ function getSubmissionTimestamp(submission: Submission) {
         <AppEmptyState
           v-else-if="submissionHistory.length === 0"
           title="История пока пустая"
-          description="Как только вы создадите первый draft, он сразу появится здесь."
+          description="Как только вы создадите первый черновик, он сразу появится здесь."
         />
 
         <ul v-else class="assignment-detail__history">

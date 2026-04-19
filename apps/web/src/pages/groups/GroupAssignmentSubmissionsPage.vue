@@ -42,7 +42,7 @@ const assignmentErrorMessage = computed(() => {
 const submissionsErrorMessage = computed(() => {
   const error = submissionsQuery.error.value
 
-  return error ? getAssignmentsErrorMessage(error, 'Не удалось загрузить review queue') : ''
+  return error ? getAssignmentsErrorMessage(error, 'Не удалось загрузить очередь проверки') : ''
 })
 const submissionGroups = computed(() => groupSubmissionsByAuthor(submissionsQuery.data.value ?? []))
 const reviewedCount = computed(
@@ -71,12 +71,12 @@ watchEffect(() => {
 <template>
   <AppLoader
     v-if="workspace.isWorkspacePending.value || (assignmentQuery.isPending.value && !assignment) || isBlocked"
-    label="Собираем review queue для задания"
+    label="Собираем очередь проверки для задания"
   />
 
   <AppErrorState
     v-else-if="assignmentErrorMessage"
-    title="Не удалось открыть review queue"
+    title="Не удалось открыть очередь проверки"
     :description="assignmentErrorMessage"
   >
     <template #actions>
@@ -97,11 +97,11 @@ watchEffect(() => {
 
   <div v-else-if="assignment" class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Workspace / Assignments / Submissions</span>
-      <h1 class="page-title">Review queue для «{{ assignment.title }}»</h1>
+      <span class="page-eyebrow">Рабочее пространство / Задания / Попытки</span>
+      <h1 class="page-title">Очередь проверки для «{{ assignment.title }}»</h1>
       <p class="page-lead">
-        Отдельный submissions route концентрируется на grouped attempts по участникам и держит акцент на последней
-        попытке, чтобы review не терялся в общем assignment detail.
+        Отдельная страница попыток концентрируется на попытках по участникам и держит акцент на последней попытке,
+        чтобы проверка не терялась в общих деталях задания.
       </p>
 
       <div class="page-actions">
@@ -133,13 +133,13 @@ watchEffect(() => {
     </header>
 
     <div v-if="workspace.isReadOnly.value" class="panel-note">
-      Группа находится в архиве. Review queue остаётся видимым, но изменения feedback и score отключены.
+      Группа находится в архиве. Очередь проверки остаётся видимой, но изменения комментариев и баллов отключены.
     </div>
 
     <div class="section-grid">
       <AppCard tone="accent" class="span-4 submissions-summary">
         <div>
-          <h2 class="submissions-summary__title">Сводка review flow</h2>
+          <h2 class="submissions-summary__title">Сводка проверки</h2>
           <p class="muted">Основной ориентир — последняя попытка участника, но предыдущая история всегда остаётся рядом.</p>
         </div>
 
@@ -150,7 +150,7 @@ watchEffect(() => {
           </div>
           <div class="metric">
             <span class="metric__value">{{ submittedCount }}</span>
-            <span class="metric__label">На review</span>
+            <span class="metric__label">На проверке</span>
           </div>
           <div class="metric">
             <span class="metric__value">{{ reviewedCount }}</span>
@@ -158,18 +158,18 @@ watchEffect(() => {
           </div>
         </div>
 
-        <p class="muted">Черновиков сейчас: {{ draftCount }}. Они видны менеджеру, но не должны уходить в review до отправки.</p>
+        <p class="muted">Черновиков сейчас: {{ draftCount }}. Они видны менеджеру, но не должны попадать на проверку до отправки.</p>
       </AppCard>
 
       <AppCard class="span-8 submissions-queue">
         <div class="submissions-queue__header">
           <div>
-            <h2 class="submissions-queue__title">Grouped submissions</h2>
-            <p class="muted">Каждый блок показывает latest attempt сверху и предыдущие попытки ниже.</p>
+            <h2 class="submissions-queue__title">Попытки по участникам</h2>
+            <p class="muted">Каждый блок показывает последнюю попытку сверху и предыдущие попытки ниже.</p>
           </div>
         </div>
 
-        <AppLoader v-if="submissionsQuery.isPending.value" label="Загружаем queue попыток" />
+        <AppLoader v-if="submissionsQuery.isPending.value" label="Загружаем очередь попыток" />
 
         <AppErrorState
           v-else-if="submissionsErrorMessage"
@@ -180,7 +180,7 @@ watchEffect(() => {
         <AppEmptyState
           v-else-if="submissionGroups.length === 0"
           title="Пока нет попыток"
-          description="Когда участники создадут draft или отправят работу, grouped queue появится здесь."
+          description="Когда участники создадут черновик или отправят работу, очередь попыток появится здесь."
         />
 
         <AssignmentSubmissionGroups

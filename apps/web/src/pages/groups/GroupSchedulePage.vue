@@ -87,12 +87,12 @@ const entryCounts = computed(() =>
 const scheduleErrorMessage = computed(() => {
   const error = scheduleQuery.error.value
 
-  return error ? getGroupsErrorMessage(error, 'Не удалось загрузить agenda группы') : ''
+  return error ? getGroupsErrorMessage(error, 'Не удалось загрузить расписание группы') : ''
 })
 const cancelledEventsErrorMessage = computed(() => {
   const error = cancelledEventsQuery.error.value
 
-  return error ? getScheduleErrorMessage(error, 'Не удалось загрузить отменённые custom events') : ''
+  return error ? getScheduleErrorMessage(error, 'Не удалось загрузить отменённые пользовательские события') : ''
 })
 const emptyStateTitle = computed(() => {
   if (scheduleEntries.value.length === 0) {
@@ -108,12 +108,12 @@ const emptyStateTitle = computed(() => {
 const emptyStateDescription = computed(() => {
   if (scheduleEntries.value.length === 0) {
     return canManageSchedule.value
-      ? 'Создайте первое кастомное событие, а уроки и дедлайны появятся здесь автоматически, когда у них будут даты.'
-      : 'Когда в группе появятся уроки с датой, дедлайны или кастомные события, они соберутся здесь по дням.'
+      ? 'Создайте первое пользовательское событие, а уроки и дедлайны появятся здесь автоматически, когда у них будут даты.'
+      : 'Когда в группе появятся уроки с датой, дедлайны или пользовательские события, они соберутся здесь по дням.'
   }
 
   if (activeFilterCount.value === 0) {
-    return 'Включите хотя бы один быстрый фильтр, чтобы вернуть записи в agenda-ленту.'
+    return 'Включите хотя бы один быстрый фильтр, чтобы вернуть записи в ленту расписания.'
   }
 
   return 'Попробуйте вернуть часть типов событий или дождитесь новых записей в этом диапазоне ленты.'
@@ -233,7 +233,7 @@ function formatEntryCount(count: number) {
 <template>
   <AppLoader
     v-if="workspace.isWorkspacePending.value || isScheduleModuleUnavailable"
-    label="Собираем schedule module и проверяем доступность agenda-ленты"
+    label="Собираем раздел расписания и проверяем доступность ленты"
   />
 
   <AppErrorState
@@ -248,11 +248,11 @@ function formatEntryCount(count: number) {
 
   <div v-else class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Workspace / Schedule</span>
-      <h1 class="page-title">Расписание работает как agenda-лента по дням, а не как декоративный month calendar.</h1>
+      <span class="page-eyebrow">Рабочее пространство / Расписание</span>
+      <h1 class="page-title">Расписание работает как лента по дням, а не как декоративный календарь по месяцам.</h1>
       <p class="page-lead">
-        В одном потоке собраны уроки, дедлайны заданий и кастомные события. Фильтры переключают типы без отдельного
-        режима, а manager-роли получают отдельные create/edit flow для custom events.
+        В одном потоке собраны уроки, дедлайны заданий и пользовательские события. Фильтры переключают типы без
+        отдельного режима, а управляющие роли получают отдельные страницы создания и редактирования событий.
       </p>
 
       <div v-if="canManageSchedule" class="page-actions">
@@ -270,14 +270,14 @@ function formatEntryCount(count: number) {
     </header>
 
     <div v-if="workspace.isReadOnly.value" class="panel-note">
-      Группа находится в архиве. Agenda и existing события остаются видимыми, но кнопки создания и редактирования
+      Группа находится в архиве. Лента и существующие события остаются видимыми, но кнопки создания и редактирования
       скрыты до восстановления группы.
     </div>
 
     <div class="section-grid">
       <AppCard tone="accent" class="span-4 schedule-summary">
         <div class="schedule-summary__header">
-          <h2 class="schedule-summary__title">Сводка agenda</h2>
+          <h2 class="schedule-summary__title">Сводка ленты</h2>
           <p class="muted">Лента собирается по дням и не прячет типы событий за отдельными табами.</p>
         </div>
 
@@ -309,8 +309,8 @@ function formatEntryCount(count: number) {
 
         <ul class="list-copy">
           <li>Уроки и дедлайны попадают сюда автоматически, если у записи есть дата.</li>
-          <li v-if="canManageSchedule">Custom events создаются и редактируются в отдельных manager-only flow.</li>
-          <li v-else>Custom events остаются видимыми всем участникам, но редактируются только owner/admin.</li>
+          <li v-if="canManageSchedule">Пользовательские события создаются и редактируются на отдельных страницах.</li>
+          <li v-else>Пользовательские события остаются видимыми всем участникам, но редактируются только owner/admin.</li>
         </ul>
       </AppCard>
 
@@ -353,9 +353,9 @@ function formatEntryCount(count: number) {
       <AppCard v-if="canManageSchedule" class="span-12 schedule-cancelled">
         <div class="schedule-cancelled__header">
           <div>
-            <h2 class="schedule-cancelled__title">Скрытые custom events</h2>
+            <h2 class="schedule-cancelled__title">Скрытые пользовательские события</h2>
             <p class="muted">
-              После перевода события в `Отменено` оно исчезает из agenda, но остаётся доступно здесь через edit route.
+              После перевода события в `Отменено` оно исчезает из ленты, но остаётся доступно здесь через страницу редактирования.
             </p>
           </div>
 
@@ -372,14 +372,15 @@ function formatEntryCount(count: number) {
           </template>
         </AppErrorState>
 
-        <div v-else-if="cancelledEventsQuery.isPending.value" class="schedule-cancelled__loading">
-          Загружаем отменённые custom events, чтобы их можно было открыть повторно.
-        </div>
+        <AppLoader
+          v-else-if="cancelledEventsQuery.isPending.value"
+          label="Загружаем отменённые события, чтобы их можно было открыть повторно"
+        />
 
         <AppEmptyState
           v-else-if="cancelledEvents.length === 0"
           title="Нет отменённых событий"
-          description="Если кастомное событие перевести в `Отменено`, оно исчезнет из agenda, но останется доступно в этом списке."
+          description="Если пользовательское событие перевести в `Отменено`, оно исчезнет из ленты, но останется доступно в этом списке."
         />
 
         <div v-else class="schedule-cancelled__list">
@@ -387,7 +388,7 @@ function formatEntryCount(count: number) {
             <div class="schedule-cancelled__copy">
               <div class="schedule-cancelled__meta">
                 <ScheduleEventStatusBadge :status="event.status" />
-                <span class="pill">Скрыто из agenda</span>
+                <span class="pill">Скрыто из ленты</span>
               </div>
 
               <h3 class="schedule-cancelled__item-title">{{ event.title }}</h3>
@@ -418,7 +419,7 @@ function formatEntryCount(count: number) {
       </AppCard>
     </div>
 
-    <AppLoader v-if="scheduleQuery.isPending.value" label="Загружаем agenda-ленту группы" />
+    <AppLoader v-if="scheduleQuery.isPending.value" label="Загружаем ленту расписания группы" />
 
     <AppEmptyState v-else-if="groupedEntries.length === 0" :title="emptyStateTitle" :description="emptyStateDescription">
       <template #actions>
@@ -614,10 +615,6 @@ function formatEntryCount(count: number) {
 .schedule-days {
   display: grid;
   gap: 1rem;
-}
-
-.schedule-cancelled__loading {
-  color: var(--color-muted);
 }
 
 .schedule-cancelled__list {

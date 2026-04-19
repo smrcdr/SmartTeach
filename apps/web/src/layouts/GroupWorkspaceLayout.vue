@@ -25,7 +25,9 @@ const group = computed(() => workspace.group.value)
 const settings = computed(() => workspace.settings.value)
 const workspaceName = computed(() => group.value?.name ?? groupId.value.toUpperCase())
 const workspaceLead = computed(
-  () => normalizeOptionalText(group.value?.description) || 'Единый workspace собирает все внутренние разделы группы в одном контексте.',
+  () =>
+    normalizeOptionalText(group.value?.description) ||
+    'Единое рабочее пространство собирает все внутренние разделы группы в одном контексте.',
 )
 const membershipLabel = computed(() => getGroupMembershipRoleLabel(workspace.membershipRole.value))
 const accessModeLabel = computed(() => (group.value ? groupAccessModeLabels[group.value.accessMode] : ''))
@@ -34,7 +36,7 @@ const moduleLabels = computed(() => (settings.value ? getEnabledGroupModules(set
 const readOnlyNotice = computed(() =>
   workspace.isReadOnly.value
     ? 'Группа находится в архиве. Внутренние разделы доступны только для просмотра, а редактирующие действия должны быть скрыты.'
-    : 'Навигация и доступ к разделам собираются централизованно из membership, access mode и включённых модулей.',
+    : 'Навигация и доступ к разделам собираются централизованно по роли участника, режиму доступа и включённым модулям.',
 )
 const errorMessage = computed(() => {
   const error = workspace.workspaceError.value
@@ -71,7 +73,7 @@ function normalizeOptionalText(value: unknown) {
 
 <template>
   <div class="workspace">
-    <AppLoader v-if="workspace.isWorkspacePending.value" label="Собираем workspace группы и права доступа" />
+    <AppLoader v-if="workspace.isWorkspacePending.value" label="Собираем рабочее пространство группы и права доступа" />
 
     <AppErrorState
       v-else-if="errorMessage"
@@ -86,7 +88,7 @@ function normalizeOptionalText(value: unknown) {
     <template v-else-if="group && settings">
       <div class="workspace__hero">
         <div class="workspace__hero-copy">
-          <span class="page-eyebrow">Group Workspace</span>
+          <span class="page-eyebrow">Рабочее пространство группы</span>
           <h1 class="page-title">{{ workspaceName }}</h1>
           <p class="page-lead">{{ workspaceLead }}</p>
 
@@ -103,7 +105,7 @@ function normalizeOptionalText(value: unknown) {
           </AppButton>
 
           <AppCard tone="accent" class="workspace__notice">
-            <strong>{{ workspace.isReadOnly.value ? 'Read-only режим' : 'Навигация группы' }}</strong>
+            <strong>{{ workspace.isReadOnly.value ? 'Режим только для чтения' : 'Навигация группы' }}</strong>
             <p class="muted">{{ readOnlyNotice }}</p>
           </AppCard>
         </div>

@@ -103,16 +103,16 @@ async function handleSubmit(submission: ScheduleEventEditorSubmission) {
 <template>
   <AppLoader
     v-if="workspace.isWorkspacePending.value || isBlocked"
-    label="Проверяем права на создание события и готовим schedule form"
+    label="Проверяем права на создание события и готовим форму"
   />
 
   <div v-else class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Workspace / Schedule / Create</span>
-      <h1 class="page-title">Новое кастомное событие добавляется в agenda отдельным full-page flow.</h1>
+      <span class="page-eyebrow">Рабочее пространство / Расписание / Создание</span>
+      <h1 class="page-title">Новое пользовательское событие добавляется в ленту на отдельной странице.</h1>
       <p class="page-lead">
-        Здесь manager-роль создаёт собственный слот с названием, временем, локацией и статусом. После сохранения
-        planned-событие возвращается в общую ленту, а cancelled-запись остаётся доступной через edit route.
+        Здесь управляющая роль создаёт собственный слот с названием, временем, локацией и статусом. После сохранения
+        запланированное событие возвращается в общую ленту, а отменённая запись остаётся доступной через страницу редактирования.
       </p>
     </header>
 

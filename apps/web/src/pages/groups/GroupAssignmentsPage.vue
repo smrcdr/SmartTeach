@@ -159,10 +159,10 @@ function getLessonRoute(assignment: Assignment) {
 
   <div v-else class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Workspace / Assignments</span>
-      <h1 class="page-title">Задания собирают учебный цикл: дедлайны, статусы, вложения и вход в submission flow.</h1>
+      <span class="page-eyebrow">Рабочее пространство / Задания</span>
+      <h1 class="page-title">Задания собирают учебный цикл: дедлайны, статусы, вложения и вход в поток попыток.</h1>
       <p class="page-lead">
-        Основной список сортируется по дедлайну: записи со сроком идут первыми, standalone assignment без due date
+        Основной список сортируется по дедлайну: записи со сроком идут первыми, самостоятельные задания без срока
         остаются ниже. Для участников показываются только опубликованные задания.
       </p>
 
@@ -181,15 +181,15 @@ function getLessonRoute(assignment: Assignment) {
     </header>
 
     <div v-if="workspace.isReadOnly.value" class="panel-note">
-      Группа находится в архиве. Assignment detail и история попыток остаются доступными для чтения, но создание,
-      редактирование и новые submissions отключены до восстановления группы.
+      Группа находится в архиве. Детали задания и история попыток остаются доступными для чтения, но создание,
+      редактирование и новые отправки отключены до восстановления группы.
     </div>
 
     <AppCard v-if="canManageAssignments" class="assignments-toolbar">
       <div class="assignments-toolbar__copy">
         <h2 class="assignments-toolbar__title">Фильтр статусов</h2>
         <p class="muted">
-          Manager-ролям доступны черновики, публикация и архив. Для `USER` поток жёстко ограничен опубликованными
+          Управляющим ролям доступны черновики, публикация и архив. Для `USER` поток жёстко ограничен опубликованными
           заданиями.
         </p>
       </div>
@@ -211,20 +211,20 @@ function getLessonRoute(assignment: Assignment) {
       <div class="assignments-toolbar__copy">
         <h2 class="assignments-toolbar__title">Режим участника</h2>
         <p class="muted">
-          Здесь остаются только опубликованные задания и личный submission flow. Review queue и менеджерские статусы
-          перенесены в отдельный admin-поток.
+          Здесь остаются только опубликованные задания и личный поток попыток. Очередь проверки и менеджерские статусы
+          перенесены в отдельный административный сценарий.
         </p>
       </div>
     </AppCard>
 
-    <AppLoader v-if="assignmentsQuery.isPending.value" label="Загружаем assignments list и метаданные дедлайнов" />
+    <AppLoader v-if="assignmentsQuery.isPending.value" label="Загружаем список заданий и метаданные дедлайнов" />
 
     <AppEmptyState
       v-else-if="assignments.length === 0"
       :title="canCreateAssignment ? 'Заданий пока нет' : 'Пока нет опубликованных заданий'"
       :description="
         canCreateAssignment
-          ? 'Можно создать первое задание без привязки к уроку, без due date или без max score.'
+          ? 'Можно создать первое задание без привязки к уроку, без срока сдачи или без максимального балла.'
           : 'Когда владелец или администратор опубликует задание, оно появится здесь с входом в вашу историю попыток.'
       "
     >

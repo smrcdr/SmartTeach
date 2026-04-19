@@ -257,13 +257,13 @@ async function handleReviewSubmit() {
 
   <div v-else-if="assignment && submission" class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Workspace / Assignments / Submission</span>
+      <span class="page-eyebrow">Рабочее пространство / Задания / Попытка</span>
       <h1 class="page-title">Попытка #{{ submission.attemptNumber }} для «{{ assignment.title }}»</h1>
       <p class="page-lead">
         {{
           workspace.canManageGroup.value
-            ? 'Здесь manager-role проводит review по конкретной попытке, не смешивая его с редактурой задания.'
-            : 'Здесь пользователь продолжает свой draft или читает уже отправленную и проверенную попытку.'
+            ? 'Здесь управляющая роль проводит проверку конкретной попытки, не смешивая её с редактированием задания.'
+            : 'Здесь пользователь продолжает свой черновик или читает уже отправленную и проверенную попытку.'
         }}
       </p>
 
@@ -291,13 +291,13 @@ async function handleReviewSubmit() {
             },
           }"
         >
-          Ко всем submissions
+          Ко всем попыткам
         </AppButton>
       </div>
     </header>
 
     <div v-if="workspace.isReadOnly.value" class="panel-note">
-      Группа находится в архиве. Попытка остаётся доступной для чтения, но draft updates и review changes отключены.
+      Группа находится в архиве. Попытка остаётся доступной для чтения, но обновление черновика и проверка отключены.
     </div>
 
     <SubmissionDraftForm
@@ -320,7 +320,7 @@ async function handleReviewSubmit() {
         <div class="submission-detail__header">
           <div>
             <h2 class="submission-detail__title">Содержимое попытки</h2>
-            <p class="muted">Текст и вложения попытки остаются неизменяемыми после отправки или review.</p>
+            <p class="muted">Текст и вложения попытки остаются неизменяемыми после отправки или проверки.</p>
           </div>
 
           <SubmissionStatusBadge :status="submission.status" />
@@ -353,8 +353,8 @@ async function handleReviewSubmit() {
       <AppCard tone="accent" class="span-4 submission-detail__card">
         <div class="submission-detail__header">
           <div>
-            <h2 class="submission-detail__title">Метаданные и review</h2>
-            <p class="muted">Правая колонка держит таймлайн попытки, feedback и score.</p>
+            <h2 class="submission-detail__title">Метаданные и проверка</h2>
+            <p class="muted">Правая колонка держит таймлайн попытки, комментарии и балл.</p>
           </div>
         </div>
 

@@ -17,6 +17,7 @@ import AppButton from '../../shared/ui/AppButton.vue'
 import AppCard from '../../shared/ui/AppCard.vue'
 import AppEmptyState from '../../shared/ui/AppEmptyState.vue'
 import AppErrorState from '../../shared/ui/AppErrorState.vue'
+import AppLoader from '../../shared/ui/AppLoader.vue'
 
 const route = useRoute()
 
@@ -45,14 +46,14 @@ function normalizeOptionalText(value: unknown) {
 <template>
   <div v-if="group && settings" class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Workspace / Overview</span>
+      <span class="page-eyebrow">Рабочее пространство / Обзор</span>
       <h1 class="page-title">{{ group.name }}</h1>
       <p class="page-lead">{{ groupLead }}</p>
     </header>
 
     <div v-if="workspace.isReadOnly.value" class="panel-note">
-      Группа переведена в архив. Workspace должен работать как read-only: просмотр доступен, а редактирующие CTA
-      скрываются централизованно.
+      Группа переведена в архив. Рабочее пространство работает только на чтение: просмотр доступен, а действия
+      редактирования скрываются централизованно.
     </div>
 
     <div class="section-grid">
@@ -127,8 +128,8 @@ function normalizeOptionalText(value: unknown) {
           title="Расписание выключено"
           :description="
             workspace.canManageGroup.value && !workspace.isReadOnly.value
-              ? 'Пока модуль выключен, overview не собирает ближайшие уроки, дедлайны и custom events. Его можно включить в настройках группы.'
-              : 'Пока модуль выключен, overview не собирает ближайшие уроки, дедлайны и custom events.'
+              ? 'Пока модуль выключен, обзор не собирает ближайшие уроки, дедлайны и пользовательские события. Его можно включить в настройках группы.'
+              : 'Пока модуль выключен, обзор не собирает ближайшие уроки, дедлайны и пользовательские события.'
           "
         >
           <template v-if="workspace.canManageGroup.value && !workspace.isReadOnly.value" #actions>
@@ -149,17 +150,18 @@ function normalizeOptionalText(value: unknown) {
         <AppErrorState
           v-else-if="workspace.scheduleQuery.error.value"
           title="Не удалось загрузить календарь группы"
-          description="Overview останется доступным, но блок ближайших событий сейчас недоступен."
+          description="Обзор останется доступным, но блок ближайших событий сейчас недоступен."
         />
 
-        <div v-else-if="workspace.scheduleQuery.isPending.value" class="upcoming-card__loading">
-          Собираем уроки, дедлайны и события группы.
-        </div>
+        <AppLoader
+          v-else-if="workspace.scheduleQuery.isPending.value"
+          label="Собираем уроки, дедлайны и события группы"
+        />
 
         <AppEmptyState
           v-else-if="upcomingEntries.length === 0"
           title="Пока нет ближайших событий"
-          description="Когда в группе появятся уроки, дедлайны или custom events, они будут собираться здесь в единую сводку."
+          description="Когда в группе появятся уроки, дедлайны или пользовательские события, они будут собираться здесь в единую сводку."
         />
 
         <ul v-else class="upcoming-list">
@@ -180,11 +182,11 @@ function normalizeOptionalText(value: unknown) {
       </AppCard>
 
       <AppCard class="span-4 workspace-cues">
-        <h2 class="overview-card__title">Ориентиры workspace</h2>
+        <h2 class="overview-card__title">Ориентиры рабочего пространства</h2>
         <ul class="list-copy">
-          <li>Outsider не попадает внутрь workspace и уходит в preview ещё на уровне route guard.</li>
+          <li>Пользователь вне группы не попадает внутрь и уходит в предпросмотр ещё на уровне проверки маршрута.</li>
           <li>Выключенные модули исчезают из боковой навигации и быстрых переходов.</li>
-          <li>Архивная группа централизованно отмечается как read-only для всех внутренних разделов.</li>
+          <li>Архивная группа централизованно переводит все внутренние разделы в режим только для чтения.</li>
         </ul>
       </AppCard>
     </div>
@@ -245,10 +247,6 @@ function normalizeOptionalText(value: unknown) {
 .quick-links__list {
   display: grid;
   gap: 0.75rem;
-}
-
-.upcoming-card__loading {
-  color: var(--color-subtle);
 }
 
 .upcoming-list {

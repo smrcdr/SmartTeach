@@ -29,10 +29,10 @@ const errorMessage = computed(() => {
 <template>
   <div class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Users / Public Profile</span>
-      <h1 class="page-title">Публичный профиль остается коротким и служит честной точкой входа в direct chat.</h1>
+      <span class="page-eyebrow">Пользователи / Публичный профиль</span>
+      <h1 class="page-title">Публичный профиль остается коротким и служит честной точкой входа в личный чат.</h1>
       <p class="page-lead">
-        Здесь нет вымышленных полей, только те данные, которые реально доступны через backend: имя, bio и avatar.
+        Здесь нет вымышленных полей, только те данные, которые реально доступны через backend: имя, описание и аватар.
       </p>
     </header>
 
@@ -64,7 +64,7 @@ const errorMessage = computed(() => {
           <div class="public-profile__copy">
             <h2 class="public-profile__name">{{ profile.displayName }}</h2>
             <p class="muted">
-              {{ normalizeOptionalText(profile.bio) || 'Пользователь пока не добавил публичное bio.' }}
+              {{ normalizeOptionalText(profile.bio) || 'Пользователь пока не добавил публичное описание.' }}
             </p>
           </div>
         </div>
@@ -79,7 +79,7 @@ const errorMessage = computed(() => {
         <h2 class="public-profile__section-title">Контекст</h2>
         <p class="muted">
           Этот маршрут нужен как нейтральная точка входа в личный диалог: его можно открыть из карточки участника,
-          из author блока у submission и из других мест, где уже известен `userId`.
+          из блока автора у попытки и из других мест, где уже известен `userId`.
         </p>
       </AppCard>
     </div>

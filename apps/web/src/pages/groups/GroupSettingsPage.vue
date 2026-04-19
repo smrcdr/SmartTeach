@@ -125,7 +125,7 @@ const moduleOptions: Array<{
   {
     key: 'scheduleEnabled',
     label: 'Расписание',
-    description: 'Включается agenda с уроками, дедлайнами и пользовательскими событиями.',
+    description: 'Включается лента с уроками, дедлайнами и пользовательскими событиями.',
   },
 ]
 
@@ -259,7 +259,7 @@ async function handleStatusUpdate(nextStatus: 'ACTIVE' | 'ARCHIVED') {
 
   const shouldProceed = window.confirm(
     nextStatus === 'ARCHIVED'
-      ? `Архивировать группу "${group.value.name}"? Workspace станет read-only для всех внутренних разделов.`
+      ? `Архивировать группу "${group.value.name}"? Рабочее пространство станет доступным только для чтения во всех внутренних разделах.`
       : `Восстановить группу "${group.value.name}"? После этого редактирующие действия снова станут доступны.`,
   )
 
@@ -313,16 +313,16 @@ async function handleDeleteGroup() {
 <template>
   <div v-if="group && settings" class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Workspace / Settings</span>
-      <h1 class="page-title">Настройки держат lifecycle группы, доступ и module toggles в одном управляемом экране.</h1>
+      <span class="page-eyebrow">Рабочее пространство / Настройки</span>
+      <h1 class="page-title">Настройки держат жизненный цикл группы, доступ и модули в одном управляемом экране.</h1>
       <p class="page-lead">
-        Здесь owner/admin меняют базовые поля группы, включённые модули и жизненный цикл. Leave flow вынесен в
-        `Участников`, потому что сам экран `Настройки` остаётся manager-only по навигации.
+        Здесь owner/admin меняют базовые поля группы, включённые модули и жизненный цикл. Сценарий выхода вынесен в
+        `Участников`, потому что сам экран `Настройки` остаётся доступным только управляющим ролям.
       </p>
     </header>
 
     <div v-if="workspace.isReadOnly.value" class="panel-note">
-      Группа находится в архиве. Базовые поля и module toggles заблокированы, пока группа не будет восстановлена.
+      Группа находится в архиве. Базовые поля и переключатели модулей заблокированы, пока группа не будет восстановлена.
     </div>
 
     <div class="section-grid">
@@ -440,9 +440,9 @@ async function handleDeleteGroup() {
 
       <AppCard class="span-4 settings-card">
         <div>
-          <span class="page-eyebrow">Lifecycle</span>
+          <span class="page-eyebrow">Жизненный цикл</span>
           <h2 class="settings-card__title">Статус и опасные действия</h2>
-          <p class="muted">Архивирование переводит workspace в read-only. Восстановление возвращает рабочий режим.</p>
+          <p class="muted">Архивирование переводит рабочее пространство в режим только для чтения. Восстановление возвращает рабочий режим.</p>
         </div>
 
         <AppErrorState

@@ -227,8 +227,8 @@ function cleanupSelectedAvatarPreview() {
 
   <div v-else class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">App Shell / Profile</span>
-      <h1 class="page-title">Профиль использует только реальные поля пользователя: display name, bio и avatar.</h1>
+      <span class="page-eyebrow">Оболочка приложения / Профиль</span>
+      <h1 class="page-title">Профиль использует только реальные поля пользователя: имя, описание и аватар.</h1>
       <p class="page-lead">
         Изменения сразу идут через `/users/me`, а публичный профиль других пользователей показывает ровно эти же поля
         без декоративных добавок.
@@ -251,7 +251,7 @@ function cleanupSelectedAvatarPreview() {
           <div class="profile-card__copy">
             <h2 class="section-title">{{ previewName }}</h2>
             <p class="muted">
-              {{ normalizeOptionalText(bio) || 'Публичное bio пока пустое. Его увидят участники и собеседники в direct chat.' }}
+              {{ normalizeOptionalText(bio) || 'Публичное описание пока пустое. Его увидят участники и собеседники в личном чате.' }}
             </p>
           </div>
         </div>

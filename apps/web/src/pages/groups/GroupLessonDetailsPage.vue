@@ -111,11 +111,11 @@ watchEffect(() => {
 
   <div v-else-if="lesson" class="page-shell">
     <header class="page-header">
-      <span class="page-eyebrow">Workspace / Lessons / Detail</span>
+      <span class="page-eyebrow">Рабочее пространство / Уроки / Детали</span>
       <h1 class="page-title">{{ lesson.title }}</h1>
       <p class="page-lead">
         Детальный экран собирает контент, вложения и связанные задания в одном месте. Управляющие действия отделены от
-        списка и вынесены в edit flow.
+        списка и вынесены в отдельное редактирование.
       </p>
 
       <div class="page-actions">
@@ -146,8 +146,8 @@ watchEffect(() => {
     </header>
 
     <div v-if="workspace.isReadOnly.value" class="panel-note">
-      Группа находится в архиве. Lesson detail остаётся доступным для чтения, но все действия редактирования отключены
-      до восстановления workspace.
+      Группа находится в архиве. Детали урока остаются доступными для чтения, но все действия редактирования
+      отключены до восстановления рабочего пространства.
     </div>
 
     <div class="section-grid">
@@ -168,7 +168,7 @@ watchEffect(() => {
         <div class="lesson-detail__header">
           <div>
             <h2 class="lesson-detail__title">Метаданные</h2>
-            <p class="muted">Дата остаётся вторичной: основной список всё равно держится на sort order.</p>
+            <p class="muted">Дата остаётся вторичной: основной список всё равно держится на порядке записей.</p>
           </div>
         </div>
 
@@ -228,14 +228,14 @@ watchEffect(() => {
         <div class="lesson-detail__header">
           <div>
             <h2 class="lesson-detail__title">Связанные задания</h2>
-            <p class="muted">Detail показывает только задания, привязанные к текущему уроку.</p>
+            <p class="muted">Здесь показываются только задания, привязанные к текущему уроку.</p>
           </div>
         </div>
 
         <AppEmptyState
           v-if="!hasAssignmentsModule"
           title="Модуль заданий выключен"
-          description="Навигация группы уже скрыла assignments section, поэтому у урока сейчас нет активного assignment-контекста."
+          description="Навигация группы уже скрыла раздел заданий, поэтому у урока сейчас нет активного контекста заданий."
         />
 
         <AppLoader v-else-if="linkedAssignmentsQuery.isPending.value" label="Загружаем задания, связанные с уроком" />
