@@ -4,6 +4,15 @@ import type { INestApplication } from '@nestjs/common'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '@prisma/client'
 import { createApp } from '../main'
+import { AUTH_REFRESH_COOKIE_NAME } from '../modules/auth/auth-refresh-cookie'
+import {
+  applyCookieJar,
+  cloneCookieJar,
+  createCookieJar,
+  getCookieValue,
+  storeResponseCookies,
+  type CookieJar,
+} from './test-cookie-jar'
 
 const databaseUrl = process.env.DATABASE_URL
 
@@ -51,6 +60,7 @@ type JsonRecord = Record<string, unknown>
 
 type RequestOptions = Omit<RequestInit, 'body' | 'headers'> & {
   body?: JsonRecord
+  cookieJar?: CookieJar
   token?: string
   headers?: Record<string, string>
 }
@@ -64,7 +74,6 @@ type AuthSessionResponse = {
     avatarFileId: string | null
   }
   accessToken: string
-  refreshToken: string
   sessionId: string
 }
 
@@ -85,7 +94,6 @@ type PublicUserResponse = {
 
 type TokenPairResponse = {
   accessToken: string
-  refreshToken: string
   sessionId: string
 }
 
@@ -102,12 +110,14 @@ async function request<T = JsonRecord>(
   if (init.token) {
     headers.set('authorization', `Bearer ${init.token}`)
   }
+  applyCookieJar(headers, init.cookieJar)
 
   const response = await fetch(`${baseUrl}/api/v1${path}`, {
     method: init.method,
     headers,
     body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
   })
+  storeResponseCookies(response, init.cookieJar)
   const rawBody = await response.text()
 
   return {
@@ -123,10 +133,12 @@ test('auth and users endpoints support full session lifecycle', async () => {
     password: 'Password123!',
     displayName: 'Auth Test User',
   }
+  const registerCookieJar = createCookieJar()
 
   const registerResult = await request<AuthSessionResponse>('/auth/register', {
     method: 'POST',
     body: registerPayload,
+    cookieJar: registerCookieJar,
   })
 
   assert.equal(registerResult.response.status, 201)
@@ -135,7 +147,8 @@ test('auth and users endpoints support full session lifecycle', async () => {
   assert.equal(registerResult.body.user.displayName, registerPayload.displayName)
   assert.match(String(registerResult.body.sessionId), /^[0-9a-f-]{36}$/i)
   assert.ok(registerResult.body.accessToken)
-  assert.ok(registerResult.body.refreshToken)
+  assert.ok(getCookieValue(registerCookieJar, AUTH_REFRESH_COOKIE_NAME))
+  assert.equal('refreshToken' in registerResult.body, false)
   createdUserIds.add(String(registerResult.body.user.id))
 
   const duplicateRegistrationResult = await request('/auth/register', {
@@ -155,17 +168,24 @@ test('auth and users endpoints support full session lifecycle', async () => {
 
   assert.equal(invalidLoginResult.response.status, 401)
 
+  const loginCookieJar = createCookieJar()
   const loginResult = await request<AuthSessionResponse>('/auth/login', {
     method: 'POST',
     body: {
       email,
       password: registerPayload.password,
     },
+    cookieJar: loginCookieJar,
   })
 
   assert.equal(loginResult.response.status, 200)
   assert.ok(loginResult.body)
   assert.notEqual(loginResult.body.sessionId, registerResult.body.sessionId)
+  const loginRefreshToken = getCookieValue(
+    loginCookieJar,
+    AUTH_REFRESH_COOKIE_NAME,
+  )
+  assert.ok(loginRefreshToken)
 
   const authMeResult = await request<UserResponse>('/auth/me', {
     method: 'GET',
@@ -205,35 +225,37 @@ test('auth and users endpoints support full session lifecycle', async () => {
 
   const refreshResult = await request<TokenPairResponse>('/auth/refresh', {
     method: 'POST',
-    body: {
-      refreshToken: String(loginResult.body.refreshToken),
-    },
+    cookieJar: loginCookieJar,
   })
 
   assert.equal(refreshResult.response.status, 200)
   assert.ok(refreshResult.body)
   assert.equal(refreshResult.body.sessionId, loginResult.body.sessionId)
-  assert.notEqual(refreshResult.body.refreshToken, loginResult.body.refreshToken)
+  assert.equal('refreshToken' in refreshResult.body, false)
+  const rotatedRefreshToken = getCookieValue(
+    loginCookieJar,
+    AUTH_REFRESH_COOKIE_NAME,
+  )
+  assert.ok(rotatedRefreshToken)
+  assert.notEqual(rotatedRefreshToken, loginRefreshToken)
 
+  const staleRefreshCookieJar = createCookieJar()
+  staleRefreshCookieJar.set(AUTH_REFRESH_COOKIE_NAME, loginRefreshToken)
   const oldRefreshTokenResult = await request('/auth/refresh', {
     method: 'POST',
-    body: {
-      refreshToken: String(loginResult.body.refreshToken),
-    },
+    cookieJar: staleRefreshCookieJar,
   })
 
   assert.equal(oldRefreshTokenResult.response.status, 401)
 
   const logoutResult = await request('/auth/logout', {
     method: 'POST',
-    token: String(refreshResult.body.accessToken),
-    body: {
-      refreshToken: String(refreshResult.body.refreshToken),
-    },
+    cookieJar: loginCookieJar,
   })
 
   assert.equal(logoutResult.response.status, 204)
   assert.equal(logoutResult.body, null)
+  assert.equal(getCookieValue(loginCookieJar, AUTH_REFRESH_COOKIE_NAME), undefined)
 
   const revokedSessionMeResult = await request('/auth/me', {
     method: 'GET',
@@ -241,10 +263,17 @@ test('auth and users endpoints support full session lifecycle', async () => {
   })
 
   assert.equal(revokedSessionMeResult.response.status, 401)
+
+  const missingRefreshCookieResult = await request('/auth/refresh', {
+    method: 'POST',
+  })
+
+  assert.equal(missingRefreshCookieResult.response.status, 401)
 })
 
 test('concurrent refresh keeps only one rotated token valid', async () => {
   const email = `auth-race-${Date.now()}@smarteach.local`
+  const registerCookieJar = createCookieJar()
   const registerResult = await request<AuthSessionResponse>('/auth/register', {
     method: 'POST',
     body: {
@@ -252,25 +281,28 @@ test('concurrent refresh keeps only one rotated token valid', async () => {
       password: 'Password123!',
       displayName: 'Concurrent Refresh User',
     },
+    cookieJar: registerCookieJar,
   })
 
   assert.equal(registerResult.response.status, 201)
   assert.ok(registerResult.body)
   createdUserIds.add(String(registerResult.body.user.id))
 
-  const refreshToken = String(registerResult.body.refreshToken)
+  const refreshToken = getCookieValue(
+    registerCookieJar,
+    AUTH_REFRESH_COOKIE_NAME,
+  )
+  assert.ok(refreshToken)
+  const firstRefreshCookieJar = cloneCookieJar(registerCookieJar)
+  const secondRefreshCookieJar = cloneCookieJar(registerCookieJar)
   const [firstRefreshResult, secondRefreshResult] = await Promise.all([
     request<TokenPairResponse>('/auth/refresh', {
       method: 'POST',
-      body: {
-        refreshToken,
-      },
+      cookieJar: firstRefreshCookieJar,
     }),
     request<TokenPairResponse>('/auth/refresh', {
       method: 'POST',
-      body: {
-        refreshToken,
-      },
+      cookieJar: secondRefreshCookieJar,
     }),
   ])
 
@@ -285,14 +317,25 @@ test('concurrent refresh keeps only one rotated token valid', async () => {
     (result) => result.response.status === 200,
   )
 
-  assert.ok(successfulRefresh?.body)
-  assert.equal(successfulRefresh.body.sessionId, registerResult.body.sessionId)
+  const successfulRefreshBody = successfulRefresh?.body
+  assert.ok(successfulRefreshBody)
+  assert.equal(successfulRefreshBody.sessionId, registerResult.body.sessionId)
+  assert.equal('refreshToken' in successfulRefreshBody, false)
 
+  const successfulRefreshCookieJar =
+    firstRefreshResult.response.status === 200
+      ? firstRefreshCookieJar
+      : secondRefreshCookieJar
+  assert.notEqual(
+    getCookieValue(successfulRefreshCookieJar, AUTH_REFRESH_COOKIE_NAME),
+    refreshToken,
+  )
+
+  const staleRefreshCookieJar = createCookieJar()
+  staleRefreshCookieJar.set(AUTH_REFRESH_COOKIE_NAME, refreshToken)
   const staleRefreshResult = await request('/auth/refresh', {
     method: 'POST',
-    body: {
-      refreshToken,
-    },
+    cookieJar: staleRefreshCookieJar,
   })
 
   assert.equal(staleRefreshResult.response.status, 401)

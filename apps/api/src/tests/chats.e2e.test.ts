@@ -5,7 +5,15 @@ import { PrismaPg } from '@prisma/adapter-pg'
 import { GroupRole, PrismaClient } from '@prisma/client'
 import { io, type Socket } from 'socket.io-client'
 import { createApp } from '../main'
+import { AUTH_REFRESH_COOKIE_NAME } from '../modules/auth/auth-refresh-cookie'
 import { MinioService } from '../storage/minio/minio.service'
+import {
+  applyCookieJar,
+  createCookieJar,
+  getCookieValue,
+  storeResponseCookies,
+  type CookieJar,
+} from './test-cookie-jar'
 
 const databaseUrl = process.env.DATABASE_URL
 
@@ -93,6 +101,7 @@ type JsonRecord = Record<string, unknown>
 
 type RequestOptions = Omit<RequestInit, 'body' | 'headers'> & {
   body?: JsonRecord
+  cookieJar?: CookieJar
   token?: string
   headers?: Record<string, string>
 }
@@ -102,7 +111,6 @@ type AuthSessionResponse = {
     id: string
   }
   accessToken: string
-  refreshToken: string
 }
 
 type GroupResponse = {
@@ -179,12 +187,14 @@ async function request<T = JsonRecord>(
   if (init.token) {
     headers.set('authorization', `Bearer ${init.token}`)
   }
+  applyCookieJar(headers, init.cookieJar)
 
   const response = await fetch(`${baseUrl}/api/v1/${path.replace(/^\//, '')}`, {
     method: init.method,
     headers,
     body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
   })
+  storeResponseCookies(response, init.cookieJar)
   const rawBody = await response.text()
 
   return {
@@ -195,6 +205,7 @@ async function request<T = JsonRecord>(
 
 async function registerUser(label: string) {
   const email = `chats-${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@smarteach.local`
+  const cookieJar = createCookieJar()
   const result = await request<AuthSessionResponse>('/auth/register', {
     method: 'POST',
     body: {
@@ -202,13 +213,18 @@ async function registerUser(label: string) {
       password: 'Password123!',
       displayName: `Chats ${label}`,
     },
+    cookieJar,
   })
 
   assert.equal(result.response.status, 201)
   assert.ok(result.body)
+  assert.ok(getCookieValue(cookieJar, AUTH_REFRESH_COOKIE_NAME))
   createdUserIds.add(result.body.user.id)
 
-  return result.body
+  return {
+    ...result.body,
+    cookieJar,
+  }
 }
 
 async function createGroup(
@@ -699,10 +715,7 @@ test('chat gateway revokes room access after logout', async () => {
 
     const logoutResult = await request('/auth/logout', {
       method: 'POST',
-      token: member.accessToken,
-      body: {
-        refreshToken: member.refreshToken,
-      },
+      cookieJar: member.cookieJar,
     })
 
     assert.equal(logoutResult.response.status, 204)

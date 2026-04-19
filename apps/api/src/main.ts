@@ -1,4 +1,5 @@
 import 'reflect-metadata'
+import cookieParser from 'cookie-parser'
 import helmet from 'helmet'
 import { Logger, VersioningType } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
@@ -18,6 +19,7 @@ export async function createApp(options: CreateAppOptions = {}) {
 
   app.enableShutdownHooks()
   app.use(helmet())
+  app.use(cookieParser())
   const config = app.get(AppConfigService)
 
   app.enableCors({

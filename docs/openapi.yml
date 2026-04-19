@@ -77,13 +77,7 @@ paths:
         - Authentication
   /auth/logout:
     post:
-      description: Отзывает текущую сессию пользователя по refresh token.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RefreshTokenRequest'
+      description: Отзывает текущую сессию пользователя по refresh token из cookie.
       responses:
         '204':
           description: Сессия успешно завершена.
@@ -93,8 +87,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      security:
-        - bearerAuth: []
       summary: Завершить текущую сессию
       tags:
         - Authentication
@@ -120,13 +112,7 @@ paths:
         - Authentication
   /auth/refresh:
     post:
-      description: Принимает refresh token, проверяет сессию и выдает новую пару токенов.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RefreshTokenRequest'
+      description: Читает refresh token из cookie, проверяет сессию и выдает новый access token.
       responses:
         '200':
           description: ''
@@ -2689,8 +2675,6 @@ components:
           $ref: '#/components/schemas/User'
         accessToken:
           type: string
-        refreshToken:
-          type: string
         sessionId:
           type: string
           format: uuid
@@ -2698,7 +2682,6 @@ components:
       required:
         - user
         - accessToken
-        - refreshToken
         - sessionId
     Chat:
       type: object
@@ -3401,13 +3384,6 @@ components:
       required:
         - id
         - displayName
-    RefreshTokenRequest:
-      type: object
-      properties:
-        refreshToken:
-          type: string
-      required:
-        - refreshToken
     RegisterRequest:
       type: object
       properties:
@@ -3611,15 +3587,12 @@ components:
       properties:
         accessToken:
           type: string
-        refreshToken:
-          type: string
         sessionId:
           type: string
           format: uuid
           example: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
       required:
         - accessToken
-        - refreshToken
         - sessionId
     UpdateAssignmentRequest:
       type: object

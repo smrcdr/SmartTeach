@@ -7,9 +7,11 @@ import {
   Inject,
   Post,
   Req,
+  Res,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common'
-import type { Request } from 'express'
+import type { Request, Response } from 'express'
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -22,13 +24,18 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger'
 import { ErrorResponseDto } from '../../common/dto/error-response.dto'
+import { AppConfigService } from '../../config/app-config.service'
 import type { AuthContext } from '../../security/auth.types'
 import { AccessTokenAuthGuard } from '../../security/access-token-auth.guard'
 import { CurrentAuth } from '../../security/current-auth.decorator'
 import { AuthService, type SessionMetadata } from './auth.service'
+import {
+  AUTH_REFRESH_COOKIE_NAME,
+  buildRefreshTokenClearCookieOptions,
+  buildRefreshTokenCookieOptions,
+} from './auth-refresh-cookie'
 import { AuthSessionDto } from './dto/auth-session.dto'
 import { LoginRequestDto } from './dto/login-request.dto'
-import { RefreshTokenRequestDto } from './dto/refresh-token-request.dto'
 import { RegisterRequestDto } from './dto/register-request.dto'
 import { TokenPairDto } from './dto/token-pair.dto'
 import { UserDto } from '../users/dto/user.dto'
@@ -39,7 +46,10 @@ import { UserDto } from '../users/dto/user.dto'
   version: '1',
 })
 export class AuthController {
-  constructor(@Inject(AuthService) private readonly authService: AuthService) {}
+  constructor(
+    @Inject(AuthService) private readonly authService: AuthService,
+    @Inject(AppConfigService) private readonly appConfigService: AppConfigService,
+  ) {}
 
   @Post('register')
   @ApiOperation({
@@ -55,11 +65,19 @@ export class AuthController {
   @ApiConflictResponse({
     type: ErrorResponseDto,
   })
-  register(
+  async register(
     @Body() payload: RegisterRequestDto,
     @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
   ) {
-    return this.authService.register(payload, this.buildSessionMetadata(request))
+    const authSession = await this.authService.register(
+      payload,
+      this.buildSessionMetadata(request),
+    )
+
+    this.setRefreshTokenCookie(response, authSession.refreshToken)
+
+    return this.toAuthSessionResponse(authSession)
   }
 
   @Post('login')
@@ -77,18 +95,27 @@ export class AuthController {
   @ApiUnauthorizedResponse({
     type: ErrorResponseDto,
   })
-  login(
+  async login(
     @Body() payload: LoginRequestDto,
     @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
   ) {
-    return this.authService.login(payload, this.buildSessionMetadata(request))
+    const authSession = await this.authService.login(
+      payload,
+      this.buildSessionMetadata(request),
+    )
+
+    this.setRefreshTokenCookie(response, authSession.refreshToken)
+
+    return this.toAuthSessionResponse(authSession)
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Обновить токены',
-    description: 'Принимает refresh token, проверяет сессию и выдает новую пару токенов.',
+    description:
+      'Читает refresh token из cookie, проверяет сессию и выдает новый access token.',
   })
   @ApiOkResponse({
     type: TokenPairDto,
@@ -96,17 +123,24 @@ export class AuthController {
   @ApiUnauthorizedResponse({
     type: ErrorResponseDto,
   })
-  refresh(@Body() payload: RefreshTokenRequestDto) {
-    return this.authService.refresh(payload)
+  async refresh(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const tokenPair = await this.authService.refresh(
+      this.getRefreshTokenFromRequest(request),
+    )
+
+    this.setRefreshTokenCookie(response, tokenPair.refreshToken)
+
+    return this.toTokenPairResponse(tokenPair)
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(AccessTokenAuthGuard)
-  @ApiBearerAuth('bearerAuth')
   @ApiOperation({
     summary: 'Завершить текущую сессию',
-    description: 'Отзывает текущую сессию пользователя по refresh token.',
+    description: 'Отзывает текущую сессию пользователя по refresh token из cookie.',
   })
   @ApiNoContentResponse({
     description: 'Сессия успешно завершена.',
@@ -115,10 +149,11 @@ export class AuthController {
     type: ErrorResponseDto,
   })
   async logout(
-    @CurrentAuth() auth: AuthContext,
-    @Body() payload: RefreshTokenRequestDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
   ) {
-    await this.authService.logout(auth, payload)
+    await this.authService.logout(this.getRefreshTokenFromRequest(request))
+    this.clearRefreshTokenCookie(response)
   }
 
   @Get('me')
@@ -142,6 +177,55 @@ export class AuthController {
     return {
       userAgent: request.get('user-agent') ?? null,
       ipAddress: request.ip ?? null,
+    }
+  }
+
+  private getRefreshTokenFromRequest(request: Request) {
+    const refreshToken = request.cookies?.[AUTH_REFRESH_COOKIE_NAME]
+
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token is missing')
+    }
+
+    return refreshToken
+  }
+
+  private setRefreshTokenCookie(response: Response, refreshToken: string) {
+    response.cookie(
+      AUTH_REFRESH_COOKIE_NAME,
+      refreshToken,
+      buildRefreshTokenCookieOptions(this.appConfigService),
+    )
+  }
+
+  private clearRefreshTokenCookie(response: Response) {
+    response.clearCookie(
+      AUTH_REFRESH_COOKIE_NAME,
+      buildRefreshTokenClearCookieOptions(this.appConfigService),
+    )
+  }
+
+  private toAuthSessionResponse(authSession: {
+    user: UserDto
+    accessToken: string
+    refreshToken: string
+    sessionId: string
+  }): AuthSessionDto {
+    return {
+      user: authSession.user,
+      accessToken: authSession.accessToken,
+      sessionId: authSession.sessionId,
+    }
+  }
+
+  private toTokenPairResponse(tokenPair: {
+    accessToken: string
+    refreshToken: string
+    sessionId: string
+  }): TokenPairDto {
+    return {
+      accessToken: tokenPair.accessToken,
+      sessionId: tokenPair.sessionId,
     }
   }
 }

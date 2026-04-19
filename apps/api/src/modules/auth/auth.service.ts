@@ -9,13 +9,11 @@ import { Prisma } from '@prisma/client'
 import { AppConfigService } from '../../config/app-config.service'
 import { PrismaService } from '../../database/prisma/prisma.service'
 import { PasswordHashService } from '../../security/password-hash.service'
-import type { AuthContext } from '../../security/auth.types'
 import { TokenHashService } from '../../security/token-hash.service'
 import { TokenService } from '../../security/token.service'
 import { MinioService } from '../../storage/minio/minio.service'
 import { UsersService } from '../users/users.service'
 import { LoginRequestDto } from './dto/login-request.dto'
-import { RefreshTokenRequestDto } from './dto/refresh-token-request.dto'
 import { RegisterRequestDto } from './dto/register-request.dto'
 import { authUserSelect, mapUserToDto, userSelect } from '../users/users.mapper'
 import { buildAvatarUrlByFileId } from '../users/user-avatar.utils'
@@ -115,8 +113,8 @@ export class AuthService {
     }
   }
 
-  async refresh(payload: RefreshTokenRequestDto) {
-    const session = this.parseRefreshToken(payload.refreshToken)
+  async refresh(refreshToken: string) {
+    const session = this.parseRefreshToken(refreshToken)
     const nextRefreshToken = this.generateRefreshToken(
       session.userId,
       session.sessionId,
@@ -128,7 +126,7 @@ export class AuthService {
 
     await this.rotateRefreshTokenOrThrow(
       session,
-      payload.refreshToken,
+      refreshToken,
       nextRefreshToken,
     )
 
@@ -139,14 +137,10 @@ export class AuthService {
     }
   }
 
-  async logout(auth: AuthContext, payload: RefreshTokenRequestDto) {
-    const session = this.parseRefreshToken(payload.refreshToken)
+  async logout(refreshToken: string) {
+    const session = this.parseRefreshToken(refreshToken)
 
-    if (session.userId !== auth.userId || session.sessionId !== auth.sessionId) {
-      throw new UnauthorizedException()
-    }
-
-    await this.revokeSessionOrThrow(session, payload.refreshToken)
+    await this.revokeSessionOrThrow(session, refreshToken)
   }
 
   async getCurrentUser(userId: string) {
