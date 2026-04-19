@@ -30,7 +30,7 @@ export const routes: RouteRecordRaw[] = [
         name: 'landing',
         component: HomePage,
         meta: {
-          title: 'SmartTeach',
+          title: 'SmartTeach | Группы, уроки, задания и чаты',
         },
       },
       {

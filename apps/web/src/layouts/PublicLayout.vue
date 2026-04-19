@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import { appDescription, appName } from '../app/config/brand'
@@ -7,6 +8,7 @@ import AppButton from '../shared/ui/AppButton.vue'
 import AppContainer from '../shared/ui/AppContainer.vue'
 
 const route = useRoute()
+const contentSize = computed(() => (route.name === 'landing' ? 'full' : 'wide'))
 
 function isActive(path: string) {
   return route.path === path
@@ -27,20 +29,32 @@ function isActive(path: string) {
           </RouterLink>
 
           <nav class="public-layout__nav" aria-label="Публичная навигация">
-            <RouterLink
-              to="/login"
-              :class="['public-layout__link', { 'public-layout__link--active': isActive('/login') }]"
-            >
-              Войти
-            </RouterLink>
-            <AppButton to="/register" variant="secondary" size="sm">Регистрация</AppButton>
+            <template v-if="route.name === 'landing'">
+              <RouterLink
+                to="/login"
+                :class="['public-layout__link', { 'public-layout__link--active': isActive('/login') }]"
+              >
+                Войти
+              </RouterLink>
+              <AppButton to="/register" variant="secondary" size="sm">Регистрация</AppButton>
+            </template>
+
+            <template v-else-if="route.name === 'register'">
+              <span class="public-layout__nav-copy">Уже есть аккаунт?</span>
+              <AppButton to="/login" variant="secondary" size="sm">Войти</AppButton>
+            </template>
+
+            <template v-else>
+              <span class="public-layout__nav-copy">Нужен аккаунт?</span>
+              <AppButton to="/register" variant="secondary" size="sm">Регистрация</AppButton>
+            </template>
           </nav>
         </div>
       </AppContainer>
     </header>
 
     <main class="public-layout__main">
-      <AppContainer size="wide">
+      <AppContainer :size="contentSize">
         <RouterView />
       </AppContainer>
     </main>
@@ -106,6 +120,8 @@ function isActive(path: string) {
 .public-layout__nav {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.75rem;
 }
 
@@ -119,6 +135,11 @@ function isActive(path: string) {
 .public-layout__link--active {
   background: var(--color-panel);
   color: var(--color-text);
+}
+
+.public-layout__nav-copy {
+  color: var(--color-subtle);
+  font-size: 0.94rem;
 }
 
 .public-layout__main {
