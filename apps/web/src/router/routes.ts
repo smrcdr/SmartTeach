@@ -12,6 +12,7 @@ import GroupChatsPage from '../pages/groups/GroupChatsPage.vue'
 import GroupLessonsPage from '../pages/groups/GroupLessonsPage.vue'
 import GroupMembersPage from '../pages/groups/GroupMembersPage.vue'
 import GroupOverviewPage from '../pages/groups/GroupOverviewPage.vue'
+import GroupPreviewPage from '../pages/groups/GroupPreviewPage.vue'
 import GroupRequestsPage from '../pages/groups/GroupRequestsPage.vue'
 import GroupSchedulePage from '../pages/groups/GroupSchedulePage.vue'
 import GroupSettingsPage from '../pages/groups/GroupSettingsPage.vue'
@@ -82,6 +83,14 @@ export const routes: RouteRecordRaw[] = [
         component: JoinGroupPage,
         meta: {
           title: 'Вступить в группу | SmartTeach',
+        },
+      },
+      {
+        path: 'groups/:groupId',
+        name: 'group-preview',
+        component: GroupPreviewPage,
+        meta: {
+          title: 'Группа | SmartTeach',
         },
       },
       {
