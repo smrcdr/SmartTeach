@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 
 import AppButton from '../../../shared/ui/AppButton.vue'
 import AppCard from '../../../shared/ui/AppCard.vue'
@@ -17,16 +18,38 @@ const props = defineProps<{
   isJoined: boolean
 }>()
 
+const router = useRouter()
 const moduleLabels = computed(() => getEnabledGroupModules(props.group.settings))
 const membersLabel = computed(() => formatMembersCount(props.group.membersCount))
 const accessLabel = computed(() => groupAccessModeLabels[props.group.accessMode])
 const statusLabel = computed(() => groupStatusLabels[props.group.status])
 const actionLabel = computed(() => (props.isJoined ? 'Перейти в workspace' : 'Открыть группу'))
 const actionTarget = computed(() => (props.isJoined ? `/groups/${props.group.id}/overview` : `/groups/${props.group.id}`))
+
+function navigateToTarget() {
+  void router.push(actionTarget.value)
+}
+
+function handleCardKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Enter' && event.key !== ' ') {
+    return
+  }
+
+  event.preventDefault()
+  navigateToTarget()
+}
 </script>
 
 <template>
-  <AppCard class="catalog-card" :tone="isJoined ? 'accent' : 'default'">
+  <AppCard
+    class="catalog-card"
+    :tone="isJoined ? 'accent' : 'default'"
+    role="link"
+    tabindex="0"
+    :aria-label="`${actionLabel}: ${group.name}`"
+    @click="navigateToTarget"
+    @keydown="handleCardKeydown"
+  >
     <div class="catalog-card__header">
       <div class="catalog-card__copy">
         <div class="catalog-card__meta">
@@ -43,7 +66,7 @@ const actionTarget = computed(() => (props.isJoined ? `/groups/${props.group.id}
         </p>
       </div>
 
-      <AppButton :to="actionTarget" :variant="isJoined ? 'primary' : 'secondary'" size="sm">
+      <AppButton type="button" :variant="isJoined ? 'primary' : 'secondary'" size="sm" @click.stop="navigateToTarget">
         {{ actionLabel }}
       </AppButton>
     </div>
@@ -70,6 +93,22 @@ const actionTarget = computed(() => (props.isJoined ? `/groups/${props.group.id}
 <style scoped>
 .catalog-card {
   height: 100%;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.catalog-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(31, 117, 156, 0.2);
+  box-shadow: 0 18px 36px rgba(20, 32, 51, 0.12);
+}
+
+.catalog-card:focus-visible {
+  outline: 3px solid rgba(31, 117, 156, 0.24);
+  outline-offset: 3px;
 }
 
 .catalog-card__header {

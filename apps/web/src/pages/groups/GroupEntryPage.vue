@@ -3,7 +3,7 @@ import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { getGroupsErrorMessage } from '../../features/groups/api/groups.api'
-import { useGroupsList } from '../../features/groups/composables/useGroups'
+import { useGroup } from '../../features/groups/composables/useGroups'
 import AppButton from '../../shared/ui/AppButton.vue'
 import AppErrorState from '../../shared/ui/AppErrorState.vue'
 import AppLoader from '../../shared/ui/AppLoader.vue'
@@ -12,15 +12,15 @@ const route = useRoute()
 const router = useRouter()
 
 const groupId = computed(() => String(route.params.groupId ?? ''))
-const joinedGroupsQuery = useGroupsList('joined')
+const groupQuery = useGroup(groupId)
 
-const joinedGroupIds = computed(() => new Set((joinedGroupsQuery.data.value ?? []).map((group) => group.id)))
+const group = computed(() => groupQuery.data.value ?? null)
 const entryTarget = computed(() => {
-  if (!groupId.value || joinedGroupsQuery.data.value === undefined) {
+  if (!group.value) {
     return null
   }
 
-  if (joinedGroupIds.value.has(groupId.value)) {
+  if (group.value.viewerMembershipRole) {
     return {
       name: 'group-overview',
       params: {
@@ -37,7 +37,7 @@ const entryTarget = computed(() => {
   } as const
 })
 const errorMessage = computed(() => {
-  const error = joinedGroupsQuery.error.value
+  const error = groupQuery.error.value
 
   return error ? getGroupsErrorMessage(error, 'Не удалось определить ваш доступ к группе') : ''
 })
@@ -69,7 +69,7 @@ watch(
     </header>
 
     <AppLoader
-      v-if="joinedGroupsQuery.isPending.value"
+      v-if="groupQuery.isPending.value"
       label="Определяем ваш контекст в группе"
     />
 

@@ -11,7 +11,6 @@ import {
 import {
   useCreateJoinRequestMutation,
   useGroup,
-  useGroupsList,
   useJoinGroupMutation,
 } from '../../features/groups/composables/useGroups'
 import {
@@ -30,16 +29,14 @@ const router = useRouter()
 
 const groupId = computed(() => String(route.params.groupId ?? ''))
 const groupQuery = useGroup(groupId)
-const joinedGroupsQuery = useGroupsList('joined')
 const joinGroupMutation = useJoinGroupMutation()
 const createJoinRequestMutation = useCreateJoinRequestMutation()
 const actionError = ref('')
-const hasSubmittedJoinRequest = ref(false)
 
 const group = computed(() => groupQuery.data.value ?? null)
-const joinedGroupIds = computed(() => new Set((joinedGroupsQuery.data.value ?? []).map((entry) => entry.id)))
 const moduleLabels = computed(() => (group.value ? getEnabledGroupModules(group.value.settings) : []))
-const shouldRedirectToWorkspace = computed(() => Boolean(group.value) && joinedGroupIds.value.has(groupId.value))
+const shouldRedirectToWorkspace = computed(() => Boolean(group.value?.viewerMembershipRole))
+const hasPendingJoinRequest = computed(() => group.value?.viewerJoinRequestStatus === 'PENDING')
 const pageLead = computed(() => {
   if (!group.value) {
     return ''
@@ -56,7 +53,7 @@ const pageLead = computed(() => {
   return 'Группа доступна только по прямому приглашению владельца или администратора.'
 })
 const errorMessage = computed(() => {
-  const error = groupQuery.error.value ?? joinedGroupsQuery.error.value
+  const error = groupQuery.error.value
 
   return error ? getGroupsErrorMessage(error, 'Не удалось открыть карточку группы') : ''
 })
@@ -77,7 +74,7 @@ const primaryActionLabel = computed(() => {
   }
 
   if (group.value.accessMode === 'BY_REQUEST') {
-    if (hasSubmittedJoinRequest.value) {
+    if (hasPendingJoinRequest.value) {
       return 'Заявка отправлена'
     }
 
@@ -94,7 +91,7 @@ const hasPrimaryAction = computed(() => {
   return shouldRedirectToWorkspace.value || group.value.accessMode !== 'CLOSED'
 })
 const isPrimaryActionDisabled = computed(
-  () => !hasPrimaryAction.value || isPrimaryActionPending.value || hasSubmittedJoinRequest.value,
+  () => !hasPrimaryAction.value || isPrimaryActionPending.value || hasPendingJoinRequest.value,
 )
 const accessPanelTitle = computed(() => {
   if (!group.value) {
@@ -110,7 +107,7 @@ const accessPanelTitle = computed(() => {
   }
 
   if (group.value.accessMode === 'BY_REQUEST') {
-    return hasSubmittedJoinRequest.value ? 'Заявка уже зафиксирована' : 'Нужна заявка на вступление'
+    return hasPendingJoinRequest.value ? 'Заявка уже зафиксирована' : 'Нужна заявка на вступление'
   }
 
   return 'Доступ ограничен'
@@ -129,7 +126,7 @@ const accessPanelLead = computed(() => {
   }
 
   if (group.value.accessMode === 'BY_REQUEST') {
-    return hasSubmittedJoinRequest.value
+    return hasPendingJoinRequest.value
       ? 'Заявка уже отправлена. Теперь решение зависит от владельца или администратора группы.'
       : 'Владелец или администратор увидит заявку и сможет одобрить или отклонить доступ.'
   }
@@ -141,7 +138,6 @@ watch(
   groupId,
   () => {
     actionError.value = ''
-    hasSubmittedJoinRequest.value = false
   },
 )
 
@@ -194,7 +190,6 @@ async function handlePrimaryAction() {
 async function handleJoin() {
   try {
     await joinGroupMutation.mutateAsync(groupId.value)
-    await joinedGroupsQuery.refetch()
     await router.replace({
       name: 'group-overview',
       params: {
@@ -203,7 +198,7 @@ async function handleJoin() {
     })
   } catch (error) {
     if (isAlreadyGroupMemberError(error)) {
-      await joinedGroupsQuery.refetch()
+      await groupQuery.refetch()
       await router.replace({
         name: 'group-overview',
         params: {
@@ -220,10 +215,10 @@ async function handleJoin() {
 async function handleCreateJoinRequest() {
   try {
     await createJoinRequestMutation.mutateAsync(groupId.value)
-    hasSubmittedJoinRequest.value = true
+    await groupQuery.refetch()
   } catch (error) {
     if (isAlreadyGroupMemberError(error)) {
-      await joinedGroupsQuery.refetch()
+      await groupQuery.refetch()
       await router.replace({
         name: 'group-overview',
         params: {
@@ -234,7 +229,7 @@ async function handleCreateJoinRequest() {
     }
 
     if (isPendingJoinRequestError(error)) {
-      hasSubmittedJoinRequest.value = true
+      await groupQuery.refetch()
       return
     }
 
@@ -252,7 +247,7 @@ async function handleCreateJoinRequest() {
     </header>
 
     <AppLoader
-      v-if="groupQuery.isPending.value || joinedGroupsQuery.isPending.value"
+      v-if="groupQuery.isPending.value"
       label="Проверяем доступность группы и ваш контекст"
     />
 
@@ -308,7 +303,7 @@ async function handleCreateJoinRequest() {
           {{ groupAccessModeDescriptions[group.accessMode] }}
         </div>
 
-        <div v-if="hasSubmittedJoinRequest" class="preview-feedback preview-feedback--success">
+        <div v-if="hasPendingJoinRequest" class="preview-feedback preview-feedback--success">
           Заявка отправлена. Пока она в ожидании, повторное действие на этом экране не требуется.
         </div>
 

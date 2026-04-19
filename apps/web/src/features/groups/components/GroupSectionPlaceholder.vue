@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { RouteLocationRaw } from 'vue-router'
+
 import AppButton from '../../../shared/ui/AppButton.vue'
 import AppCard from '../../../shared/ui/AppCard.vue'
 
@@ -9,7 +11,7 @@ defineProps<{
   highlights: string[]
   nextStep: string
   primaryActionLabel?: string
-  primaryActionTo?: string
+  primaryActionTo?: RouteLocationRaw
 }>()
 </script>
 

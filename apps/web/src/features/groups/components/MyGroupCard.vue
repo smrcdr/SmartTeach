@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 
 import AppButton from '../../../shared/ui/AppButton.vue'
 import AppCard from '../../../shared/ui/AppCard.vue'
@@ -12,14 +13,36 @@ const props = defineProps<{
   currentUserId?: string | null
 }>()
 
+const router = useRouter()
 const moduleLabels = computed(() => getEnabledGroupModules(props.group.settings))
 const membershipLabel = computed(() => getMyGroupRoleLabel(props.group, props.currentUserId))
 const membersLabel = computed(() => formatMembersCount(props.group.membersCount))
 const statusLabel = computed(() => groupStatusLabels[props.group.status])
+const groupTarget = computed(() => `/groups/${props.group.id}/overview`)
+
+function navigateToGroup() {
+  void router.push(groupTarget.value)
+}
+
+function handleCardKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Enter' && event.key !== ' ') {
+    return
+  }
+
+  event.preventDefault()
+  navigateToGroup()
+}
 </script>
 
 <template>
-  <AppCard class="group-card">
+  <AppCard
+    class="group-card"
+    role="link"
+    tabindex="0"
+    :aria-label="`Открыть группу: ${group.name}`"
+    @click="navigateToGroup"
+    @keydown="handleCardKeydown"
+  >
     <div class="group-card__header">
       <div class="group-card__copy">
         <div class="group-card__meta">
@@ -34,7 +57,7 @@ const statusLabel = computed(() => groupStatusLabels[props.group.status])
         </p>
       </div>
 
-      <AppButton :to="`/groups/${group.id}/overview`" size="sm">Открыть группу</AppButton>
+      <AppButton type="button" size="sm" @click.stop="navigateToGroup">Открыть группу</AppButton>
     </div>
 
     <dl class="group-card__facts">
@@ -59,6 +82,22 @@ const statusLabel = computed(() => groupStatusLabels[props.group.status])
 <style scoped>
 .group-card {
   height: 100%;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.group-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(31, 117, 156, 0.2);
+  box-shadow: 0 18px 36px rgba(20, 32, 51, 0.12);
+}
+
+.group-card:focus-visible {
+  outline: 3px solid rgba(31, 117, 156, 0.24);
+  outline-offset: 3px;
 }
 
 .group-card__header {

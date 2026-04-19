@@ -1,7 +1,11 @@
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 
 import type { Group, GroupSettings, ListGroupScheduleQuery } from '../api/groups.api'
-import { groupWorkspaceNav, type GroupWorkspaceNavItem } from '../config/group-workspace-nav'
+import {
+  groupWorkspaceNav,
+  isGroupWorkspaceNavItemVisible,
+  type GroupWorkspaceNavItem,
+} from '../config/group-workspace-nav'
 import { useGroup, useGroupSchedule, useGroupSettings } from './useGroups'
 
 type VisibleGroupWorkspaceNavItem = GroupWorkspaceNavItem & {
@@ -46,7 +50,14 @@ export function useGroupWorkspace(groupId: MaybeRefOrGetter<string>) {
     }
 
     return groupWorkspaceNav
-      .filter((item) => isNavItemVisible(item, group.value as Group, settings.value as GroupSettings, canManageGroup.value))
+      .filter((item) =>
+        isGroupWorkspaceNavItemVisible(
+          item,
+          group.value as Group,
+          settings.value as GroupSettings,
+          membershipRole.value,
+        ),
+      )
       .map((item) => ({
         ...item,
         to: {
@@ -77,29 +88,6 @@ export function useGroupWorkspace(groupId: MaybeRefOrGetter<string>) {
     upcomingEntries,
     visibleNavItems,
     primaryNavItems: computed(() => visibleNavItems.value.filter((item) => item.key !== 'overview')),
-  }
-}
-
-function isNavItemVisible(item: GroupWorkspaceNavItem, group: Group, settings: GroupSettings, canManageGroup: boolean) {
-  if (item.managerOnly && !canManageGroup) {
-    return false
-  }
-
-  if (item.byRequestOnly && group.accessMode !== 'BY_REQUEST') {
-    return false
-  }
-
-  switch (item.module) {
-    case 'lessons':
-      return settings.lessonsEnabled
-    case 'assignments':
-      return settings.assignmentsEnabled
-    case 'schedule':
-      return settings.scheduleEnabled
-    case 'chats':
-      return settings.chatEnabled
-    default:
-      return true
   }
 }
 

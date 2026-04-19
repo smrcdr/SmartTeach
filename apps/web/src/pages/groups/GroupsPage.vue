@@ -82,7 +82,6 @@ const catalogGroupsQuery = useGroupsList(
 const joinedGroups = computed(() => joinedGroupsQuery.data.value ?? [])
 const myGroups = computed(() => myGroupsQuery.data.value ?? [])
 const catalogGroups = computed(() => catalogGroupsQuery.data.value ?? [])
-const joinedGroupIds = computed(() => new Set(joinedGroups.value.map((group) => group.id)))
 const activeJoinedCount = computed(() => joinedGroups.value.filter((group) => group.status === 'ACTIVE').length)
 const archivedJoinedCount = computed(() => joinedGroups.value.filter((group) => group.status === 'ARCHIVED').length)
 const hasJoinedGroups = computed(() => joinedGroups.value.length > 0)
@@ -323,6 +322,13 @@ function normalizeRouteQueryValue(value: unknown) {
         >
           По заявке
         </button>
+        <button
+          type="button"
+          :class="['filter-chip', { 'filter-chip--active': accessModeFilter === 'CLOSED' }]"
+          @click="setAccessModeFilter('CLOSED')"
+        >
+          Закрытые
+        </button>
       </div>
 
       <div v-if="isGlobalSearchContext" class="panel-note">
@@ -398,7 +404,7 @@ function normalizeRouteQueryValue(value: unknown) {
           v-for="group in catalogGroups"
           :key="group.id"
           :group="group"
-          :is-joined="joinedGroupIds.has(group.id)"
+          :is-joined="Boolean(group.viewerMembershipRole)"
         />
       </div>
     </template>
