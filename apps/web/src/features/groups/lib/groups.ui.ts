@@ -1,4 +1,4 @@
-import type { Group, GroupAccessMode, GroupStatus, ScheduleEntry } from '../api/groups.api'
+import type { Group, GroupAccessMode, GroupJoinRequest, GroupStatus, ScheduleEntry } from '../api/groups.api'
 
 export const groupAccessModeLabels: Record<GroupAccessMode, string> = {
   OPEN: 'Открытая',
@@ -23,6 +23,12 @@ export const groupMembershipRoleLabels = {
   ADMIN: 'Администратор',
   USER: 'Участник',
 } as const
+
+export const groupJoinRequestStatusLabels: Record<GroupJoinRequest['status'], string> = {
+  PENDING: 'На рассмотрении',
+  APPROVED: 'Одобрена',
+  REJECTED: 'Отклонена',
+}
 
 export const scheduleEntryTypeLabels: Record<ScheduleEntry['sourceType'], string> = {
   LESSON: 'Урок',

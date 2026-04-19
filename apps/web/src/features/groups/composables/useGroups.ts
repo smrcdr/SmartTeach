@@ -2,20 +2,34 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 
 import {
+  decideGroupJoinRequest,
   createJoinRequest,
   createGroup,
+  deleteGroup,
   getGroup,
   getGroupSettings,
   joinGroup,
+  leaveGroup,
+  listGroupJoinRequests,
+  listGroupMembers,
   listGroups,
   listGroupSchedule,
   lookupGroupByCode,
+  removeGroupMember,
+  updateGroup,
+  updateGroupMemberRole,
+  updateGroupSettings,
   type CreateGroupPayload,
   type Group,
   type GroupJoinRequest,
   type GroupMember,
+  type GroupSettings,
+  type JoinRequestDecisionPayload,
+  type ListGroupJoinRequestsQuery,
   type ListGroupScheduleQuery,
   type ListGroupsQuery,
+  type UpdateGroupPayload,
+  type UpdateGroupSettingsPayload,
 } from '../api/groups.api'
 
 type GroupListScope = 'joined' | 'visible'
@@ -27,6 +41,9 @@ export const groupQueryKeys = {
   list: (scope: GroupListScope, query: Partial<ListGroupsQuery>) => ['groups', 'list', scope, query] as const,
   detail: (groupId: string) => ['groups', 'detail', groupId] as const,
   settings: (groupId: string) => ['groups', 'settings', groupId] as const,
+  members: (groupId: string) => ['groups', 'members', groupId] as const,
+  joinRequests: (groupId: string, query: Partial<ListGroupJoinRequestsQuery>) =>
+    ['groups', 'join-requests', groupId, query] as const,
   schedule: (groupId: string, query: Partial<ListGroupScheduleQuery>) => ['groups', 'schedule', groupId, query] as const,
 }
 
@@ -72,6 +89,36 @@ export function useGroupSettings(
   })
 }
 
+export function useGroupMembers(
+  groupId: MaybeRefOrGetter<string>,
+  options: { enabled?: MaybeRefOrGetter<boolean> } = {},
+) {
+  const resolvedGroupId = computed(() => toValue(groupId))
+  const enabled = computed(() => Boolean(resolvedGroupId.value) && (toValue(options.enabled) ?? true))
+
+  return useQuery({
+    queryKey: computed(() => groupQueryKeys.members(resolvedGroupId.value)),
+    queryFn: () => listGroupMembers(resolvedGroupId.value),
+    enabled,
+  })
+}
+
+export function useGroupJoinRequests(
+  groupId: MaybeRefOrGetter<string>,
+  query: MaybeRefOrGetter<Partial<ListGroupJoinRequestsQuery>> = DEFAULT_LIST_QUERY,
+  options: { enabled?: MaybeRefOrGetter<boolean> } = {},
+) {
+  const resolvedGroupId = computed(() => toValue(groupId))
+  const normalizedQuery = computed(() => normalizeJoinRequestsQuery(toValue(query)))
+  const enabled = computed(() => Boolean(resolvedGroupId.value) && (toValue(options.enabled) ?? true))
+
+  return useQuery({
+    queryKey: computed(() => groupQueryKeys.joinRequests(resolvedGroupId.value, normalizedQuery.value)),
+    queryFn: () => listGroupJoinRequests(resolvedGroupId.value, normalizedQuery.value),
+    enabled,
+  })
+}
+
 export function useGroupSchedule(
   groupId: MaybeRefOrGetter<string>,
   query: MaybeRefOrGetter<Partial<ListGroupScheduleQuery>> = DEFAULT_LIST_QUERY,
@@ -103,12 +150,40 @@ export function useCreateGroupMutation() {
   })
 }
 
+export function useUpdateGroupMutation(groupId: MaybeRefOrGetter<string>) {
+  const resolvedGroupId = computed(() => toValue(groupId))
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: UpdateGroupPayload) => updateGroup(resolvedGroupId.value, payload),
+    onSuccess: async (group: Group) => {
+      queryClient.setQueryData(groupQueryKeys.detail(group.id), group)
+      queryClient.setQueryData(groupQueryKeys.settings(group.id), group.settings)
+
+      await invalidateGroupQueries(queryClient)
+    },
+  })
+}
+
 export function useJoinGroupMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (groupId: string) => joinGroup(groupId),
-    onSuccess: async (_member: GroupMember) => {
+    onSuccess: async (member: GroupMember, groupId: string) => {
+      queryClient.setQueryData<Group | undefined>(groupQueryKeys.detail(groupId), (currentGroup) => {
+        if (!currentGroup) {
+          return currentGroup
+        }
+
+        return {
+          ...currentGroup,
+          membersCount: currentGroup.viewerMembershipRole ? currentGroup.membersCount : currentGroup.membersCount + 1,
+          viewerMembershipRole: member.role,
+          viewerJoinRequestStatus: null,
+        }
+      })
+
       await queryClient.invalidateQueries({
         queryKey: groupQueryKeys.all,
       })
@@ -125,6 +200,92 @@ export function useCreateJoinRequestMutation() {
       await queryClient.invalidateQueries({
         queryKey: groupQueryKeys.all,
       })
+    },
+  })
+}
+
+export function useUpdateGroupSettingsMutation(groupId: MaybeRefOrGetter<string>) {
+  const resolvedGroupId = computed(() => toValue(groupId))
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: UpdateGroupSettingsPayload) => updateGroupSettings(resolvedGroupId.value, payload),
+    onSuccess: async (settings: GroupSettings) => {
+      queryClient.setQueryData(groupQueryKeys.settings(resolvedGroupId.value), settings)
+      queryClient.setQueryData<Group | undefined>(groupQueryKeys.detail(resolvedGroupId.value), (currentGroup) => {
+        if (!currentGroup) {
+          return currentGroup
+        }
+
+        return {
+          ...currentGroup,
+          settings,
+        }
+      })
+
+      await invalidateGroupQueries(queryClient)
+    },
+  })
+}
+
+export function useUpdateGroupMemberRoleMutation(groupId: MaybeRefOrGetter<string>) {
+  const resolvedGroupId = computed(() => toValue(groupId))
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: GroupMember['role'] }) =>
+      updateGroupMemberRole(resolvedGroupId.value, userId, { role }),
+    onSuccess: async () => {
+      await invalidateGroupQueries(queryClient)
+    },
+  })
+}
+
+export function useRemoveGroupMemberMutation(groupId: MaybeRefOrGetter<string>) {
+  const resolvedGroupId = computed(() => toValue(groupId))
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (userId: string) => removeGroupMember(resolvedGroupId.value, userId),
+    onSuccess: async () => {
+      await invalidateGroupQueries(queryClient)
+    },
+  })
+}
+
+export function useDecideJoinRequestMutation(groupId: MaybeRefOrGetter<string>) {
+  const resolvedGroupId = computed(() => toValue(groupId))
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ requestId, decision }: { requestId: string; decision: JoinRequestDecisionPayload['decision'] }) =>
+      decideGroupJoinRequest(resolvedGroupId.value, requestId, { decision }),
+    onSuccess: async () => {
+      await invalidateGroupQueries(queryClient)
+    },
+  })
+}
+
+export function useLeaveGroupMutation(groupId: MaybeRefOrGetter<string>) {
+  const resolvedGroupId = computed(() => toValue(groupId))
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => leaveGroup(resolvedGroupId.value),
+    onSuccess: async () => {
+      await invalidateGroupQueries(queryClient)
+    },
+  })
+}
+
+export function useDeleteGroupMutation(groupId: MaybeRefOrGetter<string>) {
+  const resolvedGroupId = computed(() => toValue(groupId))
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => deleteGroup(resolvedGroupId.value),
+    onSuccess: async () => {
+      await invalidateGroupQueries(queryClient)
     },
   })
 }
@@ -150,4 +311,16 @@ function normalizeScheduleQuery(query: Partial<ListGroupScheduleQuery>) {
   return Object.fromEntries(
     Object.entries(query).filter(([, value]) => value !== undefined && value !== ''),
   ) as Partial<ListGroupScheduleQuery>
+}
+
+function normalizeJoinRequestsQuery(query: Partial<ListGroupJoinRequestsQuery>) {
+  return Object.fromEntries(
+    Object.entries(query).filter(([, value]) => value !== undefined),
+  ) as Partial<ListGroupJoinRequestsQuery>
+}
+
+async function invalidateGroupQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  await queryClient.invalidateQueries({
+    queryKey: groupQueryKeys.all,
+  })
 }
