@@ -121,6 +121,9 @@ export const routes: RouteRecordRaw[] = [
       {
         path: 'groups/:groupId',
         component: GroupWorkspaceLayout,
+        meta: {
+          requiresGroupMembership: true,
+        },
         children: [
           {
             path: '',

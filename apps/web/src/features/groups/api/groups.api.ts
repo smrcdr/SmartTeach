@@ -4,10 +4,13 @@ import { apiClient } from '../../../shared/api/client/http'
 export type Group = components['schemas']['Group']
 export type GroupMember = components['schemas']['GroupMember']
 export type GroupJoinRequest = components['schemas']['GroupJoinRequest']
+export type GroupSettings = components['schemas']['GroupSettings']
+export type ScheduleEntry = components['schemas']['ScheduleEntry']
 export type CreateGroupPayload = components['schemas']['CreateGroupRequest']
 export type GroupAccessMode = Group['accessMode']
 export type GroupStatus = Group['status']
 export type ListGroupsQuery = NonNullable<paths['/groups']['get']['parameters']['query']>
+export type ListGroupScheduleQuery = NonNullable<paths['/groups/{groupId}/schedule']['get']['parameters']['query']>
 
 type ErrorResponse = components['schemas']['ErrorResponse']
 
@@ -79,6 +82,43 @@ export async function joinGroup(groupId: string) {
   }
 
   throw new GroupsApiError(error, response.status, 'Не удалось вступить в группу')
+}
+
+export async function getGroupSettings(groupId: string) {
+  const { data, error, response } = await apiClient.GET('/groups/{groupId}/settings', {
+    params: {
+      path: {
+        groupId,
+      },
+    },
+  })
+
+  if (data) {
+    return data
+  }
+
+  throw new GroupsApiError(error, response.status, 'Не удалось загрузить настройки группы')
+}
+
+export async function listGroupSchedule(groupId: string, query: Partial<ListGroupScheduleQuery> = {}) {
+  const normalizedQuery = Object.fromEntries(
+    Object.entries(query).filter(([, value]) => value !== undefined && value !== ''),
+  ) as Partial<ListGroupScheduleQuery>
+
+  const { data, error, response } = await apiClient.GET('/groups/{groupId}/schedule', {
+    params: {
+      path: {
+        groupId,
+      },
+      query: normalizedQuery,
+    },
+  })
+
+  if (data) {
+    return data
+  }
+
+  throw new GroupsApiError(error, response.status, 'Не удалось загрузить календарь группы')
 }
 
 export async function createJoinRequest(groupId: string) {

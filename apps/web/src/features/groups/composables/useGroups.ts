@@ -5,13 +5,16 @@ import {
   createJoinRequest,
   createGroup,
   getGroup,
+  getGroupSettings,
   joinGroup,
   listGroups,
+  listGroupSchedule,
   lookupGroupByCode,
   type CreateGroupPayload,
   type Group,
   type GroupJoinRequest,
   type GroupMember,
+  type ListGroupScheduleQuery,
   type ListGroupsQuery,
 } from '../api/groups.api'
 
@@ -23,6 +26,8 @@ export const groupQueryKeys = {
   all: ['groups'] as const,
   list: (scope: GroupListScope, query: Partial<ListGroupsQuery>) => ['groups', 'list', scope, query] as const,
   detail: (groupId: string) => ['groups', 'detail', groupId] as const,
+  settings: (groupId: string) => ['groups', 'settings', groupId] as const,
+  schedule: (groupId: string, query: Partial<ListGroupScheduleQuery>) => ['groups', 'schedule', groupId, query] as const,
 }
 
 export function useGroupsList(
@@ -49,6 +54,36 @@ export function useGroup(groupId: MaybeRefOrGetter<string>, options: { enabled?:
   return useQuery({
     queryKey: computed(() => groupQueryKeys.detail(resolvedGroupId.value)),
     queryFn: () => getGroup(resolvedGroupId.value),
+    enabled,
+  })
+}
+
+export function useGroupSettings(
+  groupId: MaybeRefOrGetter<string>,
+  options: { enabled?: MaybeRefOrGetter<boolean> } = {},
+) {
+  const resolvedGroupId = computed(() => toValue(groupId))
+  const enabled = computed(() => Boolean(resolvedGroupId.value) && (toValue(options.enabled) ?? true))
+
+  return useQuery({
+    queryKey: computed(() => groupQueryKeys.settings(resolvedGroupId.value)),
+    queryFn: () => getGroupSettings(resolvedGroupId.value),
+    enabled,
+  })
+}
+
+export function useGroupSchedule(
+  groupId: MaybeRefOrGetter<string>,
+  query: MaybeRefOrGetter<Partial<ListGroupScheduleQuery>> = DEFAULT_LIST_QUERY,
+  options: { enabled?: MaybeRefOrGetter<boolean> } = {},
+) {
+  const resolvedGroupId = computed(() => toValue(groupId))
+  const normalizedQuery = computed(() => normalizeScheduleQuery(toValue(query)))
+  const enabled = computed(() => Boolean(resolvedGroupId.value) && (toValue(options.enabled) ?? true))
+
+  return useQuery({
+    queryKey: computed(() => groupQueryKeys.schedule(resolvedGroupId.value, normalizedQuery.value)),
+    queryFn: () => listGroupSchedule(resolvedGroupId.value, normalizedQuery.value),
     enabled,
   })
 }
@@ -109,4 +144,10 @@ function normalizeListQuery(scope: GroupListScope, query: Partial<ListGroupsQuer
   return Object.fromEntries(
     Object.entries(nextQuery).filter(([, value]) => value !== undefined && value !== ''),
   ) as Partial<ListGroupsQuery>
+}
+
+function normalizeScheduleQuery(query: Partial<ListGroupScheduleQuery>) {
+  return Object.fromEntries(
+    Object.entries(query).filter(([, value]) => value !== undefined && value !== ''),
+  ) as Partial<ListGroupScheduleQuery>
 }

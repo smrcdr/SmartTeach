@@ -1,4 +1,4 @@
-import type { Group, GroupAccessMode, GroupStatus } from '../api/groups.api'
+import type { Group, GroupAccessMode, GroupStatus, ScheduleEntry } from '../api/groups.api'
 
 export const groupAccessModeLabels: Record<GroupAccessMode, string> = {
   OPEN: 'Открытая',
@@ -18,6 +18,18 @@ export const groupStatusLabels: Record<GroupStatus, string> = {
   DELETED: 'Удалена',
 }
 
+export const groupMembershipRoleLabels = {
+  OWNER: 'Владелец',
+  ADMIN: 'Администратор',
+  USER: 'Участник',
+} as const
+
+export const scheduleEntryTypeLabels: Record<ScheduleEntry['sourceType'], string> = {
+  LESSON: 'Урок',
+  ASSIGNMENT_DEADLINE: 'Дедлайн',
+  CUSTOM_EVENT: 'Событие',
+}
+
 export function getEnabledGroupModules(settings: Group['settings']) {
   return [
     settings.chatEnabled ? 'Чаты' : null,
@@ -33,6 +45,32 @@ export function getMyGroupRoleLabel(group: Group, currentUserId?: string | null)
   }
 
   return 'Участник'
+}
+
+export function getGroupMembershipRoleLabel(role: Group['viewerMembershipRole']) {
+  return role ? groupMembershipRoleLabels[role] : 'Гость'
+}
+
+export function formatGroupDateTime(value: string) {
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
+}
+
+export function formatGroupDateTimeRange(startsAt: string, endsAt?: string | null) {
+  const formattedStart = formatGroupDateTime(startsAt)
+
+  if (!endsAt) {
+    return formattedStart
+  }
+
+  return `${formattedStart} - ${new Intl.DateTimeFormat('ru-RU', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(endsAt))}`
 }
 
 export function formatMembersCount(count: number) {
