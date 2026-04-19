@@ -1,14 +1,23 @@
-import type { components } from '../../../shared/api/generated/openapi'
+import type { components, paths } from '../../../shared/api/generated/openapi'
 import { apiClient } from '../../../shared/api/client/http'
+import {
+  normalizePublicProfile,
+  normalizeUserProfile,
+  type PublicProfile,
+  type UserProfile,
+} from '../../../shared/lib/user-profile'
 
 type ErrorResponse = components['schemas']['ErrorResponse']
-
 type RawPublicProfile = components['schemas']['PublicUser']
+type RawUserProfile = components['schemas']['User']
+type UploadFileBody = paths['/files']['post']['requestBody']['content']['multipart/form-data']
+type UpdateMyProfileRequestBody = paths['/users/me']['patch']['requestBody']['content']['application/json']
 
-export type PublicProfile = Omit<RawPublicProfile, 'bio' | 'avatarFileId' | 'avatarUrl'> & {
-  bio: string | null
-  avatarFileId: string | null
-  avatarUrl: string | null
+export type ProfileFile = components['schemas']['FileObject']
+export type UpdateMyProfilePayload = {
+  displayName?: string
+  bio?: string
+  avatarFileId?: string | null
 }
 
 export class ProfileApiError extends Error {
@@ -39,6 +48,51 @@ export async function getPublicProfile(userId: string) {
   throw new ProfileApiError(error, response.status, 'Не удалось загрузить публичный профиль')
 }
 
+export async function updateMyProfile(payload: UpdateMyProfilePayload) {
+  const { data, error, response } = await apiClient.PATCH('/users/me', {
+    body: payload as UpdateMyProfileRequestBody,
+  })
+
+  if (data) {
+    return normalizeUserProfile(data as RawUserProfile)
+  }
+
+  throw new ProfileApiError(error, response.status, 'Не удалось обновить профиль')
+}
+
+export async function uploadProfileAvatar(file: File) {
+  const formData = new FormData()
+
+  formData.set('file', file)
+  formData.set('folder', 'avatars')
+
+  const { data, error, response } = await apiClient.POST('/files', {
+    body: formData as unknown as UploadFileBody,
+  })
+
+  if (data) {
+    return data
+  }
+
+  throw new ProfileApiError(error, response.status, 'Не удалось загрузить аватар')
+}
+
+export async function deleteUploadedProfileFile(fileId: string) {
+  const { error, response } = await apiClient.DELETE('/files/{fileId}', {
+    params: {
+      path: {
+        fileId,
+      },
+    },
+  })
+
+  if (response.ok) {
+    return
+  }
+
+  throw new ProfileApiError(error, response.status, 'Не удалось удалить загруженный файл')
+}
+
 export function getProfileErrorMessage(error: unknown, fallbackMessage: string) {
   if (error instanceof ProfileApiError) {
     return error.errors[0] ?? error.message
@@ -49,17 +103,4 @@ export function getProfileErrorMessage(error: unknown, fallbackMessage: string) 
   }
 
   return fallbackMessage
-}
-
-function normalizePublicProfile(profile: RawPublicProfile): PublicProfile {
-  return {
-    ...profile,
-    bio: normalizeNullableString(profile.bio),
-    avatarFileId: normalizeNullableString(profile.avatarFileId),
-    avatarUrl: normalizeNullableString(profile.avatarUrl),
-  }
-}
-
-function normalizeNullableString(value: unknown) {
-  return typeof value === 'string' ? value : null
 }

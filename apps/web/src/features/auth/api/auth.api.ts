@@ -1,8 +1,10 @@
 import type { components } from '../../../shared/api/generated/openapi'
 import { apiClient, requestSessionRefresh, type AccessSession } from '../../../shared/api/client/http'
+import { normalizeUserProfile, type UserProfile } from '../../../shared/lib/user-profile'
 
 export type LoginPayload = components['schemas']['LoginRequest']
 export type RegisterPayload = components['schemas']['RegisterRequest']
+export type AuthUser = UserProfile
 
 type ErrorResponse = components['schemas']['ErrorResponse']
 
@@ -54,7 +56,7 @@ export async function getCurrentUser() {
   const { data, error, response } = await apiClient.GET('/auth/me')
 
   if (data) {
-    return data
+    return normalizeUserProfile(data)
   }
 
   throw new AuthApiError(error, response.status, 'Не удалось загрузить текущего пользователя')

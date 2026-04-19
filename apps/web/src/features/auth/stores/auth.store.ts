@@ -8,23 +8,21 @@ import {
   getAccessToken,
   onAccessSessionChange,
 } from '../../../shared/api/client/http'
-import type { components } from '../../../shared/api/generated/openapi'
 import {
   getCurrentUser,
   login as loginRequest,
   logout as logoutRequest,
   refreshSession,
   register as registerRequest,
+  type AuthUser,
   type LoginPayload,
   type RegisterPayload,
 } from '../api/auth.api'
-
-type User = components['schemas']['User']
 type InitializationState = 'idle' | 'pending' | 'ready'
 
 export const useAuthStore = defineStore('auth', () => {
   const accessToken = ref<string | null>(getAccessToken())
-  const currentUser = ref<User | null>(null)
+  const currentUser = ref<AuthUser | null>(null)
   const initializationState = ref<InitializationState>('idle')
 
   let initializePromise: Promise<void> | null = null
@@ -96,10 +94,14 @@ export const useAuthStore = defineStore('auth', () => {
     initializationState.value = 'ready'
   }
 
+  function setCurrentUser(user: AuthUser | null) {
+    currentUser.value = user
+  }
+
   function clearSessionState() {
     authStateVersion += 1
     clearAccessSession()
-    currentUser.value = null
+    setCurrentUser(null)
     queryClient.clear()
   }
 
@@ -118,7 +120,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function syncCurrentUser() {
-    currentUser.value = await getCurrentUser()
+    setCurrentUser(await getCurrentUser())
   }
 
   return {
@@ -132,6 +134,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     register,
     logout,
+    setCurrentUser,
     clearSessionState,
   }
 })

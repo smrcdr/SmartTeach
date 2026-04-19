@@ -6,11 +6,11 @@ import UserDirectChatButton from '../../features/chats/components/UserDirectChat
 import { useAuth } from '../../features/auth/composables/useAuth'
 import { getProfileErrorMessage } from '../../features/profile/api/profile.api'
 import { usePublicProfile } from '../../features/profile/composables/useProfiles'
-import { getInitials, normalizeNullableString, normalizeOptionalText } from '../../features/chats/lib/chats.ui'
 import AppButton from '../../shared/ui/AppButton.vue'
 import AppCard from '../../shared/ui/AppCard.vue'
 import AppErrorState from '../../shared/ui/AppErrorState.vue'
 import AppLoader from '../../shared/ui/AppLoader.vue'
+import { getUserInitials, normalizeOptionalText } from '../../shared/lib/user-profile'
 
 const route = useRoute()
 const { currentUser } = useAuth()
@@ -53,12 +53,12 @@ const errorMessage = computed(() => {
         <div class="public-profile__identity">
           <div class="public-profile__avatar">
             <img
-              v-if="normalizeNullableString(profile.avatarUrl)"
-              :src="normalizeNullableString(profile.avatarUrl) ?? undefined"
+              v-if="profile.avatarUrl"
+              :src="profile.avatarUrl"
               :alt="profile.displayName"
               class="public-profile__avatar-image"
             />
-            <span v-else>{{ getInitials(profile.displayName) }}</span>
+            <span v-else>{{ getUserInitials(profile.displayName) }}</span>
           </div>
 
           <div class="public-profile__copy">
