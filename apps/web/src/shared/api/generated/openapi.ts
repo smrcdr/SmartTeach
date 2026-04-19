@@ -3670,6 +3670,18 @@ export interface components {
             settings: components["schemas"]["GroupSettings"];
             /** @example 3 */
             membersCount: number;
+            /**
+             * @description Роль текущего пользователя в группе, если он уже состоит в ней.
+             * @example USER
+             * @enum {string|null}
+             */
+            viewerMembershipRole?: "OWNER" | "ADMIN" | "USER" | null;
+            /**
+             * @description Последний известный статус заявки текущего пользователя в эту группу.
+             * @example PENDING
+             * @enum {string|null}
+             */
+            viewerJoinRequestStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */

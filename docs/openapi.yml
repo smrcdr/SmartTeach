@@ -81,12 +81,6 @@ paths:
       responses:
         '204':
           description: Сессия успешно завершена.
-        '401':
-          description: ''
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
       summary: Завершить текущую сессию
       tags:
         - Authentication
@@ -131,7 +125,7 @@ paths:
         - Authentication
   /auth/register:
     post:
-      description: Создает пользователя, стартовую сессию и возвращает пару токенов.
+      description: Создает пользователя, стартовую сессию, выставляет refresh token в cookie и возвращает access token, sessionId и данные пользователя.
       requestBody:
         required: true
         content:
@@ -3033,6 +3027,24 @@ components:
           type: number
           minimum: 0
           example: 3
+        viewerMembershipRole:
+          type: string
+          enum:
+            - OWNER
+            - ADMIN
+            - USER
+          nullable: true
+          description: Роль текущего пользователя в группе, если он уже состоит в ней.
+          example: USER
+        viewerJoinRequestStatus:
+          type: string
+          enum:
+            - PENDING
+            - APPROVED
+            - REJECTED
+          nullable: true
+          description: Последний известный статус заявки текущего пользователя в эту группу.
+          example: PENDING
         createdAt:
           type: string
           format: date-time

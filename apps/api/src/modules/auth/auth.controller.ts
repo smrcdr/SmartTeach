@@ -54,7 +54,8 @@ export class AuthController {
   @Post('register')
   @ApiOperation({
     summary: 'Зарегистрировать нового пользователя',
-    description: 'Создает пользователя, стартовую сессию и возвращает пару токенов.',
+    description:
+      'Создает пользователя, стартовую сессию, выставляет refresh token в cookie и возвращает access token, sessionId и данные пользователя.',
   })
   @ApiCreatedResponse({
     type: AuthSessionDto,
@@ -145,14 +146,22 @@ export class AuthController {
   @ApiNoContentResponse({
     description: 'Сессия успешно завершена.',
   })
-  @ApiUnauthorizedResponse({
-    type: ErrorResponseDto,
-  })
   async logout(
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    await this.authService.logout(this.getRefreshTokenFromRequest(request))
+    const refreshToken = this.getRefreshTokenFromRequestOrNull(request)
+
+    try {
+      if (refreshToken) {
+        await this.authService.logout(refreshToken)
+      }
+    } catch (error) {
+      if (!(error instanceof UnauthorizedException)) {
+        throw error
+      }
+    }
+
     this.clearRefreshTokenCookie(response)
   }
 
@@ -181,13 +190,17 @@ export class AuthController {
   }
 
   private getRefreshTokenFromRequest(request: Request) {
-    const refreshToken = request.cookies?.[AUTH_REFRESH_COOKIE_NAME]
+    const refreshToken = this.getRefreshTokenFromRequestOrNull(request)
 
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token is missing')
     }
 
     return refreshToken
+  }
+
+  private getRefreshTokenFromRequestOrNull(request: Request) {
+    return request.cookies?.[AUTH_REFRESH_COOKIE_NAME] ?? null
   }
 
   private setRefreshTokenCookie(response: Response, refreshToken: string) {

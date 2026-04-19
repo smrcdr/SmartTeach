@@ -20,6 +20,39 @@ type OpenApiParameter = {
   }
 }
 
+type OpenApiSchemaRef = {
+  $ref?: string
+}
+
+type OpenApiMediaType = {
+  schema?: OpenApiSchemaRef
+}
+
+type OpenApiResponse = {
+  description?: string
+  content?: {
+    'application/json'?: OpenApiMediaType
+  }
+}
+
+type OpenApiOperation = {
+  description?: string
+  requestBody?: unknown
+  responses?: Record<string, OpenApiResponse>
+}
+
+type OpenApiDocument = {
+  paths?: Record<string, Record<string, OpenApiOperation>>
+  components?: {
+    schemas?: Record<
+      string,
+      {
+        properties?: Record<string, unknown>
+      }
+    >
+  }
+}
+
 let app: INestApplication
 
 const uuidPathParameterNames = new Set([
@@ -89,6 +122,51 @@ test('runtime Swagger document marks UUID path parameters with format uuid', () 
     assert.equal(parameter.schema?.type, 'string')
     assert.equal(parameter.schema?.format, 'uuid')
   }
+})
+
+test('runtime Swagger document keeps the cookie-based auth contract', () => {
+  const config = app.get(AppConfigService)
+  const document = createOpenApiDocument(
+    app,
+    config.publicApiBaseUrl,
+  ) as unknown as OpenApiDocument
+  const registerOperation = document.paths?.['/auth/register']?.post
+  const loginOperation = document.paths?.['/auth/login']?.post
+  const refreshOperation = document.paths?.['/auth/refresh']?.post
+  const logoutOperation = document.paths?.['/auth/logout']?.post
+
+  assert.ok(registerOperation)
+  assert.ok(loginOperation)
+  assert.ok(refreshOperation)
+  assert.ok(logoutOperation)
+
+  assert.equal(
+    registerOperation.description,
+    'Создает пользователя, стартовую сессию, выставляет refresh token в cookie и возвращает access token, sessionId и данные пользователя.',
+  )
+  assert.equal(refreshOperation.requestBody, undefined)
+  assert.equal(logoutOperation.requestBody, undefined)
+  assert.equal(
+    registerOperation.responses?.['201']?.content?.['application/json']?.schema?.$ref,
+    '#/components/schemas/AuthSession',
+  )
+  assert.equal(
+    loginOperation.responses?.['200']?.content?.['application/json']?.schema?.$ref,
+    '#/components/schemas/AuthSession',
+  )
+  assert.equal(
+    refreshOperation.responses?.['200']?.content?.['application/json']?.schema?.$ref,
+    '#/components/schemas/TokenPair',
+  )
+  assert.deepEqual(Object.keys(logoutOperation.responses ?? {}), ['204'])
+  assert.equal(
+    document.components?.schemas?.AuthSession?.properties?.refreshToken,
+    undefined,
+  )
+  assert.equal(
+    document.components?.schemas?.TokenPair?.properties?.refreshToken,
+    undefined,
+  )
 })
 
 function canonicalize(value: unknown): unknown {

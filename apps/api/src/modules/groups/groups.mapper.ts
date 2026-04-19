@@ -11,7 +11,7 @@ export const groupSettingsSelect = {
   scheduleEnabled: true,
 } satisfies Prisma.GroupSettingsSelect
 
-export const groupSelect = {
+const groupBaseSelect = {
   id: true,
   code: true,
   name: true,
@@ -36,12 +36,48 @@ export const groupSelect = {
   deletedAt: true,
 } satisfies Prisma.GroupSelect
 
+const groupViewerMembershipSelect = {
+  role: true,
+} satisfies Prisma.GroupMemberSelect
+
+const groupViewerJoinRequestSelect = {
+  status: true,
+} satisfies Prisma.GroupJoinRequestSelect
+
+export function buildGroupSelect(userId: string) {
+  return {
+    ...groupBaseSelect,
+    members: {
+      where: {
+        userId,
+      },
+      select: groupViewerMembershipSelect,
+      take: 1,
+    },
+    joinRequests: {
+      where: {
+        userId,
+      },
+      orderBy: [
+        {
+          createdAt: 'desc',
+        },
+        {
+          id: 'desc',
+        },
+      ],
+      select: groupViewerJoinRequestSelect,
+      take: 1,
+    },
+  } satisfies Prisma.GroupSelect
+}
+
 export type GroupSettingsRecord = Prisma.GroupSettingsGetPayload<{
   select: typeof groupSettingsSelect
 }>
 
 export type GroupRecord = Prisma.GroupGetPayload<{
-  select: typeof groupSelect
+  select: ReturnType<typeof buildGroupSelect>
 }>
 
 export function mapGroupSettingsToDto(settings: GroupSettingsRecord): GroupSettingsDto {
@@ -69,6 +105,8 @@ export function mapGroupToDto(group: GroupRecord, avatarUrlByFileId?: AvatarUrlB
     status: group.status,
     settings: mapGroupSettingsToDto(group.settings),
     membersCount: group._count.members,
+    viewerMembershipRole: group.members[0]?.role ?? null,
+    viewerJoinRequestStatus: group.joinRequests[0]?.status ?? null,
     createdAt: group.createdAt.toISOString(),
     updatedAt: group.updatedAt.toISOString(),
     archivedAt: group.archivedAt?.toISOString() ?? null,

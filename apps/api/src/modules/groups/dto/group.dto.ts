@@ -1,7 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { PublicUserDto } from '../../users/dto/public-user.dto'
 import { GroupSettingsDto } from './group-settings.dto'
-import { groupAccessModeValues, groupStatusValues } from '../groups.schemas'
+import {
+  groupAccessModeValues,
+  groupRoleValues,
+  groupStatusValues,
+  joinRequestStatusValues,
+} from '../groups.schemas'
 
 export class GroupDto {
   @ApiProperty({
@@ -61,6 +66,22 @@ export class GroupDto {
     example: 3,
   })
   membersCount!: number
+
+  @ApiPropertyOptional({
+    enum: groupRoleValues,
+    nullable: true,
+    description: 'Роль текущего пользователя в группе, если он уже состоит в ней.',
+    example: 'USER',
+  })
+  viewerMembershipRole!: (typeof groupRoleValues)[number] | null
+
+  @ApiPropertyOptional({
+    enum: joinRequestStatusValues,
+    nullable: true,
+    description: 'Последний известный статус заявки текущего пользователя в эту группу.',
+    example: 'PENDING',
+  })
+  viewerJoinRequestStatus!: (typeof joinRequestStatusValues)[number] | null
 
   @ApiProperty({
     format: 'date-time',

@@ -96,6 +96,8 @@ type GroupResponse = {
   status: 'ACTIVE' | 'ARCHIVED' | 'DELETED'
   settings: GroupSettingsResponse
   membersCount: number
+  viewerMembershipRole: 'OWNER' | 'ADMIN' | 'USER' | null
+  viewerJoinRequestStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null
   createdAt: string
   updatedAt: string
   archivedAt: string | null
@@ -149,6 +151,7 @@ async function registerUser(label: string) {
 
 test('groups endpoints create, filter, update and soft-delete groups', async () => {
   const owner = await registerUser('owner')
+  const admin = await registerUser('admin')
   const outsider = await registerUser('outsider')
 
   const createResult = await request<GroupResponse>('/groups', {
@@ -176,6 +179,8 @@ test('groups endpoints create, filter, update and soft-delete groups', async () 
   assert.equal(createdGroup.accessMode, 'BY_REQUEST')
   assert.equal(createdGroup.status, 'ACTIVE')
   assert.equal(createdGroup.membersCount, 1)
+  assert.equal(createdGroup.viewerMembershipRole, 'OWNER')
+  assert.equal(createdGroup.viewerJoinRequestStatus, null)
   assert.equal(createdGroup.settings.assignmentsEnabled, false)
   assert.match(createdGroup.code, /^[A-Z0-9]{6}$/)
   createdGroupIds.add(createdGroup.id)
@@ -196,6 +201,16 @@ test('groups endpoints create, filter, update and soft-delete groups', async () 
   assert.equal(storedGroup.settings?.assignmentsEnabled, false)
   assert.equal(storedGroup.members.length, 1)
   assert.equal(storedGroup.members[0]?.role, GroupRole.OWNER)
+
+  const createAdminMembershipResult = await prisma.groupMember.create({
+    data: {
+      groupId: createdGroup.id,
+      userId: admin.user.id,
+      role: GroupRole.ADMIN,
+    },
+  })
+
+  assert.equal(createAdminMembershipResult.role, GroupRole.ADMIN)
 
   const searchResult = await request<GroupResponse[]>('/groups?search=patterns', {
     method: 'GET',
@@ -238,6 +253,8 @@ test('groups endpoints create, filter, update and soft-delete groups', async () 
   assert.equal(getByCodeResult.response.status, 200)
   assert.ok(getByCodeResult.body)
   assert.equal(getByCodeResult.body.id, createdGroup.id)
+  assert.equal(getByCodeResult.body.viewerMembershipRole, null)
+  assert.equal(getByCodeResult.body.viewerJoinRequestStatus, null)
 
   const getByIdResult = await request<GroupResponse>(`/groups/${createdGroup.id}`, {
     method: 'GET',
@@ -247,6 +264,38 @@ test('groups endpoints create, filter, update and soft-delete groups', async () 
   assert.equal(getByIdResult.response.status, 200)
   assert.ok(getByIdResult.body)
   assert.equal(getByIdResult.body.id, createdGroup.id)
+  assert.equal(getByIdResult.body.viewerMembershipRole, null)
+  assert.equal(getByIdResult.body.viewerJoinRequestStatus, null)
+
+  const createJoinRequestResult = await request(`/groups/${createdGroup.id}/join-requests`, {
+    method: 'POST',
+    token: outsider.accessToken,
+  })
+
+  assert.equal(createJoinRequestResult.response.status, 201)
+
+  const getByIdAfterJoinRequestResult = await request<GroupResponse>(`/groups/${createdGroup.id}`, {
+    method: 'GET',
+    token: outsider.accessToken,
+  })
+
+  assert.equal(getByIdAfterJoinRequestResult.response.status, 200)
+  assert.ok(getByIdAfterJoinRequestResult.body)
+  assert.equal(getByIdAfterJoinRequestResult.body.viewerMembershipRole, null)
+  assert.equal(getByIdAfterJoinRequestResult.body.viewerJoinRequestStatus, 'PENDING')
+
+  const getByCodeAfterJoinRequestResult = await request<GroupResponse>(
+    `/groups/by-code/${encodeURIComponent(createdGroup.code)}`,
+    {
+      method: 'GET',
+      token: outsider.accessToken,
+    },
+  )
+
+  assert.equal(getByCodeAfterJoinRequestResult.response.status, 200)
+  assert.ok(getByCodeAfterJoinRequestResult.body)
+  assert.equal(getByCodeAfterJoinRequestResult.body.viewerMembershipRole, null)
+  assert.equal(getByCodeAfterJoinRequestResult.body.viewerJoinRequestStatus, 'PENDING')
 
   const invalidStatusUpdateResult = await request(`/groups/${createdGroup.id}`, {
     method: 'PATCH',
@@ -306,6 +355,13 @@ test('groups endpoints create, filter, update and soft-delete groups', async () 
   })
 
   assert.equal(forbiddenDeleteResult.response.status, 403)
+
+  const adminDeleteResult = await request(`/groups/${createdGroup.id}`, {
+    method: 'DELETE',
+    token: admin.accessToken,
+  })
+
+  assert.equal(adminDeleteResult.response.status, 403)
 
   const deleteResult = await request(`/groups/${createdGroup.id}`, {
     method: 'DELETE',

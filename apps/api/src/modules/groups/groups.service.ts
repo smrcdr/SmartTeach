@@ -16,7 +16,12 @@ import { ListGroupsQueryDto } from './dto/list-groups-query.dto'
 import { UpdateGroupRequestDto } from './dto/update-group-request.dto'
 import { GroupDto } from './dto/group.dto'
 import { GroupSettingsDto } from './dto/group-settings.dto'
-import { mapGroupToDto, mapGroupSettingsToDto, groupSelect, groupSettingsSelect } from './groups.mapper'
+import {
+  buildGroupSelect,
+  mapGroupToDto,
+  mapGroupSettingsToDto,
+  groupSettingsSelect,
+} from './groups.mapper'
 import { buildAvatarUrlByFileId } from '../users/user-avatar.utils'
 
 const PUBLIC_GROUP_ACCESS_MODES = ['OPEN', 'BY_REQUEST'] as const
@@ -35,6 +40,7 @@ export class GroupsService {
   ) {}
 
   async listGroups(userId: string, query: ListGroupsQueryDto) {
+    const groupSelect = buildGroupSelect(userId)
     const groups = await this.prismaService.group.findMany({
       where: {
         AND: [
@@ -105,6 +111,8 @@ export class GroupsService {
   }
 
   async createGroup(ownerId: string, payload: CreateGroupRequestDto): Promise<GroupDto> {
+    const groupSelect = buildGroupSelect(ownerId)
+
     for (let attempt = 0; attempt < 10; attempt += 1) {
       try {
         const group = await this.prismaService.$transaction((tx) =>
@@ -148,6 +156,7 @@ export class GroupsService {
   }
 
   async getGroupByCodeOrThrow(userId: string, code: string) {
+    const groupSelect = buildGroupSelect(userId)
     const group = await this.prismaService.group.findFirst({
       where: {
         AND: [
@@ -171,6 +180,7 @@ export class GroupsService {
   }
 
   async getGroupByIdOrThrow(userId: string, groupId: string) {
+    const groupSelect = buildGroupSelect(userId)
     const group = await this.prismaService.group.findFirst({
       where: {
         AND: [
@@ -232,6 +242,7 @@ export class GroupsService {
       return this.getGroupByIdOrThrow(userId, groupId)
     }
 
+    const groupSelect = buildGroupSelect(userId)
     const updatedGroup = await this.prismaService.$transaction(async (tx) => {
       const nextGroup = await tx.group.update({
         where: {
@@ -262,7 +273,13 @@ export class GroupsService {
   }
 
   async deleteGroup(groupId: string, userId: string) {
-    await this.assertCanManageGroup(groupId, userId)
+    const group = await this.assertCanManageGroup(groupId, userId)
+
+    this.authorizationService.assertOwnership(
+      group.ownerId,
+      userId,
+      'Only the group owner can delete this group',
+    )
 
     await this.prismaService.group.update({
       where: {
@@ -436,7 +453,9 @@ export class GroupsService {
     )
   }
 
-  private async mapGroupRecordToDto(group: Prisma.GroupGetPayload<{ select: typeof groupSelect }>) {
+  private async mapGroupRecordToDto(
+    group: Prisma.GroupGetPayload<{ select: ReturnType<typeof buildGroupSelect> }>,
+  ) {
     const avatarUrlByFileId = await buildAvatarUrlByFileId(this.minioService, [group.owner])
 
     return mapGroupToDto(group, avatarUrlByFileId)

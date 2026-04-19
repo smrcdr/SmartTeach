@@ -3,6 +3,7 @@ import { after, before, test } from 'node:test'
 import type { INestApplication } from '@nestjs/common'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '@prisma/client'
+import { AppConfigService } from '../config/app-config.service'
 import { createApp } from '../main'
 import { AUTH_REFRESH_COOKIE_NAME } from '../modules/auth/auth-refresh-cookie'
 import {
@@ -123,6 +124,35 @@ async function request<T = JsonRecord>(
   return {
     response,
     body: rawBody.length > 0 ? (JSON.parse(rawBody) as T) : null,
+  }
+}
+
+function getRequiredResponseHeader(response: Response, name: string) {
+  const value = response.headers.get(name)
+
+  assert.ok(value, `Expected response header "${name}" to be present`)
+
+  return value
+}
+
+function assertCredentialedCorsHeaders(response: Response, expectedOrigin: string) {
+  assert.equal(response.headers.get('access-control-allow-origin'), expectedOrigin)
+  assert.equal(response.headers.get('access-control-allow-credentials'), 'true')
+}
+
+function assertRefreshCookieHeader(
+  setCookieHeader: string,
+  options: { secure: boolean; cleared?: boolean } = { secure: false },
+) {
+  assert.match(setCookieHeader, new RegExp(`^${AUTH_REFRESH_COOKIE_NAME}=`))
+  assert.match(setCookieHeader, /HttpOnly/i)
+  assert.match(setCookieHeader, /Path=\/api\/v1\/auth/i)
+  assert.match(setCookieHeader, /SameSite=Lax/i)
+  assert.equal(setCookieHeader.includes('Secure'), options.secure)
+
+  if (options.cleared) {
+    assert.match(setCookieHeader, new RegExp(`^${AUTH_REFRESH_COOKIE_NAME}=;`))
+    assert.match(setCookieHeader, /Expires=/i)
   }
 }
 
@@ -248,6 +278,15 @@ test('auth and users endpoints support full session lifecycle', async () => {
 
   assert.equal(oldRefreshTokenResult.response.status, 401)
 
+  const staleLogoutResult = await request('/auth/logout', {
+    method: 'POST',
+    cookieJar: staleRefreshCookieJar,
+  })
+
+  assert.equal(staleLogoutResult.response.status, 204)
+  assert.equal(staleLogoutResult.body, null)
+  assert.equal(getCookieValue(staleRefreshCookieJar, AUTH_REFRESH_COOKIE_NAME), undefined)
+
   const logoutResult = await request('/auth/logout', {
     method: 'POST',
     cookieJar: loginCookieJar,
@@ -269,6 +308,63 @@ test('auth and users endpoints support full session lifecycle', async () => {
   })
 
   assert.equal(missingRefreshCookieResult.response.status, 401)
+
+  const missingLogoutCookieResult = await request('/auth/logout', {
+    method: 'POST',
+  })
+
+  assert.equal(missingLogoutCookieResult.response.status, 204)
+  assert.equal(missingLogoutCookieResult.body, null)
+})
+
+test('auth cookie contract uses expected CORS and Set-Cookie attributes', async () => {
+  const config = app.get(AppConfigService)
+  const email = `auth-cookie-${Date.now()}@smarteach.local`
+  const cookieJar = createCookieJar()
+
+  const registerResult = await request<AuthSessionResponse>('/auth/register', {
+    method: 'POST',
+    headers: {
+      origin: config.webUrl,
+    },
+    body: {
+      email,
+      password: 'Password123!',
+      displayName: 'Cookie Contract User',
+    },
+    cookieJar,
+  })
+
+  assert.equal(registerResult.response.status, 201)
+  assert.ok(registerResult.body)
+  createdUserIds.add(String(registerResult.body.user.id))
+  assertCredentialedCorsHeaders(registerResult.response, config.webUrl)
+  assertRefreshCookieHeader(
+    getRequiredResponseHeader(registerResult.response, 'set-cookie'),
+    {
+      secure: config.nodeEnv === 'production',
+    },
+  )
+
+  const logoutResult = await request('/auth/logout', {
+    method: 'POST',
+    headers: {
+      origin: config.webUrl,
+    },
+    cookieJar,
+  })
+
+  assert.equal(logoutResult.response.status, 204)
+  assert.equal(logoutResult.body, null)
+  assertCredentialedCorsHeaders(logoutResult.response, config.webUrl)
+  assertRefreshCookieHeader(
+    getRequiredResponseHeader(logoutResult.response, 'set-cookie'),
+    {
+      secure: config.nodeEnv === 'production',
+      cleared: true,
+    },
+  )
+  assert.equal(getCookieValue(cookieJar, AUTH_REFRESH_COOKIE_NAME), undefined)
 })
 
 test('concurrent refresh keeps only one rotated token valid', async () => {
