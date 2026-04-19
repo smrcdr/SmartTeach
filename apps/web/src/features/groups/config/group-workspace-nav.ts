@@ -1,3 +1,5 @@
+import type { Group, GroupSettings } from '../api/groups.api'
+
 export type GroupWorkspaceNavItem = {
   key: string
   label: string
@@ -15,6 +17,8 @@ export type GroupWorkspaceNavItem = {
   managerOnly?: boolean
   byRequestOnly?: boolean
 }
+
+export type GroupWorkspaceModule = GroupWorkspaceNavItem['module']
 
 export const groupWorkspaceNav: GroupWorkspaceNavItem[] = [
   {
@@ -77,3 +81,45 @@ export const groupWorkspaceNav: GroupWorkspaceNavItem[] = [
     managerOnly: true,
   },
 ]
+
+export function getGroupWorkspaceNavItemByRouteName(routeName: string) {
+  return groupWorkspaceNav.find((item) => item.routeName === routeName) ?? null
+}
+
+export function getGroupWorkspaceNavItemByModule(module: GroupWorkspaceNavItem['module']) {
+  return groupWorkspaceNav.find((item) => item.module === module) ?? null
+}
+
+export function isGroupWorkspaceModule(value: string): value is GroupWorkspaceModule {
+  return groupWorkspaceNav.some((item) => item.module === value)
+}
+
+export function isGroupWorkspaceNavItemVisible(
+  item: GroupWorkspaceNavItem,
+  group: Pick<Group, 'accessMode'>,
+  settings: GroupSettings,
+  membershipRole: Group['viewerMembershipRole'],
+) {
+  const canManageGroup = membershipRole === 'OWNER' || membershipRole === 'ADMIN'
+
+  if (item.managerOnly && !canManageGroup) {
+    return false
+  }
+
+  if (item.byRequestOnly && group.accessMode !== 'BY_REQUEST') {
+    return false
+  }
+
+  switch (item.module) {
+    case 'lessons':
+      return settings.lessonsEnabled
+    case 'assignments':
+      return settings.assignmentsEnabled
+    case 'schedule':
+      return settings.scheduleEnabled
+    case 'chats':
+      return settings.chatEnabled
+    default:
+      return true
+  }
+}

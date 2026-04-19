@@ -41,6 +41,13 @@ const errorMessage = computed(() => {
 
   return error ? getGroupsErrorMessage(error, 'Не удалось загрузить рабочее пространство группы') : ''
 })
+const activeWorkspaceModule = computed(() => {
+  const matchedRecord = [...route.matched]
+    .reverse()
+    .find((record) => typeof record.meta.workspaceModule === 'string')
+
+  return typeof matchedRecord?.meta.workspaceModule === 'string' ? matchedRecord.meta.workspaceModule : ''
+})
 
 watch(
   () => route.fullPath,
@@ -49,8 +56,8 @@ watch(
   },
 )
 
-function isActive(routeName: string) {
-  return route.matched.some((record) => record.name === routeName)
+function isActive(routeName: string, module: string) {
+  return route.matched.some((record) => record.name === routeName) || activeWorkspaceModule.value === module
 }
 
 function normalizeOptionalText(value: unknown) {
@@ -109,7 +116,7 @@ function normalizeOptionalText(value: unknown) {
               v-for="item in workspace.visibleNavItems.value"
               :key="item.key"
               :to="item.to"
-              :class="['workspace__nav-link', { 'workspace__nav-link--active': isActive(item.routeName) }]"
+              :class="['workspace__nav-link', { 'workspace__nav-link--active': isActive(item.routeName, item.module) }]"
             >
               <strong>{{ item.label }}</strong>
               <span>{{ item.description }}</span>
@@ -174,7 +181,10 @@ function normalizeOptionalText(value: unknown) {
                 v-for="item in workspace.visibleNavItems.value"
                 :key="item.key"
                 :to="item.to"
-                :class="['workspace__drawer-link', { 'workspace__drawer-link--active': isActive(item.routeName) }]"
+                :class="[
+                  'workspace__drawer-link',
+                  { 'workspace__drawer-link--active': isActive(item.routeName, item.module) },
+                ]"
               >
                 <strong>{{ item.label }}</strong>
                 <span>{{ item.description }}</span>

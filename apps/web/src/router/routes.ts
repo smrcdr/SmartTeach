@@ -10,6 +10,9 @@ import CreateGroupPage from '../pages/groups/CreateGroupPage.vue'
 import GroupAssignmentsPage from '../pages/groups/GroupAssignmentsPage.vue'
 import GroupChatsPage from '../pages/groups/GroupChatsPage.vue'
 import GroupEntryPage from '../pages/groups/GroupEntryPage.vue'
+import GroupLessonCreatePage from '../pages/groups/GroupLessonCreatePage.vue'
+import GroupLessonDetailsPage from '../pages/groups/GroupLessonDetailsPage.vue'
+import GroupLessonEditPage from '../pages/groups/GroupLessonEditPage.vue'
 import GroupLessonsPage from '../pages/groups/GroupLessonsPage.vue'
 import GroupMembersPage from '../pages/groups/GroupMembersPage.vue'
 import GroupOverviewPage from '../pages/groups/GroupOverviewPage.vue'
@@ -148,6 +151,34 @@ export const routes: RouteRecordRaw[] = [
             component: GroupLessonsPage,
             meta: {
               title: 'Уроки группы | SmartTeach',
+              workspaceModule: 'lessons',
+            },
+          },
+          {
+            path: 'lessons/create',
+            name: 'group-lesson-create',
+            component: GroupLessonCreatePage,
+            meta: {
+              title: 'Новый урок | SmartTeach',
+              workspaceModule: 'lessons',
+            },
+          },
+          {
+            path: 'lessons/:lessonId/edit',
+            name: 'group-lesson-edit',
+            component: GroupLessonEditPage,
+            meta: {
+              title: 'Редактирование урока | SmartTeach',
+              workspaceModule: 'lessons',
+            },
+          },
+          {
+            path: 'lessons/:lessonId',
+            name: 'group-lesson-details',
+            component: GroupLessonDetailsPage,
+            meta: {
+              title: 'Урок группы | SmartTeach',
+              workspaceModule: 'lessons',
             },
           },
           {

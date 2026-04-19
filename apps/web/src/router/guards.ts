@@ -4,6 +4,12 @@ import { appName } from '../app/config/brand'
 import { queryClient } from '../app/providers/query'
 import { pinia } from '../app/providers/pinia'
 import { getGroup, GroupsApiError } from '../features/groups/api/groups.api'
+import {
+  getGroupWorkspaceNavItemByModule,
+  getGroupWorkspaceNavItemByRouteName,
+  isGroupWorkspaceModule,
+  isGroupWorkspaceNavItemVisible,
+} from '../features/groups/config/group-workspace-nav'
 import { useAuthStore } from '../features/auth/stores/auth.store'
 import { groupQueryKeys } from '../features/groups/composables/useGroups'
 
@@ -52,6 +58,33 @@ export function installRouterGuards(router: Router) {
         if (!group.viewerMembershipRole) {
           return {
             name: 'group-preview',
+            params: {
+              groupId,
+            },
+          }
+        }
+
+        const routeName = typeof to.name === 'string' ? to.name : ''
+        const workspaceModule = [...to.matched]
+          .reverse()
+          .find((record) => typeof record.meta.workspaceModule === 'string')?.meta.workspaceModule
+        const workspaceNavItem =
+          (typeof workspaceModule === 'string' && isGroupWorkspaceModule(workspaceModule)
+            ? getGroupWorkspaceNavItemByModule(workspaceModule)
+            : null) ??
+          (routeName ? getGroupWorkspaceNavItemByRouteName(routeName) : null)
+
+        if (
+          workspaceNavItem &&
+          !isGroupWorkspaceNavItemVisible(
+            workspaceNavItem,
+            group,
+            group.settings,
+            group.viewerMembershipRole,
+          )
+        ) {
+          return {
+            name: 'group-overview',
             params: {
               groupId,
             },
