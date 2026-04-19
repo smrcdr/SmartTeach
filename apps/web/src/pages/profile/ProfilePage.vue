@@ -26,13 +26,13 @@ const bio = ref('Преподаю фронтенд и собираю курс в
         <AppTextarea
           v-model="bio"
           label="Bio"
-          hint="Profile update flow и avatar upload подключатся после auth foundation."
+          hint="Profile update flow и avatar upload подключатся на следующих шагах."
         />
         <AppButton variant="secondary">Подключить профиль позже</AppButton>
       </AppCard>
 
       <AppCard class="span-7" tone="muted">
-        <AppLoader label="После auth bootstrap сюда подставится `/auth/me` и profile query." />
+        <AppLoader label="Auth context уже поднимается через `/auth/me`; дальше сюда подключится профильный query-layer." />
       </AppCard>
     </div>
   </div>

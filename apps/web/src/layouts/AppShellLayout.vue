@@ -4,13 +4,16 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import { appName } from '../app/config/brand'
 import logo from '../assets/smarteach-logo-blue.png'
+import { useAuth } from '../features/auth/composables/useAuth'
 import AppButton from '../shared/ui/AppButton.vue'
 import AppContainer from '../shared/ui/AppContainer.vue'
 
 const route = useRoute()
 const router = useRouter()
+const { currentUser, logout } = useAuth()
 const mobileMenuOpen = ref(false)
 const searchQuery = ref('')
+const isLoggingOut = ref(false)
 
 const primaryNav = [
   {
@@ -43,6 +46,23 @@ function submitSearch() {
     name: 'groups',
     query: searchQuery.value ? { q: searchQuery.value } : {},
   })
+}
+
+async function handleLogout() {
+  if (isLoggingOut.value) {
+    return
+  }
+
+  isLoggingOut.value = true
+
+  try {
+    await logout()
+  } finally {
+    isLoggingOut.value = false
+    await router.push({
+      name: 'login',
+    })
+  }
 }
 </script>
 
@@ -83,6 +103,15 @@ function submitSearch() {
               <input v-model="searchQuery" type="search" placeholder="Поиск по группам" />
             </form>
             <AppButton to="/groups/create" variant="secondary" size="sm">Создать группу</AppButton>
+            <div v-if="currentUser" class="shell-layout__account">
+              <div class="shell-layout__account-copy">
+                <strong>{{ currentUser.displayName }}</strong>
+                <span>{{ currentUser.email }}</span>
+              </div>
+              <AppButton variant="ghost" size="sm" :disabled="isLoggingOut" @click="handleLogout">
+                {{ isLoggingOut ? 'Выходим...' : 'Выйти' }}
+              </AppButton>
+            </div>
           </div>
         </div>
       </AppContainer>
@@ -121,6 +150,16 @@ function submitSearch() {
               {{ item.label }}
             </RouterLink>
           </nav>
+
+          <div v-if="currentUser" class="shell-layout__drawer-account">
+            <div class="shell-layout__account-copy">
+              <strong>{{ currentUser.displayName }}</strong>
+              <span>{{ currentUser.email }}</span>
+            </div>
+            <AppButton variant="ghost" block :disabled="isLoggingOut" @click="handleLogout">
+              {{ isLoggingOut ? 'Выходим...' : 'Выйти' }}
+            </AppButton>
+          </div>
 
           <AppButton to="/groups/create" block>Создать группу</AppButton>
         </div>
@@ -213,6 +252,31 @@ function submitSearch() {
   gap: 0.75rem;
 }
 
+.shell-layout__account {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.shell-layout__account-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.shell-layout__account-copy strong {
+  font-size: 0.92rem;
+  line-height: 1.2;
+}
+
+.shell-layout__account-copy span {
+  color: var(--color-subtle);
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .shell-layout__search {
   min-width: min(24rem, 42vw);
 }
@@ -276,6 +340,13 @@ function submitSearch() {
   gap: 0.35rem;
 }
 
+.shell-layout__drawer-account {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
 .shell-layout__drawer-link {
   padding: 0.85rem 0.95rem;
   border-radius: var(--radius-sm);
@@ -318,6 +389,10 @@ function submitSearch() {
     flex-wrap: wrap;
   }
 
+  .shell-layout__account {
+    justify-content: space-between;
+  }
+
   .shell-layout__search {
     min-width: 0;
     flex: 1 1 14rem;
@@ -327,6 +402,16 @@ function submitSearch() {
 @media (max-width: 640px) {
   .brand__name {
     display: none;
+  }
+
+  .shell-layout__tools {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .shell-layout__account {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 </style>

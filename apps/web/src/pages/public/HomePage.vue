@@ -25,8 +25,8 @@ const pillars = [
         <span class="page-eyebrow">Frontend MVP</span>
         <h1 class="page-title">Один workspace для учебных групп, а не набор несвязанных мок-экранов.</h1>
         <p class="page-lead">
-          Шаг 4 переводит SmartTeach на новый application skeleton: public entry, app shell и отдельный локальный
-          workspace группы уже разведены по layout-уровням.
+          SmartTeach уже держит cookie-based auth foundation: public entry, app shell, silent refresh и приватная
+          маршрутизация больше не завязаны на старую моковую оболочку.
         </p>
       </div>
 
@@ -48,16 +48,17 @@ const pillars = [
         <h2 class="card-title">Что уже готово на этом шаге</h2>
         <ul class="list-copy">
           <li>router разбит на `index`, `routes` и `guards`, а не держится на одном `router.ts`</li>
-          <li>`main.ts` теперь поднимает `Pinia` и `Vue Query` до появления feature-логики</li>
+          <li>auth store восстанавливает сессию через `/auth/refresh` и затем поднимает `/auth/me`</li>
+          <li>retry after refresh и logout redirect централизованы в transport-слое</li>
           <li>общие layout-компоненты уже различают public, app и group contexts</li>
         </ul>
       </AppCard>
 
       <AppCard class="span-5">
-        <h2 class="card-title">Следом по плану</h2>
+        <h2 class="card-title">Дальше по плану</h2>
         <p class="muted">
-          Следующий шаг подключит auth bootstrap, guards и приватную маршрутизацию поверх этого каркаса, без возврата к
-          старой моковой оболочке.
+          Следующий шаг доберет продуктовую публичную зону: landing, login и register можно будет полировать уже поверх
+          работающего auth foundation, а не поверх временных заглушек.
         </p>
       </AppCard>
     </div>

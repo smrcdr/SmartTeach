@@ -38,6 +38,7 @@ export const routes: RouteRecordRaw[] = [
         name: 'login',
         component: LoginPage,
         meta: {
+          guestOnly: true,
           title: 'Вход | SmartTeach',
         },
       },
@@ -46,6 +47,7 @@ export const routes: RouteRecordRaw[] = [
         name: 'register',
         component: RegisterPage,
         meta: {
+          guestOnly: true,
           title: 'Регистрация | SmartTeach',
         },
       },
@@ -54,6 +56,9 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '/',
     component: AppShellLayout,
+    meta: {
+      requiresAuth: true,
+    },
     children: [
       {
         path: 'groups',

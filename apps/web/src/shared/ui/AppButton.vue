@@ -10,12 +10,14 @@ const props = withDefaults(
     size?: 'md' | 'sm'
     type?: 'button' | 'submit' | 'reset'
     block?: boolean
+    disabled?: boolean
   }>(),
   {
     variant: 'primary',
     size: 'md',
     type: 'button',
     block: false,
+    disabled: false,
   },
 )
 
@@ -36,6 +38,7 @@ const buttonClass = computed(() => [
   `app-button--${props.variant}`,
   `app-button--${props.size}`,
   props.block ? 'app-button--block' : '',
+  props.disabled ? 'app-button--disabled' : '',
 ])
 
 const componentProps = computed(() => {
@@ -53,6 +56,7 @@ const componentProps = computed(() => {
 
   return {
     type: props.type,
+    disabled: props.disabled,
   }
 })
 </script>
@@ -112,5 +116,11 @@ const componentProps = computed(() => {
 
 .app-button--block {
   width: 100%;
+}
+
+.app-button--disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 </style>
