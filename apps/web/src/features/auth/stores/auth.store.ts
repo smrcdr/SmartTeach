@@ -28,6 +28,7 @@ export const useAuthStore = defineStore('auth', () => {
   const initializationState = ref<InitializationState>('idle')
 
   let initializePromise: Promise<void> | null = null
+  let authStateVersion = 0
 
   const isAuthenticated = computed(() => Boolean(accessToken.value && currentUser.value))
   const isInitializing = computed(() => initializationState.value === 'pending')
@@ -54,7 +55,12 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function bootstrapSession() {
+    const bootstrapVersion = authStateVersion
     const session = await refreshSession()
+
+    if (bootstrapVersion !== authStateVersion) {
+      return
+    }
 
     if (!session) {
       clearSessionState()
@@ -64,6 +70,10 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await syncCurrentUser()
     } catch {
+      if (bootstrapVersion !== authStateVersion) {
+        return
+      }
+
       clearSessionState()
     }
   }
@@ -81,21 +91,20 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
-    try {
-      await logoutRequest()
-    } finally {
-      clearSessionState()
-      initializationState.value = 'ready'
-    }
+    await logoutRequest()
+    clearSessionState()
+    initializationState.value = 'ready'
   }
 
   function clearSessionState() {
+    authStateVersion += 1
     clearAccessSession()
     currentUser.value = null
     queryClient.clear()
   }
 
   async function establishSession(session: { accessToken: string; sessionId: string }) {
+    authStateVersion += 1
     applyAccessSession(session)
 
     try {

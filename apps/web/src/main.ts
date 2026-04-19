@@ -32,4 +32,16 @@ setUnauthorizedHandler(async () => {
 app.use(pinia)
 app.use(VueQueryPlugin, vueQueryPluginOptions)
 app.use(router)
+
+void authStore.initialize().then(async () => {
+  const currentRoute = router.currentRoute.value
+  const isGuestOnlyRoute = currentRoute.matched.some((record) => record.meta.guestOnly)
+
+  if (isGuestOnlyRoute && authStore.isAuthenticated) {
+    await router.replace({
+      name: 'groups',
+    })
+  }
+})
+
 app.mount('#app')

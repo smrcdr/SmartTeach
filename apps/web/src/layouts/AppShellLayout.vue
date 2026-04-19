@@ -4,9 +4,11 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import { appName } from '../app/config/brand'
 import logo from '../assets/smarteach-logo-blue.png'
+import { getAuthErrorMessage } from '../features/auth/api/auth.api'
 import { useAuth } from '../features/auth/composables/useAuth'
 import AppButton from '../shared/ui/AppButton.vue'
 import AppContainer from '../shared/ui/AppContainer.vue'
+import AppErrorState from '../shared/ui/AppErrorState.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,6 +16,7 @@ const { currentUser, logout } = useAuth()
 const mobileMenuOpen = ref(false)
 const searchQuery = ref('')
 const isLoggingOut = ref(false)
+const logoutError = ref('')
 
 const primaryNav = [
   {
@@ -34,6 +37,7 @@ watch(
   () => route.fullPath,
   () => {
     mobileMenuOpen.value = false
+    logoutError.value = ''
   },
 )
 
@@ -54,14 +58,20 @@ async function handleLogout() {
   }
 
   isLoggingOut.value = true
+  logoutError.value = ''
 
   try {
     await logout()
-  } finally {
-    isLoggingOut.value = false
     await router.push({
       name: 'login',
     })
+  } catch (error) {
+    logoutError.value = getAuthErrorMessage(
+      error,
+      'Не удалось завершить сессию. Проверьте соединение и попробуйте снова.',
+    )
+  } finally {
+    isLoggingOut.value = false
   }
 }
 </script>
@@ -119,6 +129,12 @@ async function handleLogout() {
 
     <main class="shell-layout__main">
       <AppContainer size="full">
+        <AppErrorState
+          v-if="logoutError"
+          class="shell-layout__logout-error"
+          title="Не удалось завершить сессию"
+          :description="logoutError"
+        />
         <RouterView />
       </AppContainer>
     </main>
@@ -294,6 +310,10 @@ async function handleLogout() {
 
 .shell-layout__main {
   padding: 1.5rem 0 2rem;
+}
+
+.shell-layout__logout-error {
+  margin-bottom: 1rem;
 }
 
 .shell-layout__overlay {
