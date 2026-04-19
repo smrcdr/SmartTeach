@@ -122,8 +122,32 @@ function normalizeOptionalText(value: unknown) {
         <h2 class="overview-card__title">Ближайшие события</h2>
         <p class="muted">Единая сводка по урокам, дедлайнам и пользовательским событиям на ближайший горизонт.</p>
 
+        <AppEmptyState
+          v-if="!workspace.isScheduleModuleEnabled.value"
+          title="Расписание выключено"
+          :description="
+            workspace.canManageGroup.value && !workspace.isReadOnly.value
+              ? 'Пока модуль выключен, overview не собирает ближайшие уроки, дедлайны и custom events. Его можно включить в настройках группы.'
+              : 'Пока модуль выключен, overview не собирает ближайшие уроки, дедлайны и custom events.'
+          "
+        >
+          <template v-if="workspace.canManageGroup.value && !workspace.isReadOnly.value" #actions>
+            <AppButton
+              variant="secondary"
+              :to="{
+                name: 'group-settings',
+                params: {
+                  groupId,
+                },
+              }"
+            >
+              Открыть настройки
+            </AppButton>
+          </template>
+        </AppEmptyState>
+
         <AppErrorState
-          v-if="workspace.scheduleQuery.error.value"
+          v-else-if="workspace.scheduleQuery.error.value"
           title="Не удалось загрузить календарь группы"
           description="Overview останется доступным, но блок ближайших событий сейчас недоступен."
         />

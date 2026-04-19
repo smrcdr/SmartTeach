@@ -87,6 +87,9 @@ async function handleSubmit(submission: ScheduleEventEditorSubmission) {
           groupId: groupId.value,
           eventId: createdEvent.id,
         },
+        query: {
+          statusSync: 'unconfirmed-cancel',
+        },
       })
 
       return

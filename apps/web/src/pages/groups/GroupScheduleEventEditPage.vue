@@ -56,6 +56,16 @@ const eventErrorMessage = computed(() => {
 
   return error ? getScheduleErrorMessage(error, 'Не удалось открыть кастомное событие') : ''
 })
+const statusSyncNotice = computed(() => {
+  const rawValue = route.query.statusSync
+  const normalizedValue = Array.isArray(rawValue) ? rawValue[0] : rawValue
+
+  if (normalizedValue !== 'unconfirmed-cancel' || event.value?.status === 'CANCELLED') {
+    return ''
+  }
+
+  return 'Не удалось подтвердить перевод записи в `Отменено`. Проверьте текущий статус ниже и при необходимости сохраните событие повторно.'
+})
 
 watchEffect(() => {
   if (!workspace.isWorkspacePending.value && isBlocked.value) {
@@ -156,6 +166,10 @@ async function handleDelete() {
         исчезнет из agenda-ленты, но останется доступным по этому route.
       </p>
     </header>
+
+    <div v-if="statusSyncNotice" class="panel-note panel-note--danger">
+      {{ statusSyncNotice }}
+    </div>
 
     <div v-if="event.status === 'CANCELLED'" class="panel-note">
       Событие находится в статусе `Отменено`, поэтому в основной agenda-ленте его больше не видно. Здесь запись всё
@@ -298,6 +312,12 @@ async function handleDelete() {
   margin: 0;
   color: var(--color-danger);
   font-weight: 700;
+}
+
+.panel-note--danger {
+  border-color: rgba(156, 71, 71, 0.18);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
 }
 
 @media (max-width: 900px) {

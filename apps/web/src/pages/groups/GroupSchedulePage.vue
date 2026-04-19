@@ -5,7 +5,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { getGroupsErrorMessage, type ListGroupScheduleQuery, type ScheduleEntry } from '../../features/groups/api/groups.api'
 import { useGroupWorkspace } from '../../features/groups/composables/useGroupWorkspace'
 import { useGroupSchedule } from '../../features/groups/composables/useGroups'
+import { getScheduleErrorMessage, type ListScheduleEventsQuery } from '../../features/schedule/api/schedule.api'
+import ScheduleEventStatusBadge from '../../features/schedule/components/ScheduleEventStatusBadge.vue'
+import { useScheduleEventsList } from '../../features/schedule/composables/useSchedule'
 import {
+  formatScheduleDateTime,
   formatScheduleEntryTiming,
   getScheduleDayKey,
   getScheduleEntryFallbackDescription,
@@ -31,6 +35,9 @@ type AgendaAction = {
 }
 
 const FULL_SCHEDULE_QUERY: Partial<ListGroupScheduleQuery> = {}
+const CANCELLED_EVENTS_QUERY = {
+  status: 'CANCELLED',
+} as const satisfies Partial<ListScheduleEventsQuery>
 
 const route = useRoute()
 const router = useRouter()
@@ -52,12 +59,18 @@ const scheduleQuery = useGroupSchedule(groupId, FULL_SCHEDULE_QUERY, {
     () => workspace.isMember.value && Boolean(workspace.settings.value) && !isScheduleModuleUnavailable.value,
   ),
 })
+const cancelledEventsQuery = useScheduleEventsList(groupId, CANCELLED_EVENTS_QUERY, {
+  enabled: computed(
+    () => canManageSchedule.value && workspace.isMember.value && Boolean(workspace.settings.value) && !isScheduleModuleUnavailable.value,
+  ),
+})
 
 const scheduleEntries = computed(() => sortScheduleEntries(scheduleQuery.data.value ?? []))
 const filteredEntries = computed(() => scheduleEntries.value.filter((entry) => activeFilters.value[entry.sourceType]))
 const groupedEntries = computed(() => groupScheduleEntriesByDay(filteredEntries.value))
 const visibleDaysCount = computed(() => new Set(filteredEntries.value.map((entry) => getScheduleDayKey(entry.startsAt))).size)
 const activeFilterCount = computed(() => Object.values(activeFilters.value).filter(Boolean).length)
+const cancelledEvents = computed(() => cancelledEventsQuery.data.value ?? [])
 const entryCounts = computed(() =>
   scheduleEntries.value.reduce<Record<ScheduleFilter, number>>(
     (counts, entry) => ({
@@ -75,6 +88,11 @@ const scheduleErrorMessage = computed(() => {
   const error = scheduleQuery.error.value
 
   return error ? getGroupsErrorMessage(error, 'Не удалось загрузить agenda группы') : ''
+})
+const cancelledEventsErrorMessage = computed(() => {
+  const error = cancelledEventsQuery.error.value
+
+  return error ? getScheduleErrorMessage(error, 'Не удалось загрузить отменённые custom events') : ''
 })
 const emptyStateTitle = computed(() => {
   if (scheduleEntries.value.length === 0) {
@@ -190,6 +208,10 @@ function getAgendaAction(entry: ScheduleEntry): AgendaAction | null {
 
 function getEntryDescription(entry: ScheduleEntry) {
   return normalizeOptionalText(entry.description) || getScheduleEntryFallbackDescription(entry)
+}
+
+function getCancelledEventMetaDescription(startsAt: string) {
+  return `Начало ${formatScheduleDateTime(startsAt)}`
 }
 
 function formatEntryCount(count: number) {
@@ -327,6 +349,73 @@ function formatEntryCount(count: number) {
           }}
         </p>
       </AppCard>
+
+      <AppCard v-if="canManageSchedule" class="span-12 schedule-cancelled">
+        <div class="schedule-cancelled__header">
+          <div>
+            <h2 class="schedule-cancelled__title">Скрытые custom events</h2>
+            <p class="muted">
+              После перевода события в `Отменено` оно исчезает из agenda, но остаётся доступно здесь через edit route.
+            </p>
+          </div>
+
+          <span class="pill">{{ formatEntryCount(cancelledEvents.length) }}</span>
+        </div>
+
+        <AppErrorState
+          v-if="cancelledEventsErrorMessage"
+          title="Не удалось загрузить отменённые события"
+          :description="cancelledEventsErrorMessage"
+        >
+          <template #actions>
+            <AppButton variant="secondary" size="sm" @click="cancelledEventsQuery.refetch()">Повторить</AppButton>
+          </template>
+        </AppErrorState>
+
+        <div v-else-if="cancelledEventsQuery.isPending.value" class="schedule-cancelled__loading">
+          Загружаем отменённые custom events, чтобы их можно было открыть повторно.
+        </div>
+
+        <AppEmptyState
+          v-else-if="cancelledEvents.length === 0"
+          title="Нет отменённых событий"
+          description="Если кастомное событие перевести в `Отменено`, оно исчезнет из agenda, но останется доступно в этом списке."
+        />
+
+        <div v-else class="schedule-cancelled__list">
+          <article v-for="event in cancelledEvents" :key="event.id" class="schedule-cancelled__item">
+            <div class="schedule-cancelled__copy">
+              <div class="schedule-cancelled__meta">
+                <ScheduleEventStatusBadge :status="event.status" />
+                <span class="pill">Скрыто из agenda</span>
+              </div>
+
+              <h3 class="schedule-cancelled__item-title">{{ event.title }}</h3>
+              <p class="muted">{{ getCancelledEventMetaDescription(event.startsAt) }}</p>
+              <p v-if="normalizeOptionalText(event.cancelledAt)" class="muted">
+                Отменено {{ formatScheduleDateTime(normalizeOptionalText(event.cancelledAt)) }}
+              </p>
+              <p v-if="normalizeOptionalText(event.description)" class="schedule-cancelled__item-description">
+                {{ normalizeOptionalText(event.description) }}
+              </p>
+            </div>
+
+            <AppButton
+              size="sm"
+              variant="secondary"
+              :to="{
+                name: 'group-schedule-event-edit',
+                params: {
+                  groupId,
+                  eventId: event.id,
+                },
+              }"
+            >
+              Открыть
+            </AppButton>
+          </article>
+        </div>
+      </AppCard>
     </div>
 
     <AppLoader v-if="scheduleQuery.isPending.value" label="Загружаем agenda-ленту группы" />
@@ -396,12 +485,14 @@ function formatEntryCount(count: number) {
 <style scoped>
 .schedule-summary,
 .schedule-toolbar,
+.schedule-cancelled,
 .schedule-day {
   gap: 1rem;
 }
 
 .schedule-summary__header,
 .schedule-toolbar__header,
+.schedule-cancelled__header,
 .schedule-day__header,
 .agenda-entry__header {
   display: flex;
@@ -412,6 +503,7 @@ function formatEntryCount(count: number) {
 
 .schedule-summary__title,
 .schedule-toolbar__title,
+.schedule-cancelled__title,
 .schedule-day__title,
 .agenda-entry__title {
   font-size: 1.08rem;
@@ -524,6 +616,49 @@ function formatEntryCount(count: number) {
   gap: 1rem;
 }
 
+.schedule-cancelled__loading {
+  color: var(--color-muted);
+}
+
+.schedule-cancelled__list {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.schedule-cancelled__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba(156, 71, 71, 0.18);
+  border-radius: var(--radius-md);
+  background: rgba(156, 71, 71, 0.05);
+}
+
+.schedule-cancelled__copy {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.schedule-cancelled__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.schedule-cancelled__item-title {
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.schedule-cancelled__item-description {
+  margin: 0;
+  color: var(--color-subtle);
+}
+
 .schedule-day__entries {
   display: grid;
   gap: 0.85rem;
@@ -575,8 +710,10 @@ function formatEntryCount(count: number) {
 @media (max-width: 900px) {
   .schedule-summary__header,
   .schedule-toolbar__header,
+  .schedule-cancelled__header,
   .schedule-day__header,
-  .agenda-entry__header {
+  .agenda-entry__header,
+  .schedule-cancelled__item {
     flex-direction: column;
   }
 

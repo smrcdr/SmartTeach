@@ -33,10 +33,11 @@ export function useGroupWorkspace(groupId: MaybeRefOrGetter<string>) {
     enabled: isMember,
   })
   const settings = computed(() => settingsQuery.data.value ?? group.value?.settings ?? null)
+  const isScheduleModuleEnabled = computed(() => Boolean(settings.value?.scheduleEnabled))
 
   const scheduleRange = computed<Partial<ListGroupScheduleQuery>>(() => createUpcomingScheduleRange())
   const scheduleQuery = useGroupSchedule(resolvedGroupId, scheduleRange, {
-    enabled: isMember,
+    enabled: computed(() => isMember.value && Boolean(settings.value) && isScheduleModuleEnabled.value),
   })
   const upcomingEntries = computed(() =>
     [...(scheduleQuery.data.value ?? [])]
@@ -81,6 +82,7 @@ export function useGroupWorkspace(groupId: MaybeRefOrGetter<string>) {
     isAdmin,
     canManageGroup,
     isReadOnly: computed(() => group.value?.status === 'ARCHIVED'),
+    isScheduleModuleEnabled,
     isWorkspacePending: computed(
       () => groupQuery.isPending.value || (isMember.value && !settings.value && settingsQuery.isPending.value),
     ),
