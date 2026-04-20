@@ -284,7 +284,7 @@ function getAttachmentLabel(file: ChatFile) {
 </script>
 
 <template>
-  <section class="chat-thread">
+  <section class="chat-window">
     <AppLoader v-if="isChatPending" label="Открываем активный чат" />
 
     <AppErrorState
@@ -304,30 +304,32 @@ function getAttachmentLabel(file: ChatFile) {
     />
 
     <template v-else>
-      <header class="chat-thread__header">
-        <button type="button" class="chat-thread__back" @click="emit('back')">Назад к списку</button>
+      <header class="chat-window-header">
+        <button type="button" class="chat-thread__back" @click="emit('back')">
+          <span class="material-symbols-outlined">arrow_back</span>
+        </button>
 
-        <div class="chat-thread__identity">
-          <div class="chat-thread__avatar">
+        <div class="chat-window-profile">
+          <div class="chat-window-profile__avatar">
             <img
               v-if="getChatAvatarImage(chat, currentUserId)"
               :src="getChatAvatarImage(chat, currentUserId) ?? undefined"
               :alt="chatTitle"
-              class="chat-thread__avatar-image"
+              class="chat-list-avatar-image"
             />
             <span v-else>{{ getInitials(chatTitle) }}</span>
           </div>
 
-          <div class="chat-thread__copy">
-            <h2 class="chat-thread__title">{{ chatTitle }}</h2>
-            <p class="muted">{{ chatDescription }}</p>
+          <div>
+            <h2>{{ chatTitle }}</h2>
+            <p>{{ chatDescription }}</p>
           </div>
         </div>
 
-        <div class="chat-thread__status">
+        <div class="chat-window-actions">
           <span v-if="isReadOnly" class="pill">Только чтение</span>
-          <span v-if="realtime.status.value === 'connecting'" class="pill">Подключаем обновления</span>
-          <span v-else-if="realtime.status.value === 'ready'" class="pill">Онлайн-обновление активно</span>
+          <span v-if="realtime.status.value === 'connecting'" class="pill">Подключаем</span>
+          <span v-else-if="realtime.status.value === 'ready'" class="pill">Онлайн</span>
         </div>
       </header>
 
@@ -339,7 +341,7 @@ function getAttachmentLabel(file: ChatFile) {
         {{ actionError }}
       </div>
 
-      <div class="chat-thread__history">
+      <div class="chat-messages">
         <div class="chat-thread__history-actions">
           <AppButton
             v-if="hasOlderMessages"
@@ -366,32 +368,32 @@ function getAttachmentLabel(file: ChatFile) {
           description="Первое сообщение появится здесь сразу после отправки."
         />
 
-        <ul v-else class="chat-thread__messages">
-          <li
+        <div v-else class="chat-thread__messages">
+          <article
             v-for="message in messages"
             :key="message.id"
             :class="[
-              'chat-thread__message-row',
+              'chat-message-row',
               {
-                'chat-thread__message-row--own': message.authorId === currentUserId,
+                own: message.authorId === currentUserId,
               },
             ]"
           >
-            <div class="chat-thread__message-avatar">
+            <div v-if="message.authorId !== currentUserId" class="chat-message-avatar">
               <img
                 v-if="getAvatarUrl(message)"
                 :src="getAvatarUrl(message)"
                 :alt="message.author.displayName"
-                class="chat-thread__message-avatar-image"
+                class="chat-list-avatar-image"
               />
               <span v-else>{{ getInitials(message.author.displayName) }}</span>
             </div>
 
-            <article
+            <div
               :class="[
-                'chat-thread__message',
+                'chat-message',
                 {
-                  'chat-thread__message--own': message.authorId === currentUserId,
+                  own: message.authorId === currentUserId,
                   'chat-thread__message--deleted': Boolean(message.deletedAt),
                 },
               ]"
@@ -407,24 +409,26 @@ function getAttachmentLabel(file: ChatFile) {
                   v-if="!isReadOnly && (canEditMessage(message, currentUserId) || canDeleteMessage(message, currentUserId, canModerateGroup))"
                   class="chat-thread__message-actions"
                 >
-                  <AppButton
+                  <button
                     v-if="canEditMessage(message, currentUserId)"
-                    variant="ghost"
-                    size="sm"
+                    type="button"
+                    class="chat-thread__message-icon-btn"
                     :disabled="deletingMessageId === message.id || isSavingEdit"
                     @click="startEditingMessage(message)"
                   >
-                    Редактировать
-                  </AppButton>
-                  <AppButton
+                    <span class="material-symbols-outlined">edit</span>
+                  </button>
+                  <button
                     v-if="canDeleteMessage(message, currentUserId, canModerateGroup)"
-                    variant="ghost"
-                    size="sm"
+                    type="button"
+                    class="chat-thread__message-icon-btn chat-thread__message-icon-btn--danger"
                     :disabled="deletingMessageId === message.id || isSavingEdit"
                     @click="handleDeleteMessage(message)"
                   >
-                    {{ deletingMessageId === message.id ? 'Удаляем...' : 'Удалить' }}
-                  </AppButton>
+                    <span class="material-symbols-outlined">
+                      {{ deletingMessageId === message.id ? 'progress_activity' : 'delete' }}
+                    </span>
+                  </button>
                 </div>
               </div>
 
@@ -497,182 +501,134 @@ function getAttachmentLabel(file: ChatFile) {
 
                 <span class="chat-thread__message-time">{{ formatMessageTime(message.createdAt) }}</span>
               </template>
-            </article>
-          </li>
-        </ul>
+            </div>
+          </article>
+        </div>
       </div>
 
-      <div v-if="canWrite" class="chat-thread__composer">
-        <textarea
-          v-model="composerText"
-          class="chat-thread__textarea"
-          rows="4"
-          placeholder="Напишите сообщение или добавьте вложение"
-          :disabled="isUploadingComposer || createMessageMutation.isPending.value"
-        />
+      <footer v-if="canWrite" class="chat-input">
+        <label class="chat-input-icon" aria-label="Прикрепить файл">
+          <span class="material-symbols-outlined">attach_file</span>
+          <input ref="composerFileInput" type="file" multiple class="chat-thread__file-input" @change="handleComposerFileChange" />
+        </label>
 
-        <div v-if="composerFiles.length > 0" class="chat-thread__attachments">
-          <div
-            v-for="(file, index) in composerFiles"
-            :key="`${file.name}:${file.size}:${index}`"
-            class="chat-thread__attachment"
-          >
-            <span>{{ `${file.name} · ${formatFileSize(file.size)}` }}</span>
-            <button type="button" @click="removeComposerFile(index)">Убрать</button>
-          </div>
-        </div>
-
-        <div class="chat-thread__composer-actions">
-          <label class="chat-thread__file-trigger">
-            <input ref="composerFileInput" type="file" multiple class="chat-thread__file-input" @change="handleComposerFileChange" />
-            <span>Добавить файлы</span>
-          </label>
-
-          <AppButton
+        <div class="chat-thread__composer-body">
+          <input
+            v-model="composerText"
+            type="text"
+            placeholder="Написать сообщение..."
             :disabled="isUploadingComposer || createMessageMutation.isPending.value"
-            @click="handleComposerSubmit"
-          >
-            {{ isUploadingComposer || createMessageMutation.isPending.value ? 'Отправляем...' : 'Отправить' }}
-          </AppButton>
+            @keydown.enter.prevent="handleComposerSubmit"
+          />
+
+          <div v-if="composerFiles.length > 0" class="chat-thread__attachments">
+            <div
+              v-for="(file, index) in composerFiles"
+              :key="`${file.name}:${file.size}:${index}`"
+              class="chat-thread__attachment"
+            >
+              <span>{{ `${file.name} · ${formatFileSize(file.size)}` }}</span>
+              <button type="button" @click="removeComposerFile(index)">Убрать</button>
+            </div>
+          </div>
+
+          <p v-if="composerError" class="chat-thread__message-error">{{ composerError }}</p>
         </div>
 
-        <p v-if="composerError" class="chat-thread__message-error">{{ composerError }}</p>
-      </div>
+        <button
+          type="button"
+          class="chat-send-btn"
+          :disabled="isUploadingComposer || createMessageMutation.isPending.value"
+          @click="handleComposerSubmit"
+        >
+          <span class="chat-send-btn__label">Отправить</span>
+          <span class="material-symbols-outlined">send</span>
+        </button>
+      </footer>
 
-      <div v-else class="panel-note">
-        Чат доступен для чтения, но отправка и модерация сообщений сейчас отключены.
-      </div>
+      <div v-else class="panel-note">Чат доступен только для чтения.</div>
     </template>
   </section>
 </template>
 
 <style scoped>
-.chat-thread {
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
-  min-height: 38rem;
+.chat-window {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
 }
 
-.chat-thread__header {
+.chat-window-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--color-border);
+  min-height: 5.2rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e2eaf1;
+  background: #ffffff;
+}
+
+.chat-window-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.chat-window-profile__avatar,
+.chat-message-avatar {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: none;
+  border-radius: 999px;
+  background: #e8f1fb;
+  color: #336689;
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.chat-window-profile h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.1;
+  color: #1f3042;
+}
+
+.chat-window-profile p {
+  margin: 0.2rem 0 0;
+  color: #64788d;
+  font-size: 0.9rem;
+}
+
+.chat-window-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
 }
 
 .chat-thread__back {
   display: none;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--color-accent-strong);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.chat-thread__identity {
-  display: flex;
   align-items: center;
-  gap: 0.9rem;
-  min-width: 0;
-}
-
-.chat-thread__avatar,
-.chat-thread__message-avatar {
-  display: grid;
-  place-items: center;
-  width: 3rem;
-  height: 3rem;
-  border-radius: 50%;
-  background: rgba(31, 117, 156, 0.14);
-  color: var(--color-accent-strong);
-  font-weight: 800;
-  flex-shrink: 0;
-}
-
-.chat-thread__message-avatar {
-  width: 2.5rem;
-  height: 2.5rem;
-}
-
-.chat-thread__avatar-image,
-.chat-thread__message-avatar-image {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.chat-thread__copy {
-  display: grid;
-  gap: 0.2rem;
-  min-width: 0;
-}
-
-.chat-thread__title {
-  font-size: 1.2rem;
-  letter-spacing: -0.03em;
-}
-
-.chat-thread__status {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.chat-thread__history {
-  display: grid;
-  align-content: start;
-  gap: 0.9rem;
-  min-height: 0;
-  flex: 1;
+  justify-content: center;
+  width: 2.45rem;
+  height: 2.45rem;
+  border-radius: 999px;
+  background: #f5f9fc;
+  border: 1px solid #d0dbe5;
+  color: #60758d;
 }
 
 .chat-thread__history-actions {
-  display: flex;
+  display: grid;
   justify-content: center;
+  margin-bottom: 0.9rem;
 }
 
 .chat-thread__messages {
   display: grid;
   gap: 1rem;
-  align-content: start;
-}
-
-.chat-thread__message-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.8rem;
-  align-items: end;
-}
-
-.chat-thread__message-row--own {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.chat-thread__message-row--own .chat-thread__message-avatar {
-  order: 2;
-}
-
-.chat-thread__message {
-  display: grid;
-  gap: 0.75rem;
-  padding: 0.95rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.78);
-}
-
-.chat-thread__message--own {
-  background: var(--color-accent-soft);
-}
-
-.chat-thread__message--deleted {
-  background: rgba(255, 255, 255, 0.54);
 }
 
 .chat-thread__message-header {
@@ -685,22 +641,110 @@ function getAttachmentLabel(file: ChatFile) {
 .chat-thread__message-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem 0.75rem;
-  color: var(--color-subtle);
-  font-size: 0.88rem;
+  gap: 0.35rem 0.65rem;
+  color: #6f8193;
+  font-size: 0.8rem;
+}
+
+.chat-thread__message-meta strong {
+  color: #1f3042;
 }
 
 .chat-thread__message-actions,
-.chat-thread__editor-actions,
-.chat-thread__composer-actions {
+.chat-thread__editor-actions {
   display: flex;
   gap: 0.65rem;
   flex-wrap: wrap;
 }
 
+.chat-thread__message-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 999px;
+  color: #6e8194;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.chat-thread__message-icon-btn:hover {
+  background: #eef4f8;
+  color: #27435c;
+}
+
+.chat-thread__message-icon-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.chat-thread__message-icon-btn .material-symbols-outlined {
+  font-size: 1.05rem;
+}
+
+.chat-thread__message-icon-btn--danger:hover {
+  background: #fff1f1;
+  color: #9a4747;
+}
+
+.chat-messages {
+  display: grid;
+  gap: 0.85rem;
+  min-height: 0;
+  padding: 1rem 1.1rem 0.85rem;
+  overflow-y: auto;
+  background: #ffffff;
+}
+
+.chat-message-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.65rem;
+}
+
+.chat-message-row.own {
+  justify-content: flex-end;
+}
+
+.chat-message {
+  display: grid;
+  gap: 0.45rem;
+  max-width: min(38rem, 74%);
+  padding: 0.8rem 0.95rem;
+  border: 1px solid #dce6ef;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.03);
+}
+
+.chat-message.own {
+  background: linear-gradient(180deg, #317cb2 0%, #276d9d 100%);
+  border-color: #226390;
+}
+
+.chat-message.own .chat-thread__message-meta,
+.chat-message.own .chat-thread__message-text,
+.chat-message.own .chat-thread__message-time,
+.chat-message.own .chat-thread__file-list a,
+.chat-message.own .chat-thread__placeholder {
+  color: #ffffff;
+}
+
+.chat-message.own .chat-thread__message-meta strong {
+  color: #ffffff;
+}
+
+.chat-thread__message--deleted {
+  background: #f8fbfd;
+  border-style: dashed;
+}
+
 .chat-thread__message-text,
 .chat-thread__placeholder {
-  line-height: 1.65;
+  margin: 0;
+  line-height: 1.55;
   white-space: pre-wrap;
 }
 
@@ -721,51 +765,25 @@ function getAttachmentLabel(file: ChatFile) {
 
 .chat-thread__message-time {
   justify-self: end;
-  color: var(--color-subtle);
-  font-size: 0.82rem;
-}
-
-.chat-thread__composer {
-  display: grid;
-  gap: 0.8rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--color-border);
+  color: #7d8fa1;
+  font-size: 0.78rem;
 }
 
 .chat-thread__textarea {
   width: 100%;
   min-height: 7rem;
   padding: 0.9rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-panel);
+  border: 1px solid #c2cfdb;
+  border-radius: 14px;
+  background: #f9fbfd;
   color: var(--color-text);
   resize: vertical;
   outline: none;
 }
 
 .chat-thread__textarea:focus {
-  border-color: rgba(31, 117, 156, 0.44);
-  box-shadow: 0 0 0 4px rgba(31, 117, 156, 0.1);
-}
-
-.chat-thread__file-trigger {
-  display: inline-flex;
-  align-items: center;
-}
-
-.chat-thread__file-trigger span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.45rem;
-  padding: 0.55rem 0.9rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.78);
-  color: var(--color-text);
-  font-size: 0.92rem;
-  font-weight: 700;
-  cursor: pointer;
+  border-color: #9fd2ec;
+  background: #ffffff;
 }
 
 .chat-thread__file-input {
@@ -778,9 +796,9 @@ function getAttachmentLabel(file: ChatFile) {
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.7rem 0.85rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid #c6d3df;
+  border-radius: 14px;
+  background: #f9fbfd;
   color: var(--color-subtle);
 }
 
@@ -794,34 +812,113 @@ function getAttachmentLabel(file: ChatFile) {
 
 .chat-thread__message-error,
 .chat-thread__action-error {
-  padding: 0.85rem 0.95rem;
-  border: 1px solid rgba(156, 71, 71, 0.18);
-  border-radius: var(--radius-sm);
-  background: var(--color-danger-soft);
-  color: var(--color-danger);
+  padding: 12px 14px;
+  border: 1px solid #f1c9c9;
+  border-radius: 14px;
+  background: #fff1f1;
+  color: #8a2f2f;
+}
+
+.chat-thread__composer-body {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.chat-input {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.7rem;
+  align-items: end;
+  padding: 0.8rem 1rem 1rem;
+  border-top: 1px solid #e2eaf1;
+  background: #ffffff;
+}
+
+.chat-input-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  border: 1px solid #d5e0ea;
+  border-radius: 999px;
+  background: #f7fafc;
+  color: #667a8f;
+  cursor: pointer;
+}
+
+.chat-thread__composer-body input {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.9rem;
+  padding: 0 14px;
+  border: 1px solid #d5e0ea;
+  border-radius: 14px;
+  outline: none;
+  color: #334155;
+  background: #f7fafc;
+}
+
+.chat-thread__composer-body input::placeholder {
+  color: #94a3b8;
+}
+
+.chat-send-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.9rem;
+  padding: 0 0.95rem;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #2f80b8 0%, #266f9f 100%);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+.chat-send-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.chat-send-btn__label {
+  display: inline;
+}
+
+.chat-list-avatar-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 @media (max-width: 900px) {
-  .chat-thread {
-    min-height: 28rem;
+  .chat-window-header {
+    padding-inline: 1rem;
   }
 
   .chat-thread__back {
     display: inline-flex;
   }
 
-  .chat-thread__header {
-    display: grid;
-    justify-content: stretch;
+  .chat-message {
+    max-width: 88%;
   }
+}
 
-  .chat-thread__message-row {
+@media (max-width: 640px) {
+  .chat-window-header,
+  .chat-input {
     grid-template-columns: 1fr;
   }
 
-  .chat-thread__message-row--own .chat-thread__message-avatar,
-  .chat-thread__message-avatar {
-    display: none;
+  .chat-window-actions {
+    justify-content: flex-start;
+  }
+
+  .chat-send-btn {
+    justify-content: center;
   }
 }
 </style>

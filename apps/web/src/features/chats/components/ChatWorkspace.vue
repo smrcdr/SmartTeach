@@ -11,7 +11,6 @@ import { useChat, useChatPreviews, useChatsList, useCreateGroupChatMutation, use
 import ChatSidebar from './ChatSidebar.vue'
 import ChatThread from './ChatThread.vue'
 import CreateGroupChatDialog from './CreateGroupChatDialog.vue'
-import AppCard from '../../../shared/ui/AppCard.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -140,7 +139,7 @@ const threadEmptyState = computed(() => {
 
     return {
       title: 'Выберите чат группы',
-      description: 'Список доступных комнат остается слева, а активный диалог откроется справа.',
+      description: 'Список доступных комнат остаётся слева, а активный диалог открывается справа.',
     }
   }
 
@@ -148,11 +147,11 @@ const threadEmptyState = computed(() => {
     return chats.value.length === 0
       ? {
           title: 'Личных чатов пока нет',
-          description: 'Откройте профиль пользователя, карточку участника или автора попытки, чтобы начать диалог.',
+          description: 'Откройте профиль пользователя или карточку участника, чтобы начать диалог.',
         }
       : {
           title: 'Выберите личный чат',
-          description: 'На широком экране список остается слева, а активный диалог открывается справа.',
+          description: 'Список диалогов остаётся слева, активная переписка открывается справа.',
         }
   }
 
@@ -163,25 +162,25 @@ const threadEmptyState = computed(() => {
       }
     : {
         title: 'Выберите групповой чат',
-        description: 'Лента сообщений откроется здесь без перехода на отдельную страницу.',
+        description: 'Сообщения откроются здесь без перехода на отдельный экран.',
       }
 })
 const sidebarCopy = computed(() => {
   if (isGroupScope.value) {
     return {
-      title: 'Чаты группы',
+      title: 'Чаты',
       description: 'Комнаты группы остаются частью рабочего пространства и не смешиваются с личными диалогами.',
     }
   }
 
   return selectedGlobalTab.value === 'DIRECT'
     ? {
-        title: 'Личные чаты',
-        description: 'Личные разговоры один на один собраны в отдельной вкладке.',
+        title: 'Чаты',
+        description: 'Личные разговоры и рабочие комнаты собраны в одном окне.',
       }
     : {
-        title: 'Групповые чаты',
-        description: 'Здесь видны комнаты всех групп, где уже включен модуль чатов и у вас есть доступ.',
+        title: 'Чаты',
+        description: 'Здесь собраны комнаты всех групп, где у вас уже есть доступ.',
       }
 })
 const sidebarEmptyState = computed(() => {
@@ -193,7 +192,7 @@ const sidebarEmptyState = computed(() => {
         }
       : {
           title: 'Комнаты еще не созданы',
-          description: 'Участники увидят здесь список чатов, как только владелец или администратор создаст первую комнату.',
+          description: 'Список чатов появится, как только владелец или администратор создаст первую комнату.',
         }
   }
 
@@ -317,41 +316,37 @@ async function handleCreateGroupChat(title: string) {
 </script>
 
 <template>
-  <div class="chat-workspace">
-    <AppCard :class="['chat-workspace__sidebar-card', { 'chat-workspace__sidebar-card--hidden-mobile': activeChatId }]">
-      <ChatSidebar
-        :title="sidebarCopy.title"
-        :description="sidebarCopy.description"
-        :chats="chats"
-        :previews="previews"
-        :active-chat-id="activeChatId || null"
-        :current-user-id="currentUserId"
-        :show-tabs="!isGroupScope"
-        :active-tab="selectedGlobalTab"
-        :is-pending="isListPending"
-        :error-message="listErrorMessage"
-        :empty-title="sidebarEmptyState.title"
-        :empty-description="sidebarEmptyState.description"
-        :can-create-group-chat="canCreateGroupChat"
-        @select-chat="openChat"
-        @switch-tab="switchGlobalTab"
-        @create-group-chat="createDialogOpen = true"
-      />
-    </AppCard>
+  <div class="chat-layout">
+    <ChatSidebar
+      :title="sidebarCopy.title"
+      :description="sidebarCopy.description"
+      :chats="chats"
+      :previews="previews"
+      :active-chat-id="activeChatId || null"
+      :current-user-id="currentUserId"
+      :show-tabs="!isGroupScope"
+      :active-tab="selectedGlobalTab"
+      :is-pending="isListPending"
+      :error-message="listErrorMessage"
+      :empty-title="sidebarEmptyState.title"
+      :empty-description="sidebarEmptyState.description"
+      :can-create-group-chat="canCreateGroupChat"
+      @select-chat="openChat"
+      @switch-tab="switchGlobalTab"
+      @create-group-chat="createDialogOpen = true"
+    />
 
-    <AppCard :class="['chat-workspace__thread-card', { 'chat-workspace__thread-card--active-mobile': activeChatId }]">
-      <ChatThread
-        :chat="activeChat"
-        :current-user-id="currentUserId"
-        :empty-title="threadEmptyState.title"
-        :empty-description="threadEmptyState.description"
-        :is-chat-pending="activeChatQuery.isPending.value"
-        :chat-error-message="activeChatErrorMessage"
-        :can-moderate-group="canModerateActiveChat"
-        :is-read-only="isActiveChatReadOnly"
-        @back="closeChat"
-      />
-    </AppCard>
+    <ChatThread
+      :chat="activeChat"
+      :current-user-id="currentUserId"
+      :empty-title="threadEmptyState.title"
+      :empty-description="threadEmptyState.description"
+      :is-chat-pending="activeChatQuery.isPending.value"
+      :chat-error-message="activeChatErrorMessage"
+      :can-moderate-group="canModerateActiveChat"
+      :is-read-only="isActiveChatReadOnly"
+      @back="closeChat"
+    />
 
     <CreateGroupChatDialog
       :open="createDialogOpen"
@@ -362,37 +357,3 @@ async function handleCreateGroupChat(title: string) {
     />
   </div>
 </template>
-
-<style scoped>
-.chat-workspace {
-  display: grid;
-  grid-template-columns: minmax(20rem, 24rem) minmax(0, 1fr);
-  gap: 1rem;
-  min-height: 42rem;
-}
-
-.chat-workspace__sidebar-card,
-.chat-workspace__thread-card {
-  align-self: stretch;
-}
-
-@media (max-width: 900px) {
-  .chat-workspace {
-    grid-template-columns: 1fr;
-    min-height: auto;
-  }
-
-  .chat-workspace__sidebar-card--hidden-mobile {
-    display: none;
-  }
-
-  .chat-workspace__thread-card {
-    display: none;
-  }
-
-  .chat-workspace__thread-card--active-mobile,
-  .chat-workspace__thread-card :deep(.empty-state) {
-    display: grid;
-  }
-}
-</style>

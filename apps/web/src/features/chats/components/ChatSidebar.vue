@@ -44,202 +44,272 @@ const emit = defineEmits<{
 
 <template>
   <aside class="chat-sidebar">
-    <div class="chat-sidebar__header">
-      <div class="chat-sidebar__copy">
-        <span class="page-eyebrow">Чаты</span>
-        <h2 class="chat-sidebar__title">{{ title }}</h2>
-        <p class="muted">{{ description }}</p>
+    <header class="chat-sidebar__header">
+      <div class="chat-sidebar__topbar">
+        <label class="chat-sidebar__search" aria-label="Поиск по чатам">
+          <span class="material-symbols-outlined">search</span>
+          <input type="text" :placeholder="showTabs ? 'Поиск чатов' : 'Поиск групповых чатов'" disabled />
+        </label>
+
+        <AppButton
+          v-if="canCreateGroupChat"
+          size="sm"
+          variant="secondary"
+          class="chat-sidebar__create"
+          @click="emit('createGroupChat')"
+        >
+          <span class="material-symbols-outlined">add</span>
+          Новый чат
+        </AppButton>
       </div>
 
-      <AppButton v-if="canCreateGroupChat" size="sm" @click="emit('createGroupChat')">Создать чат</AppButton>
-    </div>
-
-    <div v-if="showTabs" class="chat-sidebar__tabs" role="tablist" aria-label="Тип чатов">
-      <button
-        type="button"
-        :class="['chat-sidebar__tab', { 'chat-sidebar__tab--active': activeTab === 'DIRECT' }]"
-        @click="emit('switchTab', 'DIRECT')"
-      >
-        Личные
-      </button>
-      <button
-        type="button"
-        :class="['chat-sidebar__tab', { 'chat-sidebar__tab--active': activeTab === 'GROUP' }]"
-        @click="emit('switchTab', 'GROUP')"
-      >
-        Групповые
-      </button>
-    </div>
+      <div v-if="showTabs" class="chat-sidebar__tabs" role="tablist" aria-label="Тип чатов">
+        <button
+          type="button"
+          class="chat-sidebar__tab"
+          :class="{ 'chat-sidebar__tab--active': activeTab === 'DIRECT' }"
+          @click="emit('switchTab', 'DIRECT')"
+        >
+          Личные
+        </button>
+        <button
+          type="button"
+          class="chat-sidebar__tab"
+          :class="{ 'chat-sidebar__tab--active': activeTab === 'GROUP' }"
+          @click="emit('switchTab', 'GROUP')"
+        >
+          Групповые
+        </button>
+      </div>
+    </header>
 
     <AppLoader v-if="isPending" label="Загружаем список чатов" />
 
-    <AppErrorState
-      v-else-if="errorMessage"
-      title="Не удалось загрузить чаты"
-      :description="errorMessage"
-    />
+    <AppErrorState v-else-if="errorMessage" title="Не удалось загрузить чаты" :description="errorMessage" />
 
-    <AppEmptyState
-      v-else-if="chats.length === 0"
-      :title="emptyTitle"
-      :description="emptyDescription"
-    >
+    <AppEmptyState v-else-if="chats.length === 0" :title="emptyTitle" :description="emptyDescription">
       <template #actions>
         <AppButton v-if="canCreateGroupChat" size="sm" @click="emit('createGroupChat')">Создать первый чат</AppButton>
       </template>
     </AppEmptyState>
 
-    <ul v-else class="chat-sidebar__list">
-      <li v-for="chat in chats" :key="chat.id">
-        <button
-          type="button"
-          :class="['chat-sidebar__item', { 'chat-sidebar__item--active': chat.id === activeChatId }]"
-          @click="emit('selectChat', chat.id)"
-        >
-          <div class="chat-sidebar__avatar">
-            <img
-              v-if="getChatAvatarImage(chat, currentUserId)"
-              :src="getChatAvatarImage(chat, currentUserId) ?? undefined"
-              :alt="getChatTitle(chat, currentUserId)"
-              class="chat-sidebar__avatar-image"
-            />
-            <span v-else>{{ getChatAvatarLabel(chat, currentUserId) }}</span>
-          </div>
+    <div v-else class="chat-sidebar__list" :aria-label="title">
+      <button
+        v-for="chat in chats"
+        :key="chat.id"
+        type="button"
+        class="chat-sidebar__item"
+        :class="{ 'chat-sidebar__item--active': chat.id === activeChatId }"
+        @click="emit('selectChat', chat.id)"
+      >
+        <div class="chat-sidebar__avatar">
+          <img
+            v-if="getChatAvatarImage(chat, currentUserId)"
+            :src="getChatAvatarImage(chat, currentUserId) ?? undefined"
+            :alt="getChatTitle(chat, currentUserId)"
+            class="chat-sidebar__avatar-image"
+          />
+          <span v-else>{{ getChatAvatarLabel(chat, currentUserId) }}</span>
+        </div>
 
-          <div class="chat-sidebar__body">
-            <div class="chat-sidebar__meta">
-              <strong>{{ getChatTitle(chat, currentUserId) }}</strong>
-              <span>{{ formatChatActivity(chat.lastMessageAt ?? chat.createdAt) }}</span>
-            </div>
-            <p>{{ getChatPreview(previews[chat.id] ?? null) }}</p>
+        <div class="chat-sidebar__item-copy">
+          <div class="chat-sidebar__item-top">
+            <strong>{{ getChatTitle(chat, currentUserId) }}</strong>
+            <span>{{ formatChatActivity(chat.lastMessageAt ?? chat.createdAt) }}</span>
           </div>
-        </button>
-      </li>
-    </ul>
+          <p>{{ getChatPreview(previews[chat.id] ?? null) }}</p>
+        </div>
+      </button>
+    </div>
   </aside>
 </template>
 
 <style scoped>
 .chat-sidebar {
   display: grid;
-  gap: 1rem;
+  grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
+  min-height: 0;
+  background: #ffffff;
+  border: 1px solid #d8e3ec;
+  border-radius: 20px;
+  overflow: hidden;
 }
 
 .chat-sidebar__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.chat-sidebar__copy {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.75rem;
+  padding: 0.9rem;
+  border-bottom: 1px solid #e2eaf1;
+  background: #ffffff;
 }
 
-.chat-sidebar__title {
-  font-size: 1.25rem;
-  letter-spacing: -0.03em;
+.chat-sidebar__topbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.chat-sidebar__search {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.7rem;
+  padding: 0 0.9rem;
+  border: 1px solid #d5e0ea;
+  border-radius: 12px;
+  background: #f7fafc;
+  color: #7f93a7;
+}
+
+.chat-sidebar__search .material-symbols-outlined {
+  font-size: 1.05rem;
+}
+
+.chat-sidebar__search input {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #3d4f63;
+  outline: none;
+}
+
+.chat-sidebar__search input::placeholder {
+  color: #8da0b2;
+}
+
+.chat-sidebar__create {
+  min-height: 2.7rem;
+  padding-inline: 0.95rem;
+  border-radius: 12px;
+}
+
+.chat-sidebar__create :deep(.material-symbols-outlined) {
+  font-size: 1.05rem;
 }
 
 .chat-sidebar__tabs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
-  padding: 0.35rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.72);
+  display: inline-flex;
+  gap: 0.35rem;
+  padding: 0.2rem;
+  border-radius: 12px;
+  background: #f2f7fb;
+  width: fit-content;
 }
 
 .chat-sidebar__tab {
-  min-height: 2.75rem;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--color-subtle);
+  min-width: 6.2rem;
+  min-height: 2.1rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 10px;
+  color: #6b7f93;
   font-weight: 700;
-  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .chat-sidebar__tab--active {
-  background: var(--color-text);
-  color: #ffffff;
+  background: #ffffff;
+  color: #244d69;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04), 0 6px 14px rgba(15, 23, 42, 0.06);
 }
 
 .chat-sidebar__list {
   display: grid;
-  gap: 0.7rem;
+  gap: 0.1rem;
+  padding: 0.55rem;
+  overflow-y: auto;
+  align-content: start;
+  background: #ffffff;
 }
 
 .chat-sidebar__item {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.9rem;
-  width: 100%;
-  padding: 0.95rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.72);
+  grid-template-columns: 2.9rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.7rem;
+  border-radius: 14px;
   text-align: left;
-  cursor: pointer;
-  transition:
-    border-color 160ms ease,
-    transform 160ms ease,
-    background-color 160ms ease;
+  transition: background-color 160ms ease;
 }
 
 .chat-sidebar__item:hover {
-  transform: translateY(-1px);
-  border-color: rgba(31, 117, 156, 0.24);
+  background: #f6fafd;
 }
 
 .chat-sidebar__item--active {
-  border-color: rgba(31, 117, 156, 0.28);
-  background: var(--color-accent-soft);
+  background: #eaf7fc;
 }
 
 .chat-sidebar__avatar {
   display: grid;
   place-items: center;
-  width: 3rem;
-  height: 3rem;
-  border-radius: 50%;
-  background: rgba(31, 117, 156, 0.14);
-  color: var(--color-accent-strong);
-  font-weight: 800;
+  width: 2.9rem;
+  height: 2.9rem;
+  border-radius: 999px;
+  background: #e8f1fb;
+  color: #336689;
+  font-weight: 700;
+  overflow: hidden;
 }
 
 .chat-sidebar__avatar-image {
   width: 100%;
   height: 100%;
-  border-radius: 50%;
   object-fit: cover;
 }
 
-.chat-sidebar__body {
+.chat-sidebar__item-copy {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.15rem;
   min-width: 0;
 }
 
-.chat-sidebar__meta {
+.chat-sidebar__item-top {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
 }
 
-.chat-sidebar__meta strong,
-.chat-sidebar__body p {
+.chat-sidebar__item-top strong {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #203142;
 }
 
-.chat-sidebar__meta span,
-.chat-sidebar__body p {
-  color: var(--color-subtle);
+.chat-sidebar__item-top span {
+  flex: none;
+  color: #7f92a5;
+  font-size: 0.8rem;
+}
+
+.chat-sidebar__item-copy p {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #53677b;
+  font-size: 0.93rem;
+}
+
+@media (max-width: 900px) {
+  .chat-sidebar {
+    min-height: 20rem;
+  }
+
+  .chat-sidebar__topbar {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
