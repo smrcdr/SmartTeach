@@ -57,10 +57,10 @@ const modules = ['Группы', 'Уроки', 'Задания', 'Расписа
       <div class="landing-hero__copy">
         <div class="page-header">
           <span class="page-eyebrow">Публичная зона</span>
-          <h1 class="page-title">{{ appName }} собирает учебную группу в один рабочий контур.</h1>
+          <h1 class="page-title">{{ appName }} собирает учебную группу в единое рабочее пространство.</h1>
           <p class="page-lead">
-            {{ appTagline }} SmartTeach помогает входить в рабочий ритм без лишних переходов: пользователь
-            авторизуется, открывает свои группы и продолжает работу внутри знакомого рабочего пространства группы.
+            {{ appTagline }} SmartTeach помогает быстро войти в учебный ритм: после авторизации пользователь сразу
+            открывает свои группы, видит активные модули и продолжает работу без лишних переходов.
           </p>
         </div>
 
@@ -76,7 +76,7 @@ const modules = ['Группы', 'Уроки', 'Задания', 'Расписа
 
       <AppCard class="landing-hero__summary" tone="accent">
         <span class="page-eyebrow">После входа</span>
-        <h2 class="landing-section__title">Публичная часть короткая, рабочая часть начинается сразу после входа.</h2>
+        <h2 class="landing-section__title">Публичная часть короткая, а рабочий dashboard начинается сразу после входа.</h2>
         <p class="page-lead">
           Внутри продукта нет отдельного глобального дашборда. Пользователь открывает группы и работает в контексте
           уроков, заданий, расписания и чатов той группы, где находится.
@@ -160,7 +160,7 @@ const modules = ['Группы', 'Уроки', 'Задания', 'Расписа
   padding: clamp(1.6rem, 4vw, 2.6rem);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.86);
+  background: rgba(255, 255, 255, 0.92);
   box-shadow: var(--shadow-md);
 }
 
@@ -178,9 +178,9 @@ const modules = ['Группы', 'Уроки', 'Задания', 'Расписа
   display: grid;
   gap: 0.3rem;
   padding: 0.95rem 1rem;
-  border: 1px solid rgba(31, 117, 156, 0.14);
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.14);
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: rgba(255, 255, 255, 0.84);
 }
 
 .landing-hero__checklist-item strong {

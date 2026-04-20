@@ -22,12 +22,16 @@ withDefaults(
   align-items: center;
   gap: 0.75rem;
   color: var(--color-subtle);
+  padding: 12px 14px;
+  border: 1px solid #c2cfdb;
+  border-radius: 14px;
+  background: #ffffff;
 }
 
 .loader__spinner {
-  width: 1rem;
-  height: 1rem;
-  border: 2px solid rgba(31, 117, 156, 0.18);
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 2px solid rgba(var(--color-accent-rgb), 0.16);
   border-top-color: var(--color-accent);
   border-radius: 50%;
   animation: spin 900ms linear infinite;

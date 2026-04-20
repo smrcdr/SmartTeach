@@ -47,32 +47,32 @@ function onInput(event: Event) {
 <style scoped>
 .field {
   display: grid;
-  gap: 0.45rem;
+  gap: 8px;
 }
 
 .field__label {
-  font-size: 0.92rem;
+  color: #5f738b;
+  font-size: 0.84rem;
   font-weight: 700;
-  color: var(--color-text);
 }
 
 .field__control {
   width: 100%;
-  min-height: 3.1rem;
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-panel);
+  min-height: 48px;
+  padding: 14px 16px;
+  border: 1px solid #c2cfdb;
+  border-radius: 14px;
+  background: #f9fbfd;
   color: var(--color-text);
   outline: none;
   transition:
     border-color 160ms ease,
-    box-shadow 160ms ease;
+    background-color 160ms ease;
 }
 
 .field__control:focus {
-  border-color: rgba(31, 117, 156, 0.44);
-  box-shadow: 0 0 0 4px rgba(31, 117, 156, 0.1);
+  border-color: #9fd2ec;
+  background: #ffffff;
 }
 
 .field__control--error {

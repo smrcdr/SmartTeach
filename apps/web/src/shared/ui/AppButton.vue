@@ -73,45 +73,46 @@ const componentProps = computed(() => {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  min-height: 2.9rem;
-  padding: 0.72rem 1.1rem;
+  min-height: 44px;
+  padding: 10px 14px;
   border: 1px solid transparent;
-  border-radius: var(--radius-pill);
-  font-weight: 700;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.1;
   cursor: pointer;
   transition:
-    transform 160ms ease,
     border-color 160ms ease,
     background-color 160ms ease,
     color 160ms ease;
 }
 
-.app-button:hover {
-  transform: translateY(-1px);
-}
-
 .app-button--primary {
-  background: var(--color-text);
+  background: var(--color-accent-strong);
   color: #ffffff;
-  box-shadow: 0 16px 32px rgba(20, 32, 51, 0.16);
 }
 
 .app-button--secondary {
-  background: var(--color-panel);
-  border-color: var(--color-border);
-  color: var(--color-text);
+  background: #f9fbfd;
+  border-color: #c6d3df;
+  color: #334155;
 }
 
 .app-button--ghost {
-  background: transparent;
-  border-color: rgba(31, 117, 156, 0.16);
-  color: var(--color-accent-strong);
+  background: #ffffff;
+  border-color: #c6d3df;
+  color: #60758d;
 }
 
 .app-button--sm {
-  min-height: 2.45rem;
-  padding: 0.55rem 0.9rem;
-  font-size: 0.92rem;
+  min-height: 38px;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+}
+
+.app-button:focus-visible {
+  outline: 3px solid rgba(var(--color-accent-rgb), 0.18);
+  outline-offset: 2px;
 }
 
 .app-button--block {

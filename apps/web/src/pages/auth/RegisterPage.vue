@@ -44,13 +44,10 @@ async function handleSubmit() {
 
 <template>
   <AuthPageShell
-    eyebrow="Регистрация"
-    title="Создайте аккаунт и сразу переходите в рабочие группы."
-    description="SmartTeach не прячет регистрацию внутри общего экрана авторизации. Это отдельный маршрут с собственным фокусом: создать аккаунт и сразу открыть приватную часть приложения."
+    title="Регистрация"
     alternate-label="Уже есть аккаунт?"
     alternate-action-label="Войти"
     alternate-to="/login"
-    aside-tone="accent"
   >
     <form class="auth-page__form" @submit.prevent="handleSubmit">
       <AppInput
@@ -87,31 +84,6 @@ async function handleSubmit() {
       title="Не удалось завершить регистрацию"
       :description="submitError"
     />
-
-    <template #meta>
-      <div class="auth-page__meta">
-        <strong>После регистрации:</strong>
-        <span>новый пользователь автоматически входит в систему и открывает раздел групп.</span>
-      </div>
-    </template>
-
-    <template #aside>
-      <span class="page-eyebrow">Что важно на старте</span>
-      <h2 class="auth-page__title">Регистрация запускает рабочий сценарий сразу, без лишнего вводного этапа.</h2>
-      <p class="muted">
-        Пользователь создает аккаунт один раз, после чего попадает в приватную часть продукта и продолжает работу уже
-        внутри рабочего пространства группы.
-      </p>
-      <ul class="list-copy">
-        <li>форма живет отдельно от входа и не конкурирует за внимание с другим действием</li>
-        <li>имя пользователя задается сразу, чтобы группа и чаты отображали его корректно</li>
-        <li>переход в рабочую часть происходит сразу после успешной регистрации</li>
-      </ul>
-      <div class="panel-note">
-        Отдельная страница регистрации помогает держать публичную часть понятной: пользователь либо входит в систему,
-        либо создает новый аккаунт, без смешения сценариев в одном экране.
-      </div>
-    </template>
   </AuthPageShell>
 </template>
 
@@ -121,23 +93,4 @@ async function handleSubmit() {
   gap: 1rem;
 }
 
-.auth-page__title {
-  font-size: 1.18rem;
-  letter-spacing: -0.03em;
-}
-
-.auth-page__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  padding: 0.95rem 1rem;
-  border: 1px solid rgba(31, 117, 156, 0.16);
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.72);
-  color: var(--color-subtle);
-}
-
-.auth-page__meta strong {
-  color: var(--color-text);
-}
 </style>

@@ -19,19 +19,18 @@ const props = withDefaults(
 .app-card {
   display: grid;
   gap: 1rem;
-  padding: 1.4rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(18px);
+  padding: 18px;
+  border: 1px solid rgba(185, 199, 213, 0.95);
+  border-radius: 22px;
+  background: var(--color-panel);
 }
 
 .app-card--muted {
-  background: var(--color-panel-muted);
+  background: var(--color-panel);
 }
 
 .app-card--accent {
-  background: var(--color-panel-accent);
+  background: #f5f9fc;
+  border-color: #c2cfdb;
 }
 </style>

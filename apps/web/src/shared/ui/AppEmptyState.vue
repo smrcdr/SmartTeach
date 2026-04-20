@@ -22,19 +22,19 @@ defineProps<{
 .empty-state {
   display: grid;
   gap: 1rem;
-  padding: 1.4rem;
-  border: 1px dashed var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.56);
+  padding: 16px;
+  border: 1px dashed #c6d3df;
+  border-radius: 18px;
+  background: #f9fbfd;
 }
 
 .empty-state__badge {
   display: inline-grid;
   place-items: center;
-  width: 2.2rem;
-  height: 2.2rem;
-  border-radius: 50%;
-  background: var(--color-accent-soft);
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  background: #dff0fb;
   color: var(--color-accent-strong);
   font-weight: 800;
 }

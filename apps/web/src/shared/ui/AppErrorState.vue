@@ -22,18 +22,18 @@ defineProps<{
 .error-state {
   display: grid;
   gap: 1rem;
-  padding: 1.4rem;
-  border: 1px solid rgba(156, 71, 71, 0.18);
-  border-radius: var(--radius-md);
-  background: var(--color-danger-soft);
+  padding: 16px;
+  border: 1px solid #f1c9c9;
+  border-radius: 18px;
+  background: #fff1f1;
 }
 
 .error-state__badge {
   display: inline-grid;
   place-items: center;
-  width: 2.2rem;
-  height: 2.2rem;
-  border-radius: 50%;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
   background: rgba(156, 71, 71, 0.12);
   color: var(--color-danger);
   font-weight: 800;

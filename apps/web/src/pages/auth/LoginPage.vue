@@ -45,9 +45,7 @@ async function handleSubmit() {
 
 <template>
   <AuthPageShell
-    eyebrow="Вход"
-    title="Откройте свои группы и продолжайте работу без лишних переходов."
-    description="SmartTeach оставляет вход отдельным маршрутом, а после авторизации сразу переводит пользователя в рабочую зону групп, чатов и учебных модулей."
+    title="Вход"
     alternate-label="Нужен новый аккаунт?"
     alternate-action-label="Зарегистрироваться"
     alternate-to="/register"
@@ -75,31 +73,6 @@ async function handleSubmit() {
     </form>
 
     <AppErrorState v-if="submitError" title="Не удалось войти" :description="submitError" />
-
-    <template #meta>
-      <div v-if="typeof route.query.redirect === 'string'" class="auth-page__meta">
-        <strong>После входа откроется:</strong>
-        <span>{{ route.query.redirect }}</span>
-      </div>
-    </template>
-
-    <template #aside>
-      <span class="page-eyebrow">Что получает пользователь</span>
-      <h2 class="auth-page__title">Сессия остается прозрачной и не размазывается по публичным экранам.</h2>
-      <p class="muted">
-        После успешного входа SmartTeach поднимает текущего пользователя и возвращает его в рабочую часть продукта
-        без промежуточного шага.
-      </p>
-      <ul class="list-copy">
-        <li>после авторизации пользователь сразу попадает в раздел групп</li>
-        <li>при возврате по `redirect` открывается ранее запрошенный приватный раздел</li>
-        <li>обычная перезагрузка страницы не требует повторного входа</li>
-      </ul>
-      <div class="panel-note">
-        Логин и регистрация живут на отдельных маршрутах, поэтому у каждой страницы остается собственная структура и
-        приоритет действий.
-      </div>
-    </template>
   </AuthPageShell>
 </template>
 
@@ -109,23 +82,4 @@ async function handleSubmit() {
   gap: 1rem;
 }
 
-.auth-page__title {
-  font-size: 1.18rem;
-  letter-spacing: -0.03em;
-}
-
-.auth-page__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  padding: 0.95rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-panel-muted);
-  color: var(--color-subtle);
-}
-
-.auth-page__meta strong {
-  color: var(--color-text);
-}
 </style>
