@@ -28,13 +28,12 @@ const errorMessage = computed(() => {
 
 <template>
   <div class="page-shell">
-    <header class="page-header">
-      <span class="page-eyebrow">Пользователи / Публичный профиль</span>
-      <h1 class="page-title">Публичный профиль остается коротким и служит честной точкой входа в личный чат.</h1>
-      <p class="page-lead">
-        Здесь нет вымышленных полей, только те данные, которые реально доступны через сервер: имя, описание и аватар.
+    <section class="intro catalog-intro">
+      <h1>Публичный профиль</h1>
+      <p class="intro-copy">
+        Нейтральная карточка пользователя, из которой можно быстро понять контекст и начать личный диалог.
       </p>
-    </header>
+    </section>
 
     <AppLoader v-if="publicProfileQuery.isPending.value" label="Открываем публичный профиль пользователя" />
 
@@ -48,63 +47,69 @@ const errorMessage = computed(() => {
       </template>
     </AppErrorState>
 
-    <div v-else-if="profile" class="section-grid">
-      <AppCard class="span-5 public-profile">
-        <div class="public-profile__identity">
-          <div class="public-profile__avatar">
-            <img
-              v-if="profile.avatarUrl"
-              :src="profile.avatarUrl"
-              :alt="profile.displayName"
-              class="public-profile__avatar-image"
-            />
-            <span v-else>{{ getUserInitials(profile.displayName) }}</span>
-          </div>
-
-          <div class="public-profile__copy">
-            <h2 class="public-profile__name">{{ profile.displayName }}</h2>
-            <p class="muted">
-              {{ normalizeOptionalText(profile.bio) || 'Пользователь пока не добавил публичное описание.' }}
-            </p>
-          </div>
+    <div v-else-if="profile" class="profile-layout">
+      <aside class="profile-hero">
+        <div class="public-profile__avatar">
+          <img
+            v-if="profile.avatarUrl"
+            :src="profile.avatarUrl"
+            :alt="profile.displayName"
+            class="public-profile__avatar-image"
+          />
+          <span v-else>{{ getUserInitials(profile.displayName) }}</span>
         </div>
+
+        <h2>{{ profile.displayName }}</h2>
+        <p class="profile-role">Пользователь SmartTeach</p>
+        <p class="profile-bio">
+          {{ normalizeOptionalText(profile.bio) || 'Пользователь пока не добавил публичное описание.' }}
+        </p>
 
         <div class="public-profile__actions">
           <AppButton v-if="isCurrentUser" to="/profile" variant="secondary">Мой профиль</AppButton>
           <UserDirectChatButton v-else :user-id="profile.id" label="Написать" />
         </div>
-      </AppCard>
+      </aside>
 
-      <AppCard tone="accent" class="span-7">
-        <h2 class="public-profile__section-title">Контекст</h2>
-        <p class="muted">
-          Этот маршрут нужен как нейтральная точка входа в личный диалог: его можно открыть из карточки участника,
-          из блока автора у попытки и из других мест, где уже известен идентификатор пользователя.
-        </p>
+      <AppCard class="profile-panel">
+        <div class="profile-panel-header">
+          <h2>Контекст</h2>
+        </div>
+
+        <div class="profile-info-grid">
+          <article class="profile-info-item">
+            <span>Имя</span>
+            <strong>{{ profile.displayName }}</strong>
+          </article>
+          <article class="profile-info-item">
+            <span>Идентификатор</span>
+            <strong>{{ profile.id }}</strong>
+          </article>
+          <article class="profile-info-item">
+            <span>Описание</span>
+            <strong>{{ normalizeOptionalText(profile.bio) || 'Пока пусто' }}</strong>
+          </article>
+          <article class="profile-info-item">
+            <span>Диалог</span>
+            <strong>{{ isCurrentUser ? 'Это ваш профиль' : 'Можно открыть личный чат' }}</strong>
+          </article>
+        </div>
       </AppCard>
     </div>
   </div>
 </template>
 
 <style scoped>
-.public-profile {
-  gap: 1.4rem;
-}
-
-.public-profile__identity {
-  display: grid;
-  gap: 1rem;
-}
-
 .public-profile__avatar {
   display: grid;
   place-items: center;
-  width: 5rem;
-  height: 5rem;
+  width: 112px;
+  height: 112px;
   border-radius: 50%;
-  background: rgba(31, 117, 156, 0.14);
-  color: var(--color-accent-strong);
-  font-size: 1.2rem;
+  margin: 0 auto;
+  background: #dff0fb;
+  color: #1d8fe0;
+  font-size: 1.4rem;
   font-weight: 800;
 }
 
@@ -115,20 +120,11 @@ const errorMessage = computed(() => {
   object-fit: cover;
 }
 
-.public-profile__copy {
-  display: grid;
-  gap: 0.4rem;
-}
-
-.public-profile__name,
-.public-profile__section-title {
-  font-size: 1.12rem;
-  letter-spacing: -0.02em;
-}
-
 .public-profile__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 18px;
 }
 </style>

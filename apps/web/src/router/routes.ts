@@ -31,7 +31,6 @@ import GroupsPage from '../pages/groups/GroupsPage.vue'
 import JoinGroupPage from '../pages/groups/JoinGroupPage.vue'
 import ProfilePage from '../pages/profile/ProfilePage.vue'
 import PublicUserPage from '../pages/profile/PublicUserPage.vue'
-import HomePage from '../pages/public/HomePage.vue'
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -40,10 +39,8 @@ export const routes: RouteRecordRaw[] = [
     children: [
       {
         path: '',
-        name: 'landing',
-        component: HomePage,
-        meta: {
-          title: 'SmartTeach | Группы, уроки, задания и чаты',
+        redirect: {
+          name: 'groups',
         },
       },
       {
@@ -69,16 +66,41 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '/',
     component: AppShellLayout,
-    meta: {
-      requiresAuth: true,
-    },
     children: [
       {
         path: 'groups',
         name: 'groups',
         component: GroupsPage,
         meta: {
-          title: 'Группы | SmartTeach',
+          title: 'Главная | SmartTeach',
+          groupsMode: 'home',
+        },
+      },
+      {
+        path: 'catalog',
+        name: 'catalog',
+        component: GroupsPage,
+        meta: {
+          title: 'Каталог | SmartTeach',
+          groupsMode: 'catalog',
+        },
+      },
+    ],
+  },
+  {
+    path: '/',
+    component: AppShellLayout,
+    meta: {
+      requiresAuth: true,
+    },
+    children: [
+      {
+        path: 'my-groups',
+        name: 'my-groups',
+        component: GroupsPage,
+        meta: {
+          title: 'Мои группы | SmartTeach',
+          groupsMode: 'my',
         },
       },
       {

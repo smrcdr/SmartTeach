@@ -123,17 +123,15 @@ async function handleSubmit() {
 
 <template>
   <div class="page-shell">
-    <header class="page-header">
-      <span class="page-eyebrow">Группы / Создание</span>
-      <h1 class="page-title">Создание группы теперь начинается с одной рабочей формы без лишних промежуточных шагов.</h1>
-      <p class="page-lead">
-        Код группы сгенерируется автоматически, а владелец сразу попадёт в собственное рабочее пространство после успешного
-        создания.
+    <section class="intro catalog-intro">
+      <h1>Создать группу</h1>
+      <p class="intro-copy">
+        Настройте новую группу и сразу подготовьте её к работе с участниками, материалами и внутренними модулями.
       </p>
-    </header>
+    </section>
 
-    <div class="section-grid">
-      <AppCard class="span-8">
+    <section class="create-group-layout">
+      <AppCard class="create-group-panel">
         <form class="form-grid" @submit.prevent="handleSubmit">
           <AppInput
             v-model="form.name"
@@ -160,7 +158,7 @@ async function handleSubmit() {
           />
 
           <fieldset class="modules span-full">
-            <legend class="modules__legend">Модули группы</legend>
+            <legend class="modules__legend">Функции группы</legend>
 
             <label v-for="option in moduleOptions" :key="option.key" class="modules__item">
               <input v-model="form.settings[option.key]" type="checkbox" />
@@ -187,10 +185,15 @@ async function handleSubmit() {
         </form>
       </AppCard>
 
-      <AppCard class="span-4" tone="accent">
-        <span class="page-eyebrow">Что получится</span>
-        <h2 class="side-title">Дефолтный сценарий сразу собирает открытую группу с включённым чатом.</h2>
-        <p class="muted">{{ accessModeDescription }}</p>
+      <AppCard class="create-group-panel" tone="muted">
+        <div class="profile-panel-header">
+          <h2>Что получится</h2>
+        </div>
+
+        <div class="create-group-summary">
+          <strong>Режим доступа</strong>
+          <span>{{ accessModeDescription }}</span>
+        </div>
 
         <div class="side-block">
           <strong>Включённые модули</strong>
@@ -206,33 +209,33 @@ async function handleSubmit() {
           </ul>
         </div>
       </AppCard>
-    </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
 .modules {
   display: grid;
-  gap: 0.85rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-panel-muted);
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid #c6d3df;
+  border-radius: 18px;
+  background: #f9fbfd;
 }
 
 .modules__legend {
-  padding: 0 0.25rem;
+  padding: 0 0.25rem 8px;
   font-weight: 700;
 }
 
 .modules__item {
   display: flex;
   align-items: flex-start;
-  gap: 0.8rem;
-  padding: 0.95rem 1rem;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.72);
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid #c6d3df;
+  border-radius: 16px;
+  background: #ffffff;
 }
 
 .modules__item input {
@@ -254,14 +257,9 @@ async function handleSubmit() {
   color: var(--color-subtle);
 }
 
-.side-title {
-  font-size: 1.15rem;
-  line-height: 1.12;
-  letter-spacing: -0.03em;
-}
-
 .side-block {
   display: grid;
-  gap: 0.75rem;
+  gap: 12px;
+  margin-top: 18px;
 }
 </style>

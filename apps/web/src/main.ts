@@ -19,7 +19,7 @@ setUnauthorizedHandler(async () => {
 
   const currentPath = router.currentRoute.value.fullPath
   const shouldRememberRedirect =
-    currentPath !== '/' && currentPath !== '/login' && currentPath !== '/register'
+    currentPath !== '/' && currentPath !== '/groups' && currentPath !== '/login' && currentPath !== '/register'
 
   if (router.currentRoute.value.name !== 'login') {
     await router.push({

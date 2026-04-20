@@ -242,35 +242,30 @@ function cleanupSelectedAvatarPreview() {
   </div>
 
   <div v-else class="page-shell">
-    <header class="page-header">
-      <span class="page-eyebrow">Оболочка приложения / Профиль</span>
-      <h1 class="page-title">Профиль использует только реальные поля пользователя: имя, описание и аватар.</h1>
-      <p class="page-lead">
-        Изменения сразу идут через `/users/me`, а публичный профиль других пользователей показывает ровно эти же поля
-        без декоративных добавок.
+    <section class="intro catalog-intro">
+      <h1>Профиль</h1>
+      <p class="intro-copy">
+        Управляйте личной информацией, фото и публичным описанием в едином продуктовой карточке профиля.
       </p>
-    </header>
+    </section>
 
-    <div class="section-grid">
-      <AppCard class="span-4 profile-card">
-        <div class="profile-card__identity">
-          <div class="profile-card__avatar">
-            <img
-              v-if="effectiveAvatarUrl"
-              :src="effectiveAvatarUrl"
-              :alt="previewName"
-              class="profile-card__avatar-image"
-            />
-            <span v-else>{{ getUserInitials(previewName) }}</span>
-          </div>
-
-          <div class="profile-card__copy">
-            <h2 class="section-title">{{ previewName }}</h2>
-            <p class="muted">
-              {{ normalizeOptionalText(bio) || 'Публичное описание пока пустое. Его увидят участники и собеседники в личном чате.' }}
-            </p>
-          </div>
+    <section class="profile-layout">
+      <aside class="profile-hero">
+        <div class="profile-card__avatar">
+          <img
+            v-if="effectiveAvatarUrl"
+            :src="effectiveAvatarUrl"
+            :alt="previewName"
+            class="profile-card__avatar-image"
+          />
+          <span v-else>{{ getUserInitials(previewName) }}</span>
         </div>
+
+        <h2>{{ previewName }}</h2>
+        <p class="profile-role">Участник SmartTeach</p>
+        <p class="profile-bio">
+          {{ normalizeOptionalText(bio) || 'Публичное описание пока пустое. Его увидят участники и собеседники в личном чате.' }}
+        </p>
 
         <div class="profile-card__actions">
           <label class="profile-card__upload">
@@ -281,7 +276,7 @@ function cleanupSelectedAvatarPreview() {
               :disabled="isBusy"
               @change="handleAvatarSelection"
             />
-            <span>{{ selectedAvatarFile ? 'Заменить выбранное изображение' : 'Загрузить аватар' }}</span>
+            <span>{{ selectedAvatarFile ? 'Заменить изображение' : 'Загрузить аватар' }}</span>
           </label>
 
           <AppButton
@@ -290,12 +285,23 @@ function cleanupSelectedAvatarPreview() {
             :disabled="isBusy || (!selectedAvatarFile && !currentUser.avatarFileId && avatarMode !== 'remove')"
             @click="handleAvatarRemove"
           >
-            {{ avatarMode === 'remove' ? 'Аватар будет удален' : 'Убрать фото' }}
+            {{ avatarMode === 'remove' ? 'Удаление аватара' : 'Убрать фото' }}
           </AppButton>
 
           <AppButton variant="secondary" size="sm" :disabled="isBusy || avatarMode === 'keep'" @click="restoreAvatarDraft">
-            Отменить изменение фото
+            Отменить
           </AppButton>
+        </div>
+
+        <div class="profile-edit-preview">
+          <article class="profile-info-item">
+            <span>Email</span>
+            <strong>{{ currentUser.email }}</strong>
+          </article>
+          <article class="profile-info-item">
+            <span>Символов в описании</span>
+            <strong>{{ bio.trim().length }}/1000</strong>
+          </article>
         </div>
 
         <p v-if="selectedAvatarFile" class="profile-card__meta">Выбрано: {{ selectedAvatarFile.name }}</p>
@@ -305,88 +311,99 @@ function cleanupSelectedAvatarPreview() {
         <p v-else class="profile-card__meta">Пока без аватара. Можно добавить изображение через `/files`.</p>
 
         <p v-if="avatarError" class="profile-card__error">{{ avatarError }}</p>
-      </AppCard>
+      </aside>
 
-      <AppCard class="span-8 profile-form">
-        <h2 class="section-title">Редактирование профиля</h2>
-        <p class="muted">
-          В форме нет телефона, города, роли, навыков или других несуществующих полей. Только то, что реально
-          поддерживает сервер.
-        </p>
-
-        <form class="profile-form__fields" @submit.prevent="handleSubmit" @reset.prevent="handleReset">
-          <AppInput
-            v-model="displayName"
-            label="Имя"
-            autocomplete="name"
-            maxlength="100"
-            :disabled="isBusy"
-            :error="displayNameError"
-            hint="Имя используется в участниках, чатах и публичном профиле."
-          />
-
-          <AppTextarea
-          v-model="bio"
-          label="Описание"
-            maxlength="1000"
-            :disabled="isBusy"
-            :error="bioError"
-            :hint="`Публичное описание. ${bio.trim().length}/1000`"
-          />
-
-          <div v-if="submitError" class="profile-form__message profile-form__message--error">{{ submitError }}</div>
-          <div v-else-if="successMessage" class="profile-form__message profile-form__message--success">
-            {{ successMessage }}
+      <section class="profile-content">
+        <AppCard class="profile-panel">
+          <div class="profile-panel-header">
+            <h2>Основная информация</h2>
           </div>
 
-          <div class="page-actions">
-            <AppButton type="submit" :disabled="isSaveDisabled">
-              {{ isBusy ? 'Сохраняем...' : 'Сохранить изменения' }}
-            </AppButton>
-            <AppButton type="reset" variant="secondary" :disabled="isBusy || !isDirty">Сбросить</AppButton>
-            <AppButton
-              variant="ghost"
-              :to="{
-                name: 'public-user-profile',
-                params: {
-                  userId: currentUser.id,
-                },
-              }"
-            >
-              Открыть публичный профиль
-            </AppButton>
+          <div class="profile-info-grid">
+            <article class="profile-info-item">
+              <span>Имя</span>
+              <strong>{{ previewName }}</strong>
+            </article>
+            <article class="profile-info-item">
+              <span>Email</span>
+              <strong>{{ currentUser.email }}</strong>
+            </article>
+            <article class="profile-info-item">
+              <span>Публичный профиль</span>
+              <strong>/users/{{ currentUser.id }}</strong>
+            </article>
+            <article class="profile-info-item">
+              <span>Описание</span>
+              <strong>{{ normalizeOptionalText(bio) || 'Пока пусто' }}</strong>
+            </article>
           </div>
-        </form>
-      </AppCard>
-    </div>
+        </AppCard>
+
+        <AppCard class="profile-panel">
+          <div class="profile-panel-header">
+            <h2>Редактирование профиля</h2>
+          </div>
+
+          <form class="profile-form__fields" @submit.prevent="handleSubmit" @reset.prevent="handleReset">
+            <AppInput
+              v-model="displayName"
+              label="Имя"
+              autocomplete="name"
+              maxlength="100"
+              :disabled="isBusy"
+              :error="displayNameError"
+              hint="Имя используется в участниках, чатах и публичном профиле."
+            />
+
+            <AppTextarea
+              v-model="bio"
+              label="Описание"
+              maxlength="1000"
+              :disabled="isBusy"
+              :error="bioError"
+              :hint="`Публичное описание. ${bio.trim().length}/1000`"
+            />
+
+            <div v-if="submitError" class="profile-form__message profile-form__message--error">{{ submitError }}</div>
+            <div v-else-if="successMessage" class="profile-form__message profile-form__message--success">
+              {{ successMessage }}
+            </div>
+
+            <div class="page-actions">
+              <AppButton type="submit" :disabled="isSaveDisabled">
+                {{ isBusy ? 'Сохраняем...' : 'Сохранить изменения' }}
+              </AppButton>
+              <AppButton type="reset" variant="secondary" :disabled="isBusy || !isDirty">Сбросить</AppButton>
+              <AppButton
+                variant="ghost"
+                :to="{
+                  name: 'public-user-profile',
+                  params: {
+                    userId: currentUser.id,
+                  },
+                }"
+              >
+                Открыть публичный профиль
+              </AppButton>
+            </div>
+          </form>
+        </AppCard>
+      </section>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.section-title {
-  font-size: 1.05rem;
-  letter-spacing: -0.02em;
-}
-
-.profile-card,
-.profile-form {
-  gap: 1.2rem;
-}
-
-.profile-card__identity {
-  display: grid;
-  gap: 1rem;
-}
-
 .profile-card__avatar {
   display: grid;
   place-items: center;
-  width: 7rem;
-  height: 7rem;
+  width: 112px;
+  height: 112px;
   border-radius: 50%;
-  background: rgba(31, 117, 156, 0.14);
-  color: var(--color-accent-strong);
-  font-size: 1.65rem;
+  margin: 0 auto;
+  background: #dff0fb;
+  color: #1d8fe0;
+  font-size: 1.4rem;
   font-weight: 800;
 }
 
@@ -397,35 +414,65 @@ function cleanupSelectedAvatarPreview() {
   object-fit: cover;
 }
 
-.profile-card__copy {
-  display: grid;
-  gap: 0.45rem;
-}
-
 .profile-card__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 18px;
 }
 
 .profile-card__upload {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.45rem;
-  padding: 0.55rem 0.9rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-  background: var(--color-panel);
-  color: var(--color-text);
-  font-size: 0.92rem;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid #c6d3df;
+  border-radius: 12px;
+  background: #f9fbfd;
+  color: #334155;
+  font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
 }
 
+.profile-edit-preview {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.profile-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.profile-info-item {
+  padding: 16px;
+  background: #f9fbfd;
+  border: 1px solid #c6d3df;
+  border-radius: 18px;
+}
+
+.profile-info-item span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.84rem;
+  color: var(--color-subtle);
+}
+
+.profile-info-item strong {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
 .profile-card__meta {
+  margin-top: 12px;
   color: var(--color-subtle);
   font-size: 0.9rem;
+  text-align: center;
 }
 
 .profile-card__error,
@@ -435,21 +482,29 @@ function cleanupSelectedAvatarPreview() {
 
 .profile-form__fields {
   display: grid;
-  gap: 1rem;
+  gap: 18px;
 }
 
 .profile-form__message {
-  padding: 0.9rem 1rem;
-  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  border-radius: 14px;
   font-weight: 600;
 }
 
 .profile-form__message--error {
-  background: var(--color-danger-soft);
+  background: #fff1f1;
+  border: 1px solid #f1c9c9;
 }
 
 .profile-form__message--success {
-  background: var(--color-accent-soft);
-  color: var(--color-accent-strong);
+  background: #edf8d7;
+  border: 1px solid #d9eab8;
+  color: #355125;
+}
+
+@media (max-width: 900px) {
+  .profile-info-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

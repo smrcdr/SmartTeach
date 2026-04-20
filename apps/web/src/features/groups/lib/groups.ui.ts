@@ -93,3 +93,21 @@ export function formatMembersCount(count: number) {
 
   return `${count} участников`
 }
+
+export function getGroupCoverBackground(seedValue: string) {
+  const palettes = [
+    ['#9fe870', '#2fa7ca'],
+    ['#0d1b3d', '#3454d1', '#e8b04c'],
+    ['#f6c453', '#f58b57', '#ef5d60'],
+    ['#f6ede5', '#e8c9b0', '#c78665'],
+    ['#d2e8f2', '#97bfd3', '#5e7990'],
+    ['#111827', '#334155', '#38bdf8'],
+    ['#eaf4f4', '#94d2bd', '#0a9396'],
+    ['#fef3c7', '#fdba74', '#7c3aed'],
+  ]
+  const normalizedSeed = seedValue.trim()
+  const hash = [...normalizedSeed].reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  const palette = palettes[hash % palettes.length]
+
+  return `linear-gradient(135deg, rgba(7, 13, 39, 0.2), rgba(7, 13, 39, 0.04)), linear-gradient(120deg, ${palette.join(', ')})`
+}

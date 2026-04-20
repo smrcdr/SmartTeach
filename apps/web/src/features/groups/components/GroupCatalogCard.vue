@@ -2,16 +2,13 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 
-import AppButton from '../../../shared/ui/AppButton.vue'
-import AppCard from '../../../shared/ui/AppCard.vue'
 import type { Group } from '../api/groups.api'
 import {
-  formatMembersCount,
   getEnabledGroupModules,
+  getGroupCoverBackground,
   groupAccessModeLabels,
   groupStatusLabels,
 } from '../lib/groups.ui'
-import GroupModuleBadges from './GroupModuleBadges.vue'
 
 const props = defineProps<{
   group: Group
@@ -20,14 +17,15 @@ const props = defineProps<{
 
 const router = useRouter()
 const moduleLabels = computed(() => getEnabledGroupModules(props.group.settings))
-const membersLabel = computed(() => formatMembersCount(props.group.membersCount))
 const accessLabel = computed(() => groupAccessModeLabels[props.group.accessMode])
 const statusLabel = computed(() => groupStatusLabels[props.group.status])
-const actionLabel = computed(() => (props.isJoined ? 'Перейти в рабочее пространство' : 'Открыть группу'))
-const actionTarget = computed(() => (props.isJoined ? `/groups/${props.group.id}/overview` : `/groups/${props.group.id}`))
+const actionLabel = computed(() => (props.isJoined ? 'Открыть группу' : 'Открыть карточку'))
+const coverStyle = computed(() => ({
+  background: getGroupCoverBackground(`${props.group.code}:${props.group.name}`),
+}))
 
 function navigateToTarget() {
-  void router.push(actionTarget.value)
+  void router.push(props.isJoined ? `/groups/${props.group.id}/overview` : `/groups/${props.group.id}`)
 }
 
 function handleCardKeydown(event: KeyboardEvent) {
@@ -41,178 +39,58 @@ function handleCardKeydown(event: KeyboardEvent) {
 </script>
 
 <template>
-  <AppCard
-    class="catalog-card"
-    :tone="isJoined ? 'accent' : 'default'"
+  <article
+    class="course-card"
     role="link"
     tabindex="0"
     :aria-label="`${actionLabel}: ${group.name}`"
     @click="navigateToTarget"
     @keydown="handleCardKeydown"
   >
-    <div class="catalog-card__header">
-      <div class="catalog-card__copy">
-        <div class="catalog-card__meta">
-          <span class="catalog-card__code">{{ group.code }}</span>
-          <span :class="['catalog-card__badge', `catalog-card__badge--${group.accessMode.toLowerCase()}`]">
-            {{ accessLabel }}
+    <div class="course-cover" :style="coverStyle" />
+
+    <div class="course-body">
+      <h2>{{ group.name }}</h2>
+
+      <div class="author-row">
+        <span class="author-avatar" />
+        <span>{{ group.owner.displayName }}</span>
+      </div>
+
+      <div class="tag-row">
+        <span class="tag-pill">{{ accessLabel }}</span>
+        <span class="tag-pill">{{ statusLabel }}</span>
+        <span v-for="moduleName in moduleLabels.slice(0, 2)" :key="moduleName" class="tag-pill">
+          {{ moduleName }}
+        </span>
+      </div>
+
+      <p class="course-description">
+        {{ group.description ?? 'Группа доступна в каталоге и может быть открыта для просмотра или вступления.' }}
+      </p>
+
+      <div class="course-footer">
+        <div class="course-stats">
+          <span class="course-stats__members">
+            <span class="material-symbols-outlined">person</span>
+            <span>{{ group.membersCount }}</span>
           </span>
-          <span v-if="group.status !== 'ACTIVE'" class="catalog-card__status">{{ statusLabel }}</span>
-          <span v-if="isJoined" class="catalog-card__status catalog-card__status--joined">Вы уже внутри</span>
+          <span>{{ group.code }}</span>
         </div>
-        <h2 class="catalog-card__title">{{ group.name }}</h2>
-        <p class="catalog-card__description">
-          {{ group.description ?? 'Описание пока не добавлено, но группа уже видима в каталоге.' }}
-        </p>
-      </div>
 
-      <AppButton type="button" :variant="isJoined ? 'primary' : 'secondary'" size="sm" @click.stop="navigateToTarget">
-        {{ actionLabel }}
-      </AppButton>
+      </div>
     </div>
-
-    <dl class="catalog-card__facts">
-      <div>
-        <dt>Владелец</dt>
-        <dd>{{ group.owner.displayName }}</dd>
-      </div>
-      <div>
-        <dt>Участники</dt>
-        <dd>{{ membersLabel }}</dd>
-      </div>
-      <div>
-        <dt>Доступ</dt>
-        <dd>{{ accessLabel }}</dd>
-      </div>
-    </dl>
-
-    <GroupModuleBadges :modules="moduleLabels" />
-  </AppCard>
+  </article>
 </template>
 
 <style scoped>
-.catalog-card {
-  height: 100%;
-  cursor: pointer;
-  transition:
-    transform 160ms ease,
-    border-color 160ms ease,
-    box-shadow 160ms ease;
-}
-
-.catalog-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(31, 117, 156, 0.2);
-  box-shadow: 0 18px 36px rgba(20, 32, 51, 0.12);
-}
-
-.catalog-card:focus-visible {
-  outline: 3px solid rgba(31, 117, 156, 0.24);
-  outline-offset: 3px;
-}
-
-.catalog-card__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.catalog-card__copy {
-  display: grid;
-  gap: 0.65rem;
-}
-
-.catalog-card__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-}
-
-.catalog-card__code,
-.catalog-card__badge,
-.catalog-card__status {
+.course-stats__members {
   display: inline-flex;
   align-items: center;
-  min-height: 2rem;
-  padding: 0.35rem 0.68rem;
-  border-radius: var(--radius-pill);
-  font-size: 0.82rem;
-  font-weight: 800;
+  gap: 4px;
 }
 
-.catalog-card__code {
-  border: 1px solid var(--color-border);
-  background: var(--color-panel-muted);
-  color: var(--color-subtle);
-}
-
-.catalog-card__badge {
-  background: var(--color-accent-soft);
-  color: var(--color-accent-strong);
-}
-
-.catalog-card__badge--by_request {
-  background: rgba(20, 32, 51, 0.08);
-  color: var(--color-text);
-}
-
-.catalog-card__badge--closed {
-  background: rgba(156, 71, 71, 0.1);
-  color: var(--color-danger);
-}
-
-.catalog-card__status {
-  background: rgba(20, 32, 51, 0.08);
-  color: var(--color-text);
-}
-
-.catalog-card__status--joined {
-  background: var(--color-success-soft);
-  color: var(--color-success);
-}
-
-.catalog-card__title {
-  font-size: 1.3rem;
-  line-height: 1.08;
-  letter-spacing: -0.03em;
-}
-
-.catalog-card__description {
-  color: var(--color-subtle);
-}
-
-.catalog-card__facts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.8rem;
-}
-
-.catalog-card__facts div {
-  display: grid;
-  gap: 0.28rem;
-}
-
-.catalog-card__facts dt {
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-}
-
-.catalog-card__facts dd {
-  margin: 0;
-  font-weight: 700;
-}
-
-@media (max-width: 720px) {
-  .catalog-card__header {
-    flex-direction: column;
-  }
-
-  .catalog-card__facts {
-    grid-template-columns: 1fr;
-  }
+.course-stats__members .material-symbols-outlined {
+  font-size: 16px;
 }
 </style>

@@ -22,25 +22,20 @@ withDefaults(
 .group-modules {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
+  gap: 8px;
 }
 
 .group-modules__item {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2rem;
-  padding: 0.35rem 0.7rem;
-  border: 1px solid rgba(31, 117, 156, 0.14);
-  border-radius: var(--radius-pill);
-  background: var(--color-accent-soft);
-  color: var(--color-accent-strong);
-  font-size: 0.85rem;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: #f4f8fb;
+  color: #7b8ba0;
+  font-size: 0.73rem;
   font-weight: 700;
 }
 
 .group-modules__item--muted {
-  border-color: var(--color-border);
-  background: var(--color-panel-muted);
+  background: #eef3f8;
   color: var(--color-subtle);
 }
 </style>

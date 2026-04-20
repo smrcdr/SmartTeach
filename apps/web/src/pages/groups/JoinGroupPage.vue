@@ -45,29 +45,36 @@ async function handleSubmit() {
 
 <template>
   <div class="page-shell">
-    <header class="page-header">
-      <span class="page-eyebrow">Groups / Join By Code</span>
-      <h1 class="page-title">Код группы теперь ведёт в её контекст без обхода через моковый каталог.</h1>
-      <p class="page-lead">
-        Введите код из приглашения, чтобы сразу открыть карточку группы и проверить, подходит ли она вам по доступу и
-        контексту.
+    <section class="intro catalog-intro">
+      <h1>Вступить в группу</h1>
+      <p class="intro-copy">
+        Введите код приглашения, чтобы сразу открыть карточку группы и продолжить работу в нужном учебном потоке.
       </p>
-    </header>
+    </section>
 
-    <div class="section-grid">
-      <AppCard class="span-7">
+    <section class="join-layout">
+      <section class="join-panel">
+        <div class="profile-panel-header">
+          <h2>Код приглашения</h2>
+        </div>
+
         <form class="join-form" @submit.prevent="handleSubmit">
-          <AppInput
-            v-model="code"
-            label="Код группы"
-            hint="Для ручной проверки можно использовать WEBSPRING26 или MATHLAB26."
-            placeholder="Например, WEBSPRING26"
-            :error="codeError"
-            autocomplete="off"
-            autocapitalize="characters"
-          />
+          <label class="join-field">
+            <span>Введите код</span>
+            <input
+              v-model="code"
+              type="text"
+              maxlength="40"
+              placeholder="Например: WEBSPRING26"
+              autocomplete="off"
+              autocapitalize="characters"
+              @keydown.enter.prevent="handleSubmit"
+            />
+          </label>
 
-          <div class="page-actions">
+          <p v-if="codeError" class="join-error">{{ codeError }}</p>
+
+          <div class="join-actions">
             <AppButton type="submit" :disabled="lookupGroupMutation.isPending.value">
               {{ lookupGroupMutation.isPending.value ? 'Ищем группу...' : 'Открыть группу' }}
             </AppButton>
@@ -75,33 +82,20 @@ async function handleSubmit() {
           </div>
         </form>
 
-        <AppErrorState
-          v-if="submitError"
-          title="Не удалось открыть группу"
-          :description="submitError"
-        />
-      </AppCard>
-
-      <AppCard class="span-5" tone="muted">
-        <h2 class="section-title">Что поддерживает этот сценарий</h2>
-        <ul class="list-copy">
-          <li>код сразу проверяется через реальный серверный маршрут `/groups/by-code/{code}`</li>
-          <li>открытая группа и группа по заявке ведут на отдельный предпросмотр вместо старых моков</li>
-          <li>закрытые или недоступные группы честно возвращают ошибку поиска</li>
-        </ul>
-      </AppCard>
-    </div>
+        <AppErrorState v-if="submitError" title="Не удалось открыть группу" :description="submitError" />
+      </section>
+    </section>
   </div>
 </template>
 
 <style scoped>
 .join-form {
   display: grid;
-  gap: 1rem;
+  gap: 16px;
 }
 
-.section-title {
-  font-size: 1.05rem;
-  letter-spacing: -0.02em;
+.join-error {
+  color: #8a2f2f;
+  font-size: 0.9rem;
 }
 </style>
