@@ -31,6 +31,7 @@ describe('LoginPage', () => {
     expect(wrapper.find('.auth-card__header p').exists()).toBe(false)
     expect(wrapper.find('.auth-page').classes()).toContain('auth-page--centered')
     expect(wrapper.text()).toContain('Войти')
+    expect(wrapper.find('.auth-card__link-action').text()).toBe('Зарегистрироваться')
     expect(wrapper.text()).not.toContain('Закрытая рабочая область')
     expect(wrapper.text()).not.toContain('Используйте email')
     expect(wrapper.text()).not.toContain('Учебные материалы')

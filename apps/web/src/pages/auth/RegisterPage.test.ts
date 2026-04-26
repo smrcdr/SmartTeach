@@ -31,6 +31,7 @@ describe('RegisterPage', () => {
     expect(wrapper.find('.auth-card__header p').exists()).toBe(false)
     expect(wrapper.find('.auth-page').classes()).toContain('auth-page--centered')
     expect(wrapper.text()).toContain('Регистрация')
+    expect(wrapper.find('.auth-card__link-action').text()).toBe('Войти')
     expect(wrapper.text()).not.toContain('Создать профиль')
     expect(wrapper.text()).not.toContain('Новый профиль')
     expect(wrapper.text()).not.toContain('Имя будет видно')

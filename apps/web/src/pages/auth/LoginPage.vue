@@ -35,7 +35,9 @@ async function submit() {
         <AppTextField v-model="form.password" label="Пароль" type="password" placeholder="Введите пароль" />
         <p v-if="auth.error" class="auth-page__error">{{ auth.error }}</p>
         <AppButton type="submit" size="lg">{{ auth.isLoading ? 'Входим...' : 'Войти' }}</AppButton>
-        <RouterLink class="auth-card__link" to="/register">Нет аккаунта? Зарегистрироваться</RouterLink>
+        <RouterLink class="auth-card__link" to="/register">
+          Нет аккаунта? <span class="auth-card__link-action">Зарегистрироваться</span>
+        </RouterLink>
       </form>
     </section>
   </main>
@@ -89,6 +91,10 @@ async function submit() {
   font-size: 0.92rem;
   font-weight: 700;
   justify-self: center;
+}
+
+.auth-card__link-action {
+  color: var(--color-primary);
 }
 
 .auth-page__error {
