@@ -5,8 +5,9 @@ import { useGroups } from '@/features/groups/composables/useGroups'
 import AppButton from '@/shared/ui/AppButton.vue'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import AppTextField from '@/shared/ui/AppTextField.vue'
+import EmptyState from '@/shared/ui/EmptyState.vue'
 
-const { groups } = useGroups({ mine: true })
+const { groups, isLoading, error } = useGroups({ mine: true })
 </script>
 
 <template>
@@ -34,6 +35,12 @@ const { groups } = useGroups({ mine: true })
         :key="group.id"
         :group="group"
       />
+      <EmptyState
+        v-if="!isLoading && !error && groups.length === 0"
+        title="У вас пока нет групп"
+        description="Создайте группу или вступите по коду, чтобы она появилась здесь из API."
+      />
+      <EmptyState v-if="error" title="Не удалось загрузить группы" :description="error" />
     </section>
   </main>
 </template>

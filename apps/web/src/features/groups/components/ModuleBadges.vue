@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { BookOpen, CalendarDays, ClipboardList, MessageCircle, Users } from 'lucide-vue-next'
 import type { Component } from 'vue'
-import type { GroupModule } from '@/app/demo/types'
+import { computed } from 'vue'
+import type { GroupSettings } from '../api/groups.api'
 
 const props = defineProps<{
-  modules: GroupModule[]
+  settings: GroupSettings
 }>()
+
+type GroupModule = 'lessons' | 'assignments' | 'schedule' | 'chats' | 'members'
 
 const moduleMap: Record<GroupModule, { label: string, icon: Component }> = {
   lessons: { label: 'Уроки', icon: BookOpen },
@@ -14,11 +17,19 @@ const moduleMap: Record<GroupModule, { label: string, icon: Component }> = {
   chats: { label: 'Чаты', icon: MessageCircle },
   members: { label: 'Участники', icon: Users }
 }
+
+const enabledModules = computed<GroupModule[]>(() => [
+  ...(props.settings.lessonsEnabled ? ['lessons' as const] : []),
+  ...(props.settings.assignmentsEnabled ? ['assignments' as const] : []),
+  ...(props.settings.scheduleEnabled ? ['schedule' as const] : []),
+  ...(props.settings.chatEnabled ? ['chats' as const] : []),
+  'members'
+])
 </script>
 
 <template>
   <div class="module-badges">
-    <span v-for="moduleKey in props.modules" :key="moduleKey">
+    <span v-for="moduleKey in enabledModules" :key="moduleKey">
       <component :is="moduleMap[moduleKey].icon" :size="15" />
       {{ moduleMap[moduleKey].label }}
     </span>

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { UserPlus } from 'lucide-vue-next'
-import { useDemoGroup } from '@/features/groups/composables/useDemoGroup'
+import { listMembers } from '@/features/groups/api/groups.api'
+import { useGroupRouteList } from '@/features/groups/composables/useGroupRouteResource'
 import ContentList from '@/features/groups/components/ContentList.vue'
 import AppButton from '@/shared/ui/AppButton.vue'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import EmptyState from '@/shared/ui/EmptyState.vue'
 
-const group = useDemoGroup()
+const { items: members } = useGroupRouteList(listMembers)
 </script>
 
 <template>
@@ -22,14 +24,16 @@ const group = useDemoGroup()
     </AppPageHeader>
 
     <ContentList title="Список участников">
-      <article v-for="member in group.members" :key="member.id" class="member-row">
-        <img :src="member.avatarUrl" :alt="member.name" />
+      <article v-for="member in members" :key="member.userId" class="member-row">
+        <img v-if="member.user.avatarUrl" :src="member.user.avatarUrl" :alt="member.user.displayName" />
+        <span v-else class="member-row__initials">{{ member.user.displayName.slice(0, 1) }}</span>
         <div>
-          <h3>{{ member.name }}</h3>
-          <p>{{ member.bio }}</p>
+          <h3>{{ member.user.displayName }}</h3>
+          <p>{{ member.user.bio }}</p>
         </div>
         <strong>{{ member.role }}</strong>
       </article>
+      <EmptyState v-if="members.length === 0" title="Участников пока нет" />
     </ContentList>
   </main>
 </template>
@@ -45,11 +49,25 @@ const group = useDemoGroup()
   padding: 18px 20px;
 }
 
-.member-row img {
+.member-row img,
+.member-row__initials {
   border-radius: 50%;
   height: 52px;
-  object-fit: cover;
   width: 52px;
+}
+
+.member-row img {
+  object-fit: cover;
+}
+
+.member-row__initials {
+  align-items: center;
+  background: var(--color-primary);
+  color: #fff;
+  display: inline-flex;
+  font-weight: 850;
+  justify-content: center;
+  text-transform: uppercase;
 }
 
 .member-row h3,

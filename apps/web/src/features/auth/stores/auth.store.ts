@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { currentUser } from '@/app/demo/demo-data'
 import * as authApi from '../api/auth.api'
 
 const tokenStorageKey = 'smarteach.accessToken'
@@ -22,13 +21,7 @@ export const useAuthStore = defineStore('auth', () => {
   const error = ref<string | null>(null)
   const hasCheckedSession = ref(false)
 
-  const displayUser = computed(() => user.value ?? {
-    id: currentUser.id,
-    email: 'alex@example.com',
-    displayName: currentUser.name,
-    bio: currentUser.bio,
-    avatarUrl: currentUser.avatarUrl
-  })
+  const displayUser = computed(() => user.value)
 
   const isAuthenticated = computed(() => Boolean(accessToken.value && user.value))
 

@@ -1,11 +1,11 @@
 <template>
   <div>
     <AppTopNav />
-    <aside class="workspace-nav">
+    <aside v-if="group" class="workspace-nav">
       <RouterLink to="/my-groups" class="workspace-nav__brand">
         <span>{{ initials }}</span>
         <div>
-          <strong>{{ group.title }}</strong>
+          <strong>{{ group.name }}</strong>
           <small>{{ group.code }}</small>
         </div>
       </RouterLink>
@@ -31,14 +31,12 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
 import { groupWorkspaceNav } from '@/app/router/routes'
-import { getDemoGroup } from '@/app/demo/demo-data'
+import { useGroup } from '@/features/groups/composables/useGroup'
 import AppTopNav from '@/shared/ui/AppTopNav.vue'
 
-const route = useRoute()
-const group = computed(() => getDemoGroup(String(route.params.groupId))!)
-const initials = computed(() => group.value.title.split(/\s+/).slice(0, 2).map((part) => part[0]).join(''))
+const { group } = useGroup()
+const initials = computed(() => group.value?.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('') ?? '')
 </script>
 
 <style scoped>

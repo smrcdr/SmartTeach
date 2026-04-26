@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
   CheckCheck,
-  FileText,
   GraduationCap,
   MoreVertical,
   PlusCircle,
@@ -10,46 +9,109 @@ import {
   Smile,
   Users
 } from 'lucide-vue-next'
+import { computed, onMounted, ref, watch } from 'vue'
+import { createMessage, listChats, listMessages } from '@/features/chats/api/chats.api'
+import type { Chat, Message } from '@/features/chats/api/chats.api'
+import { useAuthStore } from '@/features/auth/stores/auth.store'
+import EmptyState from '@/shared/ui/EmptyState.vue'
 
-const chatItems = [
-  {
-    id: 'design-systems',
-    title: 'Дизайн-системы 2024',
-    preview: 'Вы: Согласен, давайте использовать Inter',
-    time: '14:20',
-    active: true,
-    icon: Users,
-    tone: 'primary'
-  },
-  {
-    id: 'art-history',
-    title: 'История искусств',
-    preview: 'Александр: Кто уже сдал реферат?',
-    time: 'Вчера',
-    active: false,
-    icon: GraduationCap,
-    tone: 'secondary'
-  },
-  {
-    id: 'professor',
-    title: 'Проф. Виктор Савин',
-    preview: 'Отлично, жду ваш проект завтра.',
-    time: '10:05',
-    active: false,
-    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCSIexoPT1M7fNR4sEADlW4WOhTrE9ZiNVaw9KCIT9fP5U54Y41C50hugTKtK4d7biTMgaIuvP28X4EmOAmxFuSSXXTh8UwjHgxMRKPJySZPu8tGyg0EZnty4rd8JpxyRNpT84DzM11h1F_HvMJmbC3MOUUcA1VtO2w2JpRde8KoyfRLQp2XVrO64Z3z9eqgIFPzjXNdglNEbrZdaYOCXaUna8cyD30uprt1qCLh5XAzEg7d4itZ2og68QQpilAtWdsnGpTze7eZCs',
-    online: true
-  },
-  {
-    id: 'marina',
-    title: 'Марина Ковалева',
-    preview: 'Скинь ссылку на Figma, пожалуйста',
-    time: 'Пн',
-    active: false,
-    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCBNeNDDFZIpzdzFL0bUOFqGXvKpaJD4ZXnpV_PzgAVc3liqOIba3nLqGFJbkag8TmjKiLeRfQAidRostkHh0dHCwss9acZZkbLPjAMajz3LScsd5YKriRvpPswRDH_-Z2WqaDvP8yiZrOfUoioUyVdlAPKnLOkZ4dKTenymiRWnGopQ-9EWvkw-szTJr4X6cq0MuqUadLbPnqF-eu1nu1G-KBdHAFvXMwccyj-n5JGEdk-WBzcsC3sik9NTZmgT-qOpXmcQWakt4o'
-  }
-]
-
+const auth = useAuthStore()
+const chats = ref<Chat[]>([])
+const messages = ref<Message[]>([])
+const activeChatId = ref<string | null>(null)
+const composerText = ref('')
+const error = ref<string | null>(null)
 const filterItems = ['Все', 'Группы', 'Личные']
+
+const activeChat = computed(() => chats.value.find((chat) => chat.id === activeChatId.value) ?? null)
+
+function formatTime(value: string | null) {
+  if (!value) {
+    return ''
+  }
+
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(new Date(value))
+}
+
+function getOtherMember(chat: Chat) {
+  return chat.members.find((member) => member.userId !== auth.user?.id)?.user ?? chat.members[0]?.user
+}
+
+function getChatTitle(chat: Chat) {
+  if (chat.title) {
+    return chat.title
+  }
+
+  if (chat.chatType === 'DIRECT') {
+    return getOtherMember(chat)?.displayName ?? 'Личный чат'
+  }
+
+  return 'Групповой чат'
+}
+
+function getChatAvatarUrl(chat: Chat) {
+  if (chat.chatType !== 'DIRECT') {
+    return null
+  }
+
+  return getOtherMember(chat)?.avatarUrl ?? null
+}
+
+function getChatPreview(chat: Chat) {
+  if (chat.lastMessageAt) {
+    return `Последнее сообщение ${formatTime(chat.lastMessageAt)}`
+  }
+
+  return 'Сообщений пока нет'
+}
+
+async function loadChats() {
+  if (!auth.accessToken) {
+    return
+  }
+
+  try {
+    chats.value = await listChats(undefined, auth.accessToken)
+    activeChatId.value = chats.value[0]?.id ?? null
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Не удалось загрузить чаты'
+  }
+}
+
+async function loadMessages(chatId: string | null) {
+  if (!chatId || !auth.accessToken) {
+    messages.value = []
+    return
+  }
+
+  try {
+    messages.value = await listMessages(chatId, auth.accessToken)
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Не удалось загрузить сообщения'
+  }
+}
+
+async function submitMessage() {
+  const text = composerText.value.trim()
+  if (!activeChatId.value || !auth.accessToken || !text) {
+    return
+  }
+
+  const message = await createMessage(activeChatId.value, { text }, auth.accessToken)
+  messages.value = [...messages.value, message]
+  composerText.value = ''
+}
+
+onMounted(() => {
+  void loadChats()
+})
+
+watch(activeChatId, (chatId) => void loadMessages(chatId))
 </script>
 
 <template>
@@ -71,44 +133,50 @@ const filterItems = ['Все', 'Группы', 'Личные']
 
       <div class="chat-list__scroll">
         <article
-          v-for="chat in chatItems"
+          v-for="chat in chats"
           :key="chat.id"
-          :class="['chat-list__item', chat.active && 'chat-list__item--active']"
+          :class="['chat-list__item', chat.id === activeChatId && 'chat-list__item--active']"
+          @click="activeChatId = chat.id"
         >
           <div class="chat-list__avatar-wrap">
             <img
-              v-if="chat.avatarUrl"
+              v-if="getChatAvatarUrl(chat)"
               class="chat-list__avatar"
-              :src="chat.avatarUrl"
-              :alt="chat.title"
+              :src="getChatAvatarUrl(chat) ?? undefined"
+              :alt="getChatTitle(chat)"
             />
             <span
               v-else
-              :class="['chat-list__icon', chat.tone === 'primary' && 'chat-list__icon--primary']"
+              :class="['chat-list__icon', chat.chatType === 'GROUP' && 'chat-list__icon--primary']"
             >
-              <component :is="chat.icon" :size="22" />
+              <component :is="chat.chatType === 'GROUP' ? Users : GraduationCap" :size="22" />
             </span>
-            <span v-if="chat.online" class="chat-list__online" />
           </div>
 
           <div class="chat-list__copy">
             <div>
-              <h2>{{ chat.title }}</h2>
-              <time>{{ chat.time }}</time>
+              <h2>{{ getChatTitle(chat) }}</h2>
+              <time>{{ formatTime(chat.lastMessageAt ?? chat.updatedAt) }}</time>
             </div>
-            <p>{{ chat.preview }}</p>
+            <p>{{ getChatPreview(chat) }}</p>
           </div>
         </article>
+        <EmptyState
+          v-if="chats.length === 0 && !error"
+          title="Чатов пока нет"
+          description="Список чатов будет заполнен данными из API."
+        />
+        <EmptyState v-if="error" title="Не удалось загрузить чаты" :description="error" />
       </div>
     </aside>
 
-    <section class="chat-room" aria-label="Активный чат">
+    <section v-if="activeChat" class="chat-room" aria-label="Активный чат">
       <header class="chat-room__header">
         <div class="chat-room__identity">
           <span class="chat-room__icon"><Users :size="22" /></span>
           <div>
-            <h2>Дизайн-системы 2024</h2>
-            <p><span />12 участников онлайн</p>
+            <h2>{{ getChatTitle(activeChat) }}</h2>
+            <p><span />{{ activeChat.members.length }} участников</p>
           </div>
         </div>
         <div class="chat-room__tools">
@@ -118,66 +186,40 @@ const filterItems = ['Все', 'Группы', 'Личные']
       </header>
 
       <div class="chat-room__messages">
-        <div class="chat-date">Сегодня</div>
+        <div class="chat-date">Сообщения</div>
 
-        <article class="message message--incoming">
+        <article
+          v-for="message in messages"
+          :key="message.id"
+          :class="['message', message.authorId === auth.user?.id ? 'message--outgoing' : 'message--incoming']"
+        >
           <img
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVFwX7KulofPF4e_C-vnU7igIQKbsUwFjBOYYxyasVYxjY3J51Q7BObs0f6ZOS9efj5HMBM2-cuX78WVXkLL8B52pwUmAitYXE4OlCEJ2QDaaWbi8QkbxpRW3DKHB9rUqa1t7Suk5uD25xXz7qloYpJ3wMnghMkHyZ4Wn99VtQCs_bQIlgOps3jUF42GkhR6Pvdcj4nVPnyWTmZEs4uDslEBGPl9aO8pdWU2-2_yFdcwG16Cr5DnPnowPT5KtM45VN-_o7Zkd3z3Y"
-            alt="Марина Ковалева"
+            v-if="message.authorId !== auth.user?.id && message.author.avatarUrl"
+            :src="message.author.avatarUrl"
+            :alt="message.author.displayName"
           />
           <div class="message__stack">
             <div class="message__bubble">
-              <strong>Марина Ковалева</strong>
-              Всем привет! Кто-нибудь уже посмотрел новый модуль по Material Design 3? Там очень интересные обновления по работе с цветом.
+              <strong v-if="message.authorId !== auth.user?.id">{{ message.author.displayName }}</strong>
+              {{ message.deletedAt ? 'Сообщение удалено' : message.text }}
             </div>
-            <time>14:05</time>
+            <time>{{ formatTime(message.createdAt) }} <CheckCheck v-if="message.authorId === auth.user?.id" :size="14" /></time>
           </div>
         </article>
-
-        <article class="message message--incoming message--continued">
-          <div class="message__stack">
-            <div class="message__bubble">Особенно заинтересовала система генерации палитр на основе исходного цвета.</div>
-            <time>14:06</time>
-          </div>
-        </article>
-
-        <article class="message message--outgoing">
-          <div class="message__stack">
-            <div class="message__bubble">
-              Да, я как раз сейчас изучаю документацию. Система "The Digital Curator", которую мы используем, во многом перекликается с этими принципами.
-            </div>
-            <time>14:18 <CheckCheck :size="14" /></time>
-          </div>
-        </article>
-
-        <article class="message message--outgoing message--continued">
-          <div class="message__stack">
-            <div class="message__bubble">Согласен, давайте использовать Inter в качестве основного шрифта, как в руководстве.</div>
-            <time>14:20 <CheckCheck :size="14" /></time>
-          </div>
-        </article>
-
-        <article class="message message--incoming message--system">
-          <span class="message__system-avatar"><GraduationCap :size="18" /></span>
-          <div class="message__stack">
-            <div class="message__bubble">
-              <strong>Система</strong>
-              Александр Иванов прикрепил файл:
-              <a href="#" class="message__file"><FileText :size="16" /> design_tokens_v2.pdf</a>
-            </div>
-            <time>14:25</time>
-          </div>
-        </article>
+        <EmptyState v-if="messages.length === 0" title="Сообщений пока нет" />
       </div>
 
-      <form class="chat-composer">
+      <form class="chat-composer" @submit.prevent="submitMessage">
         <button type="button" aria-label="Прикрепить файл"><PlusCircle :size="24" /></button>
         <div class="chat-composer__field">
-          <input placeholder="Написать сообщение..." />
+          <input v-model="composerText" placeholder="Написать сообщение..." />
           <button type="button" aria-label="Добавить реакцию"><Smile :size="20" /></button>
         </div>
         <button class="chat-composer__send" type="submit" aria-label="Отправить сообщение"><Send :size="20" /></button>
       </form>
+    </section>
+    <section v-else class="chat-room chat-room--empty" aria-label="Чат не выбран">
+      <EmptyState title="Выберите чат" description="Чаты и сообщения загружаются из API." />
     </section>
   </main>
 </template>

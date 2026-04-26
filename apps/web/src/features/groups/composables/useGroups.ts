@@ -1,19 +1,16 @@
-import { computed, onMounted, ref } from 'vue'
-import { myGroups, recommendedGroups } from '@/app/demo/demo-data'
-import type { DemoGroup } from '@/app/demo/types'
+import { onMounted, ref } from 'vue'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
+import type { Group } from '../api/groups.api'
 import { listGroups } from '../api/groups.api'
 
 export function useGroups(options: { mine?: boolean } = {}) {
   const auth = useAuthStore()
-  const groups = ref<DemoGroup[]>(options.mine ? myGroups : recommendedGroups)
+  const groups = ref<Group[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
-  const hasFallbackData = computed(() => groups.value === recommendedGroups || groups.value === myGroups)
-
   async function refresh(search?: string) {
-    if (!auth.accessToken && options.mine) {
+    if (!auth.accessToken) {
       return
     }
 
@@ -36,7 +33,6 @@ export function useGroups(options: { mine?: boolean } = {}) {
     groups,
     isLoading,
     error,
-    hasFallbackData,
     refresh
   }
 }

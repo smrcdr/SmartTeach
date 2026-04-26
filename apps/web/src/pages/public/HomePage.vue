@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ArrowRight } from 'lucide-vue-next'
-import { recommendedGroups } from '@/app/demo/demo-data'
 import GroupCatalogCard from '@/features/groups/components/GroupCatalogCard.vue'
+import { useGroups } from '@/features/groups/composables/useGroups'
 import AppButton from '@/shared/ui/AppButton.vue'
+import EmptyState from '@/shared/ui/EmptyState.vue'
+
+const { groups, isLoading, error } = useGroups()
 </script>
 
 <template>
@@ -29,11 +32,17 @@ import AppButton from '@/shared/ui/AppButton.vue'
       </div>
       <div class="home-recommendations__grid">
         <GroupCatalogCard
-          v-for="group in recommendedGroups.slice(0, 4)"
+          v-for="group in groups.slice(0, 4)"
           :key="group.id"
           :group="group"
           compact
         />
+        <EmptyState
+          v-if="!isLoading && !error && groups.length === 0"
+          title="Группы загружаются после входа"
+          description="Каталог будет заполнен данными из API, когда появится активная сессия."
+        />
+        <EmptyState v-if="error" title="Не удалось загрузить группы" :description="error" />
       </div>
     </section>
   </main>

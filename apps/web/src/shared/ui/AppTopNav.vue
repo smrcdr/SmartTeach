@@ -42,7 +42,7 @@ async function logout() {
       </div>
 
       <div class="top-nav__actions">
-        <div v-if="auth.isAuthenticated" class="top-nav__user top-nav__profile">
+        <div v-if="auth.isAuthenticated && auth.user" class="top-nav__user top-nav__profile">
           <button
             class="top-nav__profile-trigger"
             type="button"
@@ -50,8 +50,12 @@ async function logout() {
             :aria-expanded="isProfileMenuOpen"
             @click="toggleProfileMenu"
           >
-            <span>{{ auth.displayUser.displayName }}</span>
-            <img :src="auth.displayUser.avatarUrl || ''" :alt="auth.displayUser.displayName" />
+            <span>{{ auth.user.displayName }}</span>
+            <img
+              v-if="auth.user.avatarUrl"
+              :src="auth.user.avatarUrl"
+              :alt="auth.user.displayName"
+            />
           </button>
           <div v-if="isProfileMenuOpen" class="top-nav__profile-menu" role="menu">
             <RouterLink to="/profile" role="menuitem" @click="isProfileMenuOpen = false">Открыть профиль</RouterLink>

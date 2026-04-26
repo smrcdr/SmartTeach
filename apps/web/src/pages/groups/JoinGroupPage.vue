@@ -12,7 +12,7 @@ import AppTextField from '@/shared/ui/AppTextField.vue'
       description="Введите код группы, который выдал преподаватель или администратор."
     />
     <form class="join-form surface-panel">
-      <AppTextField label="Код группы" placeholder="FS-8832" />
+      <AppTextField label="Код группы" placeholder="Введите код" />
       <AppButton type="submit">Найти группу</AppButton>
     </form>
   </main>

@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
-import { useDemoGroup } from '@/features/groups/composables/useDemoGroup'
+import { getLesson } from '@/features/groups/api/groups.api'
+import { useGroupRouteItem } from '@/features/groups/composables/useGroupRouteResource'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import EmptyState from '@/shared/ui/EmptyState.vue'
 import StatusPill from '@/shared/ui/StatusPill.vue'
 
-const route = useRoute()
-const group = useDemoGroup()
-const lesson = computed(() => group.value.lessons.find((item) => item.id === route.params.lessonId) ?? group.value.lessons[0])
+const { item: lesson, error } = useGroupRouteItem('lessonId', getLesson)
 </script>
 
 <template>
-  <main class="page narrow-page">
-    <AppPageHeader eyebrow="Урок" :title="lesson.title" :description="lesson.summary" align="split">
+  <main v-if="lesson" class="page narrow-page">
+    <AppPageHeader eyebrow="Урок" :title="lesson.title" :description="lesson.content ?? undefined" align="split">
       <template #actions>
         <StatusPill :label="lesson.status" :tone="lesson.status === 'PUBLISHED' ? 'success' : 'muted'" />
       </template>
     </AppPageHeader>
     <section class="reading-panel surface-panel">
-      <p>Материал урока оформляется как спокойная академическая статья: крупный заголовок, комфортная ширина строки и минимум визуального шума.</p>
-      <p>Файлы, задания и дополнительные ссылки будут подключаться к этому экрану через API группы.</p>
+      <p>{{ lesson.content ?? 'Материал урока пока не заполнен.' }}</p>
     </section>
+  </main>
+  <main v-else class="page narrow-page">
+    <EmptyState title="Урок не загружен" :description="error ?? 'Данные урока ожидаются от API.'" />
   </main>
 </template>
 

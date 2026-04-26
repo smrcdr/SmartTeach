@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { Plus } from 'lucide-vue-next'
-import { useDemoGroup } from '@/features/groups/composables/useDemoGroup'
+import { listScheduleEvents } from '@/features/groups/api/groups.api'
+import { useGroupRouteList } from '@/features/groups/composables/useGroupRouteResource'
 import ContentList from '@/features/groups/components/ContentList.vue'
 import WorkspaceItem from '@/features/groups/components/WorkspaceItem.vue'
 import AppButton from '@/shared/ui/AppButton.vue'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import EmptyState from '@/shared/ui/EmptyState.vue'
 import StatusPill from '@/shared/ui/StatusPill.vue'
 import { formatDateTime } from '@/shared/lib/date'
 
-const group = useDemoGroup()
+const { items: schedule, groupId } = useGroupRouteList(listScheduleEvents)
 </script>
 
 <template>
@@ -20,7 +22,7 @@ const group = useDemoGroup()
       align="split"
     >
       <template #actions>
-        <RouterLink :to="{ name: 'group-schedule-event-create', params: { groupId: group.id } }">
+        <RouterLink :to="{ name: 'group-schedule-event-create', params: { groupId } }">
           <AppButton><Plus :size="18" /> Событие</AppButton>
         </RouterLink>
       </template>
@@ -28,16 +30,17 @@ const group = useDemoGroup()
 
     <ContentList title="Ближайшие события">
       <WorkspaceItem
-        v-for="event in group.schedule"
+        v-for="event in schedule"
         :key="event.id"
         :title="event.title"
-        :description="event.place"
+        :description="event.location ?? event.description ?? undefined"
         :meta="formatDateTime(event.startsAt)"
       >
         <template #aside>
-          <StatusPill label="Planned" tone="primary" />
+          <StatusPill :label="event.status" :tone="event.status === 'PLANNED' ? 'primary' : 'muted'" />
         </template>
       </WorkspaceItem>
+      <EmptyState v-if="schedule.length === 0" title="Событий пока нет" />
     </ContentList>
   </main>
 </template>

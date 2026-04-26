@@ -4,9 +4,10 @@ import GroupCatalogCard from '@/features/groups/components/GroupCatalogCard.vue'
 import { useGroups } from '@/features/groups/composables/useGroups'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import AppTextField from '@/shared/ui/AppTextField.vue'
+import EmptyState from '@/shared/ui/EmptyState.vue'
 
 const search = ref('')
-const { groups } = useGroups()
+const { groups, isLoading, error } = useGroups()
 
 const filteredGroups = computed(() => {
   const query = search.value.trim().toLowerCase()
@@ -15,7 +16,7 @@ const filteredGroups = computed(() => {
   }
 
   return groups.value.filter((group) => {
-    return `${group.title} ${group.description} ${group.code}`.toLowerCase().includes(query)
+    return `${group.name} ${group.description ?? ''} ${group.code}`.toLowerCase().includes(query)
   })
 })
 </script>
@@ -47,6 +48,12 @@ const filteredGroups = computed(() => {
         :key="group.id"
         :group="group"
       />
+      <EmptyState
+        v-if="!isLoading && !error && filteredGroups.length === 0"
+        title="Группы не найдены"
+        description="Пока API не вернул группы по выбранному запросу."
+      />
+      <EmptyState v-if="error" title="Не удалось загрузить каталог" :description="error" />
     </section>
   </main>
 </template>

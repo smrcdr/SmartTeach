@@ -1,33 +1,34 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
-import { useDemoGroup } from '@/features/groups/composables/useDemoGroup'
+import { getAssignment } from '@/features/groups/api/groups.api'
+import { useGroupRouteItem } from '@/features/groups/composables/useGroupRouteResource'
 import AppButton from '@/shared/ui/AppButton.vue'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import EmptyState from '@/shared/ui/EmptyState.vue'
 import StatusPill from '@/shared/ui/StatusPill.vue'
 import { formatShortDate } from '@/shared/lib/date'
 
-const route = useRoute()
-const group = useDemoGroup()
-const assignment = computed(() => group.value.assignments.find((item) => item.id === route.params.assignmentId) ?? group.value.assignments[0])
+const { item: assignment, error } = useGroupRouteItem('assignmentId', getAssignment)
 </script>
 
 <template>
-  <main class="page narrow-page">
+  <main v-if="assignment" class="page narrow-page">
     <AppPageHeader
       eyebrow="Задание"
       :title="assignment.title"
-      :description="`${assignment.submissions} решений отправлено. Дедлайн ${formatShortDate(assignment.dueDate)}.`"
+      :description="assignment.dueAt ? `Дедлайн ${formatShortDate(assignment.dueAt)}.` : assignment.content ?? undefined"
       align="split"
     >
       <template #actions>
-        <StatusPill label="Published" tone="success" />
+        <StatusPill :label="assignment.status" :tone="assignment.status === 'PUBLISHED' ? 'success' : 'muted'" />
       </template>
     </AppPageHeader>
     <section class="surface-panel assignment-panel">
-      <p>Описание задания, критерии проверки и файлы будут отображаться здесь в формате удобной карточки сдачи.</p>
+      <p>{{ assignment.content ?? 'Описание задания пока не заполнено.' }}</p>
       <AppButton>Отправить решение</AppButton>
     </section>
+  </main>
+  <main v-else class="page narrow-page">
+    <EmptyState title="Задание не загружено" :description="error ?? 'Данные задания ожидаются от API.'" />
   </main>
 </template>
 

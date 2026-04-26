@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { reactive } from 'vue'
 import { computed } from 'vue'
-import { BookOpen, LockKeyhole, MessageCircle } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
@@ -27,25 +26,14 @@ async function submit() {
 <template>
   <main class="page auth-page">
     <section class="auth-shell">
-      <div class="auth-shell__story">
-        <span class="eyebrow">Закрытая рабочая область</span>
-        <h1 class="page-title">Вход в SmarTeach</h1>
-        <p class="lead">Авторизуйтесь, чтобы открыть личные группы, чаты, задания и расписание.</p>
-        <div class="auth-shell__features">
-          <span><BookOpen :size="18" /> Учебные материалы</span>
-          <span><MessageCircle :size="18" /> Групповые чаты</span>
-          <span><LockKeyhole :size="18" /> Защищённая сессия</span>
-        </div>
-      </div>
-
       <form class="auth-card" @submit.prevent="submit">
         <div class="auth-card__header">
           <span class="eyebrow">Сессия</span>
           <h2>Войти</h2>
           <p>Используйте email и пароль, созданные при регистрации.</p>
         </div>
-        <AppTextField v-model="form.email" label="Email" type="email" placeholder="student@smarteach.local" />
-        <AppTextField v-model="form.password" label="Пароль" type="password" placeholder="Password123!" />
+        <AppTextField v-model="form.email" label="Email" type="email" placeholder="Введите email" />
+        <AppTextField v-model="form.password" label="Пароль" type="password" placeholder="Введите пароль" />
         <p v-if="auth.error" class="auth-page__error">{{ auth.error }}</p>
         <AppButton type="submit" size="lg">{{ auth.isLoading ? 'Входим...' : 'Войти' }}</AppButton>
         <RouterLink class="auth-card__link" to="/register">Нет аккаунта? Зарегистрироваться</RouterLink>
@@ -60,44 +48,14 @@ async function submit() {
 }
 
 .auth-shell {
-  align-items: stretch;
-  display: grid;
-  gap: 32px;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 520px);
+  display: flex;
+  justify-content: center;
   margin: 0 auto;
-  max-width: 1180px;
+  max-width: 560px;
 }
 
-.auth-shell__story,
 .auth-card {
   display: grid;
-}
-
-.auth-shell__story {
-  align-content: center;
-  background: var(--color-surface-low);
-  border-radius: var(--radius-lg);
-  gap: 24px;
-  padding: clamp(32px, 5vw, 58px);
-}
-
-.auth-shell__features {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.auth-shell__features span {
-  align-items: center;
-  background: var(--color-surface-lowest);
-  border-radius: 999px;
-  color: var(--color-text-muted);
-  display: inline-flex;
-  font-size: 0.86rem;
-  font-weight: 700;
-  gap: 8px;
-  min-height: 36px;
-  padding: 0 12px;
 }
 
 .auth-card {
@@ -107,6 +65,7 @@ async function submit() {
   box-shadow: var(--shadow-soft);
   gap: 17px;
   padding: clamp(28px, 5vw, 44px);
+  width: 100%;
 }
 
 .auth-card__header h2,
@@ -137,9 +96,4 @@ async function submit() {
   margin: 0;
 }
 
-@media (max-width: 900px) {
-  .auth-shell {
-    grid-template-columns: 1fr;
-  }
-}
 </style>

@@ -15,8 +15,8 @@ defineProps<{
     <AppTextField :label="titleLabel ?? 'Название'" placeholder="Введите название" />
     <AppTextarea :label="descriptionLabel ?? 'Описание'" placeholder="Добавьте подробности" />
     <div class="editorial-form__grid">
-      <AppTextField label="Статус" placeholder="Черновик" />
-      <AppTextField label="Дата" placeholder="2026-05-04" />
+      <AppTextField label="Статус" placeholder="Выберите статус" />
+      <AppTextField label="Дата" placeholder="ГГГГ-ММ-ДД" />
     </div>
     <div class="editorial-form__actions">
       <AppButton type="submit">{{ submitLabel ?? 'Сохранить' }}</AppButton>
