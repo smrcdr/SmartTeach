@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { readFileSync } from 'node:fs'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useNotificationStore } from '../stores/notifications.store'
 import AppToastViewport from './AppToastViewport.vue'
@@ -46,5 +47,17 @@ describe('AppToastViewport', () => {
     expect(toasts[1].classes()).toContain('toast-card--success')
     expect(toasts[0].find('.toast-card__timer-bar').attributes('style')).toContain('2800ms')
     expect(toasts[1].find('.toast-card__timer-bar').attributes('style')).toContain('1400ms')
+  })
+
+  it('uses larger and more saturated toast styling', () => {
+    const source = readFileSync(`${process.cwd()}/src/shared/notifications/ui/AppToastViewport.vue`, 'utf8')
+
+    expect(source).toContain('max-width: min(480px, calc(100vw - 32px));')
+    expect(source).toContain('min-height: 72px;')
+    expect(source).toContain('font-size: 1rem;')
+    expect(source).toContain('background: #fee2e2;')
+    expect(source).toContain('border-color: #dc2626;')
+    expect(source).toContain('background: #dcfce7;')
+    expect(source).toContain('border-color: #16a34a;')
   })
 })

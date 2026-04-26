@@ -19,8 +19,8 @@ const notifications = useNotificationStore()
       :class="['toast-card', `toast-card--${item.type}`]"
       role="status"
     >
-      <CircleCheck v-if="item.type === 'success'" class="toast-card__icon" :size="20" />
-      <CircleAlert v-else class="toast-card__icon" :size="20" />
+      <CircleCheck v-if="item.type === 'success'" class="toast-card__icon" :size="22" />
+      <CircleAlert v-else class="toast-card__icon" :size="22" />
       <p>{{ item.message }}</p>
       <button
         class="toast-card__close"
@@ -28,7 +28,7 @@ const notifications = useNotificationStore()
         aria-label="Закрыть уведомление"
         @click="notifications.remove(item.id)"
       >
-        <X :size="16" />
+        <X :size="18" />
       </button>
       <span class="toast-card__timer" aria-hidden="true">
         <span
@@ -43,13 +43,13 @@ const notifications = useNotificationStore()
 <style scoped>
 .toast-viewport {
   align-items: flex-end;
-  bottom: 24px;
+  bottom: 28px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  max-width: min(420px, calc(100vw - 32px));
+  gap: 12px;
+  max-width: min(480px, calc(100vw - 32px));
   position: fixed;
-  right: 24px;
+  right: 28px;
   width: max-content;
   z-index: 80;
 }
@@ -60,28 +60,28 @@ const notifications = useNotificationStore()
   backdrop-filter: blur(18px);
   border: 1px solid rgb(199 197 211 / 32%);
   border-radius: var(--radius-md);
-  box-shadow: 0 24px 60px -34px rgb(21 25 108 / 45%);
+  box-shadow: 0 26px 64px -30px rgb(21 25 108 / 50%);
   color: var(--color-text);
   display: grid;
-  gap: 10px;
+  gap: 12px;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  min-height: 58px;
+  min-height: 72px;
   overflow: hidden;
-  padding: 14px 12px 18px 14px;
+  padding: 18px 16px 22px 18px;
   position: relative;
   width: 100%;
 }
 
 .toast-card--error {
-  background: #fff4f2;
-  border-color: rgb(186 26 26 / 30%);
-  color: #410002;
+  background: #fee2e2;
+  border-color: #dc2626;
+  color: #7f1d1d;
 }
 
 .toast-card--success {
-  background: #effaf1;
-  border-color: rgb(17 120 59 / 30%);
-  color: #03210f;
+  background: #dcfce7;
+  border-color: #16a34a;
+  color: #14532d;
 }
 
 .toast-card__icon {
@@ -90,17 +90,17 @@ const notifications = useNotificationStore()
 }
 
 .toast-card--error .toast-card__icon {
-  color: var(--color-error);
+  color: #dc2626;
 }
 
 .toast-card--success .toast-card__icon {
-  color: #11783b;
+  color: #16a34a;
 }
 
 .toast-card p {
-  font-size: 0.9rem;
-  font-weight: 650;
-  line-height: 1.45;
+  font-size: 1rem;
+  font-weight: 750;
+  line-height: 1.5;
   margin: 0;
 }
 
@@ -112,10 +112,10 @@ const notifications = useNotificationStore()
   color: var(--color-text-muted);
   cursor: pointer;
   display: inline-flex;
-  height: 28px;
+  height: 32px;
   justify-content: center;
   padding: 0;
-  width: 28px;
+  width: 32px;
 }
 
 .toast-card__close:hover {
