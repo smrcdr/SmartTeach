@@ -36,4 +36,13 @@ describe('notification store', () => {
     vi.advanceTimersByTime(1000)
     expect(notifications.items).toEqual([])
   })
+
+  it('stores the timeout duration so the toast can render a matching timer bar', () => {
+    const notifications = useNotificationStore()
+
+    notifications.error('Ошибка')
+    notifications.success('Готово', { timeoutMs: 1400 })
+
+    expect(notifications.items.map((item) => item.timeoutMs)).toEqual([5200, 1400])
+  })
 })

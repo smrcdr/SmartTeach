@@ -7,6 +7,7 @@ export type NotificationItem = {
   id: string
   type: NotificationType
   message: string
+  timeoutMs: number
 }
 
 type AddNotificationOptions = {
@@ -25,15 +26,15 @@ export const useNotificationStore = defineStore('notifications', () => {
 
   function add(type: NotificationType, message: string, options: AddNotificationOptions = {}) {
     const id = `notification-${Date.now()}-${nextNotificationId}`
+    const timeoutMs = options.timeoutMs ?? defaultTimeoutMs
     nextNotificationId += 1
 
     items.value.push({
       id,
       type,
-      message
+      message,
+      timeoutMs
     })
-
-    const timeoutMs = options.timeoutMs ?? defaultTimeoutMs
 
     if (timeoutMs > 0) {
       window.setTimeout(() => remove(id), timeoutMs)

@@ -30,6 +30,12 @@ const notifications = useNotificationStore()
       >
         <X :size="16" />
       </button>
+      <span class="toast-card__timer" aria-hidden="true">
+        <span
+          class="toast-card__timer-bar"
+          :style="{ animationDuration: `${item.timeoutMs}ms` }"
+        />
+      </span>
     </article>
   </section>
 </template>
@@ -50,10 +56,9 @@ const notifications = useNotificationStore()
 
 .toast-card {
   align-items: flex-start;
-  background: rgb(255 255 255 / 94%);
+  background: rgb(255 255 255 / 96%);
   backdrop-filter: blur(18px);
   border: 1px solid rgb(199 197 211 / 32%);
-  border-left: 4px solid var(--color-primary);
   border-radius: var(--radius-md);
   box-shadow: 0 24px 60px -34px rgb(21 25 108 / 45%);
   color: var(--color-text);
@@ -61,16 +66,22 @@ const notifications = useNotificationStore()
   gap: 10px;
   grid-template-columns: auto minmax(0, 1fr) auto;
   min-height: 58px;
-  padding: 14px 12px 14px 14px;
+  overflow: hidden;
+  padding: 14px 12px 18px 14px;
+  position: relative;
   width: 100%;
 }
 
 .toast-card--error {
-  border-left-color: var(--color-error);
+  background: #fff4f2;
+  border-color: rgb(186 26 26 / 30%);
+  color: #410002;
 }
 
 .toast-card--success {
-  border-left-color: #11783b;
+  background: #effaf1;
+  border-color: rgb(17 120 59 / 30%);
+  color: #03210f;
 }
 
 .toast-card__icon {
@@ -108,8 +119,37 @@ const notifications = useNotificationStore()
 }
 
 .toast-card__close:hover {
-  background: var(--color-surface-low);
-  color: var(--color-text);
+  background: rgb(255 255 255 / 52%);
+  color: currentColor;
+}
+
+.toast-card__timer {
+  background: rgb(0 0 0 / 8%);
+  bottom: 0;
+  height: 4px;
+  left: 0;
+  overflow: hidden;
+  position: absolute;
+  right: 0;
+}
+
+.toast-card__timer-bar {
+  animation: toast-timer linear forwards;
+  background: currentColor;
+  display: block;
+  height: 100%;
+  transform-origin: left center;
+  width: 100%;
+}
+
+@keyframes toast-timer {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
 }
 
 @media (max-width: 640px) {

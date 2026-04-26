@@ -29,4 +29,22 @@ describe('AppToastViewport', () => {
       expect.stringContaining('Вход выполнен')
     ])
   })
+
+  it('renders colored toast variants with a timer bar that matches the timeout', () => {
+    const notifications = useNotificationStore()
+    notifications.error('Ошибка', { timeoutMs: 2800 })
+    notifications.success('Готово', { timeoutMs: 1400 })
+
+    const wrapper = mount(AppToastViewport, {
+      global: {
+        plugins: [pinia]
+      }
+    })
+
+    const toasts = wrapper.findAll('.toast-card')
+    expect(toasts[0].classes()).toContain('toast-card--error')
+    expect(toasts[1].classes()).toContain('toast-card--success')
+    expect(toasts[0].find('.toast-card__timer-bar').attributes('style')).toContain('2800ms')
+    expect(toasts[1].find('.toast-card__timer-bar').attributes('style')).toContain('1400ms')
+  })
 })
