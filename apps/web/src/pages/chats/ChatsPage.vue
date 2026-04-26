@@ -325,7 +325,7 @@ watch(() => route.query.groupId, () => {
           <span class="chat-room__icon"><Users :size="22" /></span>
           <div>
             <h2>{{ getChatTitle(activeChat) }}</h2>
-            <p><span />{{ activeChat.members.length }} участников</p>
+            <p v-if="activeChat.chatType !== 'DIRECT'"><span />{{ activeChat.members.length }} участников</p>
           </div>
         </div>
         <div class="chat-room__tools">
@@ -354,8 +354,8 @@ watch(() => route.query.groupId, () => {
                 <span>{{ message.replyToMessage.author.displayName }}</span>
                 <p>{{ getReplyPreviewText(message.replyToMessage) }}</p>
               </div>
-              <span v-if="message.deletedAt">Сообщение удалено</span>
-              <span v-else-if="message.text">{{ message.text }}</span>
+              <span v-if="message.deletedAt" class="message__text">Сообщение удалено</span>
+              <span v-else-if="message.text" class="message__text">{{ message.text }}</span>
               <div v-if="!message.deletedAt && message.files.length > 0" class="message__files">
                 <a
                   v-for="file in message.files"
@@ -423,12 +423,25 @@ watch(() => route.query.groupId, () => {
 
 <style scoped>
 .chats-shell {
+  --chat-incoming-border: rgb(119 118 130 / 30%);
+  --chat-outgoing-bg: #dceeff;
+  --chat-outgoing-border: #9cc4e8;
+  --chat-outgoing-shadow: rgb(56 112 168 / 34%);
+  --chat-outgoing-text: #13283e;
   background: var(--color-surface);
   display: grid;
   grid-template-columns: minmax(320px, 384px) minmax(0, 1fr);
   height: 100vh;
   overflow: hidden;
   padding-top: 64px;
+}
+
+:global(:root[data-theme='dark']) .chats-shell {
+  --chat-incoming-border: rgb(92 112 166 / 46%);
+  --chat-outgoing-bg: #1d3f67;
+  --chat-outgoing-border: #416d9e;
+  --chat-outgoing-shadow: rgb(0 7 26 / 58%);
+  --chat-outgoing-text: #eef6ff;
 }
 
 .chat-list {
@@ -704,7 +717,8 @@ watch(() => route.query.groupId, () => {
   align-items: end;
   display: flex;
   gap: 11px;
-  max-width: min(76%, 760px);
+  max-width: min(47%, 680px);
+  min-width: min(360px, 100%);
 }
 
 .message img,
@@ -747,16 +761,22 @@ watch(() => route.query.groupId, () => {
 .message__stack {
   display: grid;
   gap: 5px;
+  min-width: 0;
+  width: 100%;
 }
 
 .message__bubble {
   background: var(--color-surface-low);
+  border: 1px solid var(--chat-incoming-border);
   border-radius: 18px;
   border-bottom-left-radius: 3px;
+  box-shadow: 0 10px 24px -22px rgb(27 27 32 / 32%);
   color: var(--color-text);
   font-size: 0.92rem;
   line-height: 1.55;
-  padding: 14px 16px;
+  min-width: min(340px, 100%);
+  padding: 14px 18px;
+  width: 100%;
 }
 
 .message__bubble strong {
@@ -768,11 +788,19 @@ watch(() => route.query.groupId, () => {
 }
 
 .message--outgoing .message__bubble {
-  background: var(--color-primary);
+  background: var(--chat-outgoing-bg);
+  border-color: var(--chat-outgoing-border);
   border-bottom-left-radius: 18px;
   border-bottom-right-radius: 3px;
-  box-shadow: 0 16px 34px -24px rgb(21 25 108 / 60%);
-  color: #fff;
+  box-shadow: 0 14px 30px -22px var(--chat-outgoing-shadow);
+  color: var(--chat-outgoing-text);
+}
+
+.message__text {
+  display: block;
+  max-width: calc(100% - 56px);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .message__reply-preview {
@@ -853,6 +881,10 @@ watch(() => route.query.groupId, () => {
   font-weight: 850;
   gap: 5px;
   text-decoration: underline;
+}
+
+.message--outgoing .message__file {
+  color: var(--chat-outgoing-text);
 }
 
 .message__file span {
@@ -1003,6 +1035,15 @@ watch(() => route.query.groupId, () => {
 
   .message {
     max-width: 92%;
+    min-width: min(280px, 100%);
+  }
+
+  .message__bubble {
+    min-width: min(260px, 100%);
+  }
+
+  .message__text {
+    max-width: calc(100% - 36px);
   }
 }
 

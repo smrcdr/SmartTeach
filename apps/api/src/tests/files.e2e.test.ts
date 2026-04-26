@@ -265,6 +265,44 @@ test('files endpoints upload metadata and soft-delete files', async () => {
   assert.equal(getDeletedResult.response.status, 404)
 })
 
+test('file upload keeps cyrillic filenames readable', async () => {
+  const session = await registerUser('cyrillic-name')
+  const formData = new FormData()
+
+  formData.set('folder', 'messages')
+  formData.set(
+    'file',
+    new Blob(['attachment with russian filename'], {
+      type: 'text/plain',
+    }),
+    'домашнее задание.txt',
+  )
+
+  const uploadResult = await requestMultipart<FileResponse>('/files', formData, {
+    method: 'POST',
+    token: session.accessToken,
+  })
+
+  assert.equal(uploadResult.response.status, 201)
+  assert.ok(uploadResult.body)
+  assert.equal(uploadResult.body.originalName, 'домашнее задание.txt')
+  createdFileIds.add(uploadResult.body.id)
+
+  const storedFile = await prisma.file.findUnique({
+    where: {
+      id: uploadResult.body.id,
+    },
+    select: {
+      originalName: true,
+      storageKey: true,
+    },
+  })
+
+  assert.ok(storedFile)
+  assert.equal(storedFile.originalName, 'домашнее задание.txt')
+  assert.match(storedFile.storageKey, /^messages\/\d{4}\/\d{2}\/\d{2}\/[A-Za-z0-9]{24}\.txt$/)
+})
+
 test('file upload requires authentication', async () => {
   const formData = new FormData()
 

@@ -36,8 +36,8 @@ export class FilesService {
       })
     }
 
-    const storageKey = this.buildStorageKey(folder, uploadedFile.originalname)
     const originalName = this.normalizeOriginalName(uploadedFile.originalname)
+    const storageKey = this.buildStorageKey(folder, originalName)
     const mimeType = this.normalizeMimeType(uploadedFile.mimetype)
 
     await this.minioService.uploadObject({
@@ -154,9 +154,23 @@ export class FilesService {
   }
 
   private normalizeOriginalName(originalName: string) {
-    const normalized = basename(originalName).trim()
+    const normalized = this.decodeLegacyUtf8FileName(basename(originalName).trim())
 
     return normalized.length > 0 ? normalized : 'file'
+  }
+
+  private decodeLegacyUtf8FileName(fileName: string) {
+    if (!this.looksLikeLatin1DecodedUtf8(fileName)) {
+      return fileName
+    }
+
+    const decoded = Buffer.from(fileName, 'latin1').toString('utf8')
+
+    return decoded.includes('\uFFFD') ? fileName : decoded
+  }
+
+  private looksLikeLatin1DecodedUtf8(fileName: string) {
+    return /(?:[ÐÑ][\u0080-\u00BF]|Ã[\u0080-\u00BF])/.test(fileName)
   }
 
   private normalizeMimeType(mimeType: string) {

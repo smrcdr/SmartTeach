@@ -74,6 +74,9 @@ describe('ChatsPage', () => {
     expect(source).toContain('border-right: 1px solid var(--color-divider);')
     expect(source).toContain('border-bottom: 1px solid var(--color-divider);')
     expect(source).toContain('border-top: 1px solid var(--color-divider);')
+    expect(source).toContain('border: 1px solid var(--chat-incoming-border);')
+    expect(source).toContain('max-width: min(47%, 680px);')
+    expect(source).toContain('--chat-outgoing-bg: #dceeff;')
   })
 
   it('renders chats and messages from backend API without hardcoded demo data', async () => {
@@ -181,6 +184,7 @@ describe('ChatsPage', () => {
     expect(chatsApi.listChats).toHaveBeenLastCalledWith({ chatType: 'DIRECT' }, 'access-token')
     expect(wrapper.findAll('.chat-filter')[2].classes()).toContain('chat-filter--active')
     expect(wrapper.text()).toContain('Direct Person')
+    expect(wrapper.text()).not.toContain('2 участников')
     expect(wrapper.text()).not.toContain('Групповой чат')
 
     await wrapper.findAll('.chat-filter')[1].trigger('click')
