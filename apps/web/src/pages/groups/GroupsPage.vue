@@ -25,7 +25,7 @@ const filteredGroups = computed(() => {
   <main class="page catalog-page">
     <AppPageHeader
       eyebrow="Каталог"
-      title="Каталог курсов"
+      title="Каталог групп"
       description="Исследуйте коллекцию образовательных программ, созданных для глубокого погружения в дисциплины."
       align="split"
     >
