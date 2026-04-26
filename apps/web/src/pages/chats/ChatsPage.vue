@@ -15,15 +15,31 @@ import type { Chat, Message } from '@/features/chats/api/chats.api'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 
+type ChatFilterKey = 'ALL' | 'GROUP' | 'DIRECT'
+
 const auth = useAuthStore()
 const chats = ref<Chat[]>([])
 const messages = ref<Message[]>([])
 const activeChatId = ref<string | null>(null)
 const composerText = ref('')
 const error = ref<string | null>(null)
-const filterItems = ['Все', 'Группы', 'Личные']
+const activeFilter = ref<ChatFilterKey>('ALL')
+const filterItems: Array<{ key: ChatFilterKey; label: string }> = [
+  { key: 'ALL', label: 'Все' },
+  { key: 'GROUP', label: 'Группы' },
+  { key: 'DIRECT', label: 'Личные' }
+]
 
 const activeChat = computed(() => chats.value.find((chat) => chat.id === activeChatId.value) ?? null)
+const activeChatQuery = computed(() => {
+  if (activeFilter.value === 'ALL') {
+    return undefined
+  }
+
+  return {
+    chatType: activeFilter.value
+  }
+})
 
 function formatTime(value: string | null) {
   if (!value) {
@@ -76,11 +92,25 @@ async function loadChats() {
   }
 
   try {
-    chats.value = await listChats(undefined, auth.accessToken)
-    activeChatId.value = chats.value[0]?.id ?? null
+    error.value = null
+    const nextChats = await listChats(activeChatQuery.value, auth.accessToken)
+    chats.value = nextChats
+
+    if (!nextChats.some((chat) => chat.id === activeChatId.value)) {
+      activeChatId.value = nextChats[0]?.id ?? null
+    }
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Не удалось загрузить чаты'
   }
+}
+
+function selectFilter(filter: ChatFilterKey) {
+  if (filter === activeFilter.value) {
+    return
+  }
+
+  activeFilter.value = filter
+  void loadChats()
 }
 
 async function loadMessages(chatId: string | null) {
@@ -122,11 +152,13 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
         <div class="chat-filters" aria-label="Фильтры чатов">
           <button
             v-for="filter in filterItems"
-            :key="filter"
-            :class="['chat-filter', filter === 'Все' && 'chat-filter--active']"
+            :key="filter.key"
+            :class="['chat-filter', filter.key === activeFilter && 'chat-filter--active']"
             type="button"
+            :aria-pressed="filter.key === activeFilter"
+            @click="selectFilter(filter.key)"
           >
-            {{ filter }}
+            {{ filter.label }}
           </button>
         </div>
       </div>
