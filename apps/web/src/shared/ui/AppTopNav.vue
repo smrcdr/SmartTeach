@@ -69,9 +69,23 @@ async function logout() {
             <span v-else class="top-nav__profile-initials" aria-hidden="true">{{ userInitial }}</span>
           </button>
           <div v-if="isProfileMenuOpen" class="top-nav__profile-menu" role="menu">
-            <RouterLink to="/profile" role="menuitem" @click="isProfileMenuOpen = false">Открыть профиль</RouterLink>
-            <RouterLink to="/profile/edit" role="menuitem" @click="isProfileMenuOpen = false">Редактировать профиль</RouterLink>
-            <button type="button" role="menuitem" @click="logout">Выйти</button>
+            <RouterLink to="/profile" role="menuitem" @click="isProfileMenuOpen = false">
+              <span class="material-symbols-outlined top-nav__menu-icon" aria-hidden="true">person</span>
+              Открыть профиль
+            </RouterLink>
+            <RouterLink to="/profile/edit" role="menuitem" @click="isProfileMenuOpen = false">
+              <span class="material-symbols-outlined top-nav__menu-icon" aria-hidden="true">edit</span>
+              Редактировать профиль
+            </RouterLink>
+            <button class="top-nav__profile-menu-logout" type="button" role="menuitem" @click="logout">
+              <span
+                id="logout"
+                class="material-symbols-outlined top-nav__menu-icon"
+                data-icon-id="logout"
+                aria-hidden="true"
+              >logout</span>
+              Выйти
+            </button>
           </div>
         </div>
         <div v-else class="top-nav__auth-actions">
@@ -231,6 +245,7 @@ async function logout() {
   border-radius: var(--radius-sm);
   cursor: pointer;
   display: flex;
+  gap: 10px;
   min-height: 38px;
   padding: 0 12px;
   text-align: left;
@@ -240,6 +255,26 @@ async function logout() {
 .top-nav__profile-menu button:hover {
   background: var(--color-surface-low);
   color: var(--color-primary);
+}
+
+.top-nav__menu-icon {
+  font-family: 'Material Symbols Outlined';
+  font-size: 19px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.top-nav__profile-menu .top-nav__profile-menu-logout {
+  border-top: 1px solid rgb(199 197 211 / 32%);
+  color: var(--color-error);
+  margin-top: 4px;
+  padding-top: 8px;
+}
+
+.top-nav__profile-menu .top-nav__profile-menu-logout:hover {
+  background: rgb(255 244 242 / 82%);
+  color: var(--color-error);
 }
 
 .top-nav__profile-trigger img,

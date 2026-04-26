@@ -110,9 +110,19 @@ describe('AppTopNav', () => {
     await wrapper.find('.top-nav__profile-trigger').trigger('click')
 
     const actions = wrapper.findAll('.top-nav__profile-menu a, .top-nav__profile-menu button')
-    expect(actions.map((action) => action.text())).toEqual(['Открыть профиль', 'Редактировать профиль', 'Выйти'])
+    expect(actions.map((action) => action.text())).toEqual([
+      'person Открыть профиль',
+      'edit Редактировать профиль',
+      'logout Выйти'
+    ])
     expect(actions[0].attributes('href')).toBe('/profile')
     expect(actions[1].attributes('href')).toBe('/profile/edit')
+    expect(actions[0].find('.top-nav__menu-icon').text()).toBe('person')
+    expect(actions[1].find('.top-nav__menu-icon').text()).toBe('edit')
+    expect(actions[2].find('.top-nav__menu-icon').text()).toBe('logout')
+    expect(actions[2].find('.top-nav__menu-icon').attributes('id')).toBe('logout')
+    expect(actions[2].find('.top-nav__menu-icon').attributes('data-icon-id')).toBe('logout')
+    expect(actions[2].classes()).toContain('top-nav__profile-menu-logout')
 
     await actions[2].trigger('click')
 
