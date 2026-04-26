@@ -297,7 +297,7 @@ onBeforeUnmount(() => {
   justify-items: center;
   position: relative;
   transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-  width: 68px;
+  width: 78px;
 }
 
 .top-nav__theme-switch:hover .top-nav__theme-switch-track {
@@ -349,7 +349,7 @@ onBeforeUnmount(() => {
 
 .top-nav__theme-switch--dark .top-nav__theme-switch-thumb {
   box-shadow: 0 6px 16px rgb(0 0 0 / 36%);
-  transform: translateX(32px);
+  transform: translateX(42px);
 }
 
 .top-nav__theme-switch--dark .top-nav__theme-switch-icon--sun {
