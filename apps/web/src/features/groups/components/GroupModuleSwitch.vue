@@ -56,8 +56,8 @@ defineEmits<{
 
 .group-module-switch__track {
   align-items: center;
-  background: var(--color-surface-high);
-  border: 1px solid var(--color-divider);
+  background: var(--color-switch-off-bg);
+  border: 1px solid var(--color-switch-off-border);
   border-radius: 999px;
   display: inline-flex;
   height: 32px;
