@@ -6,13 +6,13 @@ describe('theme styles', () => {
     const source = readFileSync(`${process.cwd()}/src/shared/styles/tokens.css`, 'utf8')
 
     expect(source).toContain(":root[data-theme='dark']")
-    expect(source).toContain('--color-surface: #0f111a;')
-    expect(source).toContain('--color-surface-lowest: #151720;')
-    expect(source).toContain('--color-primary: #aeb6d1;')
-    expect(source).toContain('--color-action-primary-bg: #4b5670;')
-    expect(source).toContain('--color-text: #f4f2ff;')
-    expect(source).toContain('--color-menu-surface: rgb(21 23 32 / 96%);')
-    expect(source).toContain('--color-menu-border: rgb(137 141 176 / 38%);')
+    expect(source).toContain('--color-surface: #0b1020;')
+    expect(source).toContain('--color-surface-lowest: #11172a;')
+    expect(source).toContain('--color-primary: #8fa4ff;')
+    expect(source).toContain('--color-action-primary-bg: #3457b1;')
+    expect(source).toContain('--color-text: #f4f6ff;')
+    expect(source).toContain('--color-menu-surface: rgb(17 23 42 / 96%);')
+    expect(source).toContain('--color-menu-border: rgb(92 112 166 / 42%);')
   })
 
   it('uses theme tokens for the page background instead of fixed light colors', () => {
