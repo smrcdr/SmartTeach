@@ -29,7 +29,7 @@ async function submit() {
       <form class="auth-card" @submit.prevent="submit">
         <div class="auth-card__header">
           <span class="eyebrow">Аккаунт</span>
-          <h2>Создать профиль</h2>
+          <h2>Регистрация</h2>
         </div>
         <AppTextField v-model="form.displayName" label="Имя" placeholder="Введите имя" />
         <AppTextField v-model="form.email" label="Email" type="email" placeholder="Введите email" />
