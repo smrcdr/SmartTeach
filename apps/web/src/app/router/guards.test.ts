@@ -14,9 +14,10 @@ function findRouteByName(name: string) {
 }
 
 describe('auth guards', () => {
-  it('marks My Groups and Chats as protected pages', () => {
+  it('marks My Groups, Chats and profile edit as protected pages', () => {
     expect(findRouteByName('my-groups')?.meta?.requiresAuth).toBe(true)
     expect(findRouteByName('chats')?.meta?.requiresAuth).toBe(true)
+    expect(findRouteByName('profile-edit')?.meta?.requiresAuth).toBe(true)
   })
 
   it('redirects anonymous users to login with the original target path', async () => {

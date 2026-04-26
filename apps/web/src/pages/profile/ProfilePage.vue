@@ -4,6 +4,7 @@ import { useAuthStore } from '@/features/auth/stores/auth.store'
 import GroupCatalogCard from '@/features/groups/components/GroupCatalogCard.vue'
 import { useGroups } from '@/features/groups/composables/useGroups'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import AppButton from '@/shared/ui/AppButton.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 
 const auth = useAuthStore()
@@ -16,13 +17,16 @@ const initials = computed(() => auth.user?.displayName.slice(0, 1).toUpperCase()
     <section v-if="auth.user" class="profile-card surface-panel">
       <img v-if="auth.user.avatarUrl" :src="auth.user.avatarUrl" :alt="auth.user.displayName" />
       <span v-else class="profile-card__initials">{{ initials }}</span>
-      <div>
+      <div class="profile-card__body">
         <AppPageHeader
           eyebrow="Профиль"
           :title="auth.user.displayName"
           :description="auth.user.bio ?? undefined"
         />
         <strong>{{ auth.user.email }}</strong>
+        <RouterLink class="profile-card__edit" to="/profile/edit">
+          <AppButton variant="secondary">Редактировать профиль</AppButton>
+        </RouterLink>
       </div>
     </section>
 
@@ -82,6 +86,16 @@ const initials = computed(() => auth.user?.displayName.slice(0, 1).toUpperCase()
 
 .profile-card strong {
   color: var(--color-primary);
+}
+
+.profile-card__body {
+  display: grid;
+  justify-items: start;
+}
+
+.profile-card__edit {
+  display: inline-flex;
+  margin-top: 22px;
 }
 
 .profile-page__groups {

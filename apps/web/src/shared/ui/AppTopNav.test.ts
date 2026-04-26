@@ -83,9 +83,10 @@ describe('AppTopNav', () => {
     expect(wrapper.find('.top-nav__profile').exists()).toBe(true)
     expect(wrapper.find('.top-nav__profile').text()).toContain('Student Example')
     expect(wrapper.find('.top-nav__profile-trigger img').exists()).toBe(false)
+    expect(wrapper.find('.top-nav__profile-initials').text()).toBe('S')
   })
 
-  it('opens a minimal profile menu with profile and logout actions', async () => {
+  it('opens a minimal profile menu with profile, edit and logout actions', async () => {
     const pinia = createPinia()
     const auth = useAuthStore(pinia)
     auth.accessToken = 'access-token'
@@ -109,10 +110,11 @@ describe('AppTopNav', () => {
     await wrapper.find('.top-nav__profile-trigger').trigger('click')
 
     const actions = wrapper.findAll('.top-nav__profile-menu a, .top-nav__profile-menu button')
-    expect(actions.map((action) => action.text())).toEqual(['Открыть профиль', 'Выйти'])
+    expect(actions.map((action) => action.text())).toEqual(['Открыть профиль', 'Редактировать профиль', 'Выйти'])
     expect(actions[0].attributes('href')).toBe('/profile')
+    expect(actions[1].attributes('href')).toBe('/profile/edit')
 
-    await actions[1].trigger('click')
+    await actions[2].trigger('click')
 
     expect(auth.logout).toHaveBeenCalledOnce()
   })

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 defineProps<{
   id?: string
+  name?: string
   modelValue?: string
   label?: string
   placeholder?: string
@@ -17,6 +18,7 @@ defineEmits<{
     <span v-if="label" class="field__label">{{ label }}</span>
     <input
       :id="id"
+      :name="name"
       class="field__control"
       :type="type ?? 'text'"
       :value="modelValue"

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Menu } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
 import AppButton from './AppButton.vue'
@@ -15,6 +15,7 @@ const navItems = [
 const auth = useAuthStore()
 const notifications = useNotificationStore()
 const isProfileMenuOpen = ref(false)
+const userInitial = computed(() => auth.user?.displayName.slice(0, 1).toUpperCase() ?? '')
 
 function toggleProfileMenu() {
   isProfileMenuOpen.value = !isProfileMenuOpen.value
@@ -65,9 +66,11 @@ async function logout() {
               :src="auth.user.avatarUrl"
               :alt="auth.user.displayName"
             />
+            <span v-else class="top-nav__profile-initials" aria-hidden="true">{{ userInitial }}</span>
           </button>
           <div v-if="isProfileMenuOpen" class="top-nav__profile-menu" role="menu">
             <RouterLink to="/profile" role="menuitem" @click="isProfileMenuOpen = false">Открыть профиль</RouterLink>
+            <RouterLink to="/profile/edit" role="menuitem" @click="isProfileMenuOpen = false">Редактировать профиль</RouterLink>
             <button type="button" role="menuitem" @click="logout">Выйти</button>
           </div>
         </div>
@@ -239,11 +242,25 @@ async function logout() {
   color: var(--color-primary);
 }
 
-.top-nav__profile-trigger img {
+.top-nav__profile-trigger img,
+.top-nav__profile-initials {
   border-radius: 999px;
   height: 40px;
-  object-fit: cover;
   width: 40px;
+}
+
+.top-nav__profile-trigger img {
+  object-fit: cover;
+}
+
+.top-nav__profile-initials {
+  align-items: center;
+  background: var(--color-primary);
+  color: #fff !important;
+  display: inline-flex;
+  font-size: 0.92rem !important;
+  font-weight: 850 !important;
+  justify-content: center;
 }
 
 .top-nav__menu {

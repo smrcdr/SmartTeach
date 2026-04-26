@@ -1,5 +1,6 @@
 <script setup lang="ts">
 defineProps<{
+  name?: string
   modelValue?: string
   label?: string
   placeholder?: string
@@ -15,6 +16,7 @@ defineEmits<{
   <label class="textarea">
     <span v-if="label" class="textarea__label">{{ label }}</span>
     <textarea
+      :name="name"
       class="textarea__control"
       :rows="rows ?? 5"
       :value="modelValue"

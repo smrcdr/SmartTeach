@@ -22,7 +22,8 @@ describe('routes', () => {
       'chats',
       'login',
       'register',
-      'profile'
+      'profile',
+      'profile-edit'
     ]))
   })
 

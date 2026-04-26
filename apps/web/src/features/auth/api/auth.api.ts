@@ -5,7 +5,10 @@ export type AuthUser = {
   email: string
   displayName: string
   bio?: string | null
+  avatarFileId?: string | null
   avatarUrl?: string | null
+  createdAt?: string
+  updatedAt?: string
 }
 
 export type AuthSession = {
