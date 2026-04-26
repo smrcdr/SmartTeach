@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
+import { readFileSync } from 'node:fs'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { describe, expect, it } from 'vitest'
 import LoginPage from './LoginPage.vue'
@@ -39,5 +40,11 @@ describe('LoginPage', () => {
     expect(wrapper.text()).not.toContain('Учебные материалы')
     expect(wrapper.text()).not.toContain('Групповые чаты')
     expect(wrapper.text()).not.toContain('Защищённая сессия')
+  })
+
+  it('sets the auth shell width so input fields become longer', () => {
+    const source = readFileSync(`${process.cwd()}/src/pages/auth/LoginPage.vue`, 'utf8')
+
+    expect(source).toContain('width: min(100%, 700px);')
   })
 })
