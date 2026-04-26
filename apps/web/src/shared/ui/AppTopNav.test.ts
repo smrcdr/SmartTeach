@@ -1,8 +1,47 @@
 import { mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import AppTopNav from './AppTopNav.vue'
+
+async function mountWithRoute(path: string) {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      {
+        path: '/',
+        component: { template: '<RouterView />' },
+        children: [
+          { path: '', component: { template: '<span />' } },
+          { path: 'login', component: { template: '<span />' } },
+          { path: 'register', component: { template: '<span />' } }
+        ]
+      },
+      {
+        path: '/',
+        component: { template: '<RouterView />' },
+        children: [
+          { path: 'catalog', component: { template: '<span />' } },
+          { path: 'my-groups', component: { template: '<span />' } },
+          { path: 'chats', component: { template: '<span />' } }
+        ]
+      }
+    ]
+  })
+
+  router.push(path)
+  await router.isReady()
+
+  return mount(AppTopNav, {
+    global: {
+      plugins: [createPinia(), router],
+      stubs: {
+        RouterLink: false
+      }
+    }
+  })
+}
 
 describe('AppTopNav', () => {
   it('pins brand and sections to the left, and omits search', () => {
@@ -97,5 +136,14 @@ describe('AppTopNav', () => {
     })
 
     expect(wrapper.find('.top-nav__profile-trigger img').attributes('src')).toBe('https://cdn.example.com/avatar.png')
+  })
+
+  it.each(['/login', '/register'])('does not highlight home while %s is open', async (path) => {
+    const wrapper = await mountWithRoute(path)
+
+    const homeLink = wrapper.findAll('.top-nav__link').find((link) => link.text() === 'Главная')
+
+    expect(homeLink?.classes()).not.toContain('router-link-active')
+    expect(homeLink?.classes()).not.toContain('router-link-exact-active')
   })
 })

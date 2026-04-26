@@ -34,7 +34,9 @@ async function logout() {
             v-for="item in navItems"
             :key="item.to"
             :to="item.to"
+            active-class=""
             class="top-nav__link"
+            exact-active-class="top-nav__link--active"
           >
             {{ item.label }}
           </RouterLink>
@@ -134,11 +136,11 @@ async function logout() {
 }
 
 .top-nav__link:hover,
-.top-nav__link.router-link-active {
+.top-nav__link--active {
   color: var(--color-primary);
 }
 
-.top-nav__link.router-link-active::after {
+.top-nav__link--active::after {
   background: var(--color-primary);
   border-radius: 999px;
   bottom: 12px;
