@@ -106,7 +106,7 @@ describe('AppTopNav', () => {
     expect(wrapper.find('.top-nav__primary').text()).toContain('Каталог')
     expect(wrapper.find('.top-nav__primary').text()).toContain('Мои группы')
     expect(wrapper.find('.top-nav__primary').text()).toContain('Чаты')
-    expect(wrapper.find('.top-nav__theme-toggle').exists()).toBe(true)
+    expect(wrapper.find('.top-nav__theme-switch').attributes('role')).toBe('switch')
     expect(wrapper.find('.top-nav__auth-actions').text()).toContain('Войти')
     expect(wrapper.find('.top-nav__auth-actions').text()).toContain('Регистрация')
     expect(wrapper.find('[aria-label="Поиск"]').exists()).toBe(false)
@@ -181,14 +181,19 @@ describe('AppTopNav', () => {
     setTheme('light')
     localStorage.clear()
     const { wrapper } = await mountAuthenticatedWithRoute('/')
+    const themeSwitch = wrapper.find('.top-nav__theme-switch')
 
-    await wrapper.find('.top-nav__theme-toggle').trigger('click')
+    expect(themeSwitch.attributes('aria-checked')).toBe('false')
+    expect(themeSwitch.find('.top-nav__theme-switch-thumb').exists()).toBe(true)
+
+    await themeSwitch.trigger('click')
     await wrapper.vm.$nextTick()
 
     expect(document.documentElement.dataset.theme).toBe('dark')
     expect(document.documentElement.style.colorScheme).toBe('dark')
     expect(localStorage.getItem('smarteach.theme')).toBe('dark')
-    expect(wrapper.find('.top-nav__theme-toggle').text()).toContain('Светлая')
+    expect(wrapper.find('.top-nav__theme-switch').attributes('aria-checked')).toBe('true')
+    expect(wrapper.find('.top-nav__theme-switch').classes()).toContain('top-nav__theme-switch--dark')
   })
 
   it('redirects to login after logout from a protected page', async () => {

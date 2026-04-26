@@ -22,8 +22,7 @@ const isProfileMenuOpen = ref(false)
 const profileRef = ref<HTMLElement | null>(null)
 const { theme, toggleTheme } = useTheme()
 const userInitial = computed(() => auth.user?.displayName.slice(0, 1).toUpperCase() ?? '')
-const themeToggleIcon = computed(() => theme.value === 'dark' ? 'light_mode' : 'dark_mode')
-const themeToggleLabel = computed(() => theme.value === 'dark' ? 'Светлая' : 'Тёмная')
+const isDarkTheme = computed(() => theme.value === 'dark')
 const themeToggleAriaLabel = computed(() => theme.value === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему')
 
 function toggleProfileMenu() {
@@ -102,15 +101,22 @@ onBeforeUnmount(() => {
 
       <div class="top-nav__actions">
         <button
-          class="top-nav__theme-toggle"
+          :class="['top-nav__theme-switch', { 'top-nav__theme-switch--dark': isDarkTheme }]"
           type="button"
+          role="switch"
+          :aria-checked="isDarkTheme"
           :aria-label="themeToggleAriaLabel"
           @click="toggleTheme"
         >
-          <span class="material-symbols-outlined top-nav__theme-toggle-icon" aria-hidden="true">
-            {{ themeToggleIcon }}
+          <span class="top-nav__theme-switch-track" aria-hidden="true">
+            <span class="top-nav__theme-switch-thumb"></span>
+            <span class="material-symbols-outlined top-nav__theme-switch-icon top-nav__theme-switch-icon--sun">
+              light_mode
+            </span>
+            <span class="material-symbols-outlined top-nav__theme-switch-icon top-nav__theme-switch-icon--moon">
+              dark_mode
+            </span>
           </span>
-          <span>{{ themeToggleLabel }}</span>
         </button>
         <div v-if="auth.isAuthenticated && auth.user" ref="profileRef" class="top-nav__user top-nav__profile">
           <button
@@ -263,38 +269,95 @@ onBeforeUnmount(() => {
 .top-nav__profile-trigger span,
 .top-nav__auth-actions a,
 .top-nav__profile-menu a,
-.top-nav__profile-menu button,
-.top-nav__theme-toggle {
+.top-nav__profile-menu button {
   color: var(--color-text);
   font-size: 0.86rem;
   font-weight: 650;
 }
 
-.top-nav__theme-toggle {
+.top-nav__theme-switch {
   align-items: center;
-  background: var(--color-surface);
-  border: 1px solid var(--color-divider);
+  background: transparent;
+  border: 0;
   border-radius: 999px;
   cursor: pointer;
   display: inline-flex;
-  gap: 8px;
-  min-height: 38px;
-  padding: 0 13px 0 11px;
-  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+  padding: 2px;
 }
 
-.top-nav__theme-toggle:hover {
-  background: var(--color-menu-hover);
+.top-nav__theme-switch-track {
+  align-items: center;
+  background: var(--color-surface-high);
+  border: 1px solid var(--color-divider);
+  border-radius: 999px;
+  box-shadow: inset 0 1px 3px rgb(27 27 32 / 10%);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 36px;
+  justify-items: center;
+  position: relative;
+  transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  width: 68px;
+}
+
+.top-nav__theme-switch:hover .top-nav__theme-switch-track {
   border-color: var(--color-primary);
-  color: var(--color-primary);
 }
 
-.top-nav__theme-toggle-icon {
+.top-nav__theme-switch:focus-visible {
+  outline: none;
+}
+
+.top-nav__theme-switch:focus-visible .top-nav__theme-switch-track {
+  box-shadow: 0 0 0 4px var(--color-focus-ring), inset 0 1px 3px rgb(27 27 32 / 10%);
+}
+
+.top-nav__theme-switch-thumb {
+  background: var(--color-surface-lowest);
+  border-radius: 999px;
+  box-shadow: 0 5px 14px rgb(27 27 32 / 18%);
+  height: 30px;
+  left: 3px;
+  position: absolute;
+  top: 3px;
+  transform: translateX(0);
+  transition: transform 0.2s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+  width: 30px;
+  z-index: 1;
+}
+
+.top-nav__theme-switch-icon {
+  color: var(--color-text-muted);
   font-family: 'Material Symbols Outlined';
-  font-size: 19px;
+  font-size: 18px;
   font-style: normal;
   font-weight: 400;
   line-height: 1;
+  position: relative;
+  transition: color 0.18s ease;
+  z-index: 2;
+}
+
+.top-nav__theme-switch-icon--sun {
+  color: #936200;
+}
+
+.top-nav__theme-switch--dark .top-nav__theme-switch-track {
+  background: var(--color-primary-fixed);
+  border-color: var(--color-primary-container);
+}
+
+.top-nav__theme-switch--dark .top-nav__theme-switch-thumb {
+  box-shadow: 0 6px 16px rgb(0 0 0 / 36%);
+  transform: translateX(32px);
+}
+
+.top-nav__theme-switch--dark .top-nav__theme-switch-icon--sun {
+  color: var(--color-text-muted);
+}
+
+.top-nav__theme-switch--dark .top-nav__theme-switch-icon--moon {
+  color: var(--color-primary);
 }
 
 .top-nav__auth-actions {
@@ -395,8 +458,7 @@ onBeforeUnmount(() => {
 @media (max-width: 860px) {
   .top-nav__links,
   .top-nav__user,
-  .top-nav__auth-actions,
-  .top-nav__theme-toggle {
+  .top-nav__auth-actions {
     display: none;
   }
 
