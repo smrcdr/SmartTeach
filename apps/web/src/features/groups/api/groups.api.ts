@@ -152,6 +152,10 @@ export function getGroup(groupId: string, token?: string | null) {
   return apiRequest<Group>(`/groups/${groupId}`, { token })
 }
 
+export function getGroupByCode(code: string, token?: string | null) {
+  return apiRequest<Group>(`/groups/by-code/${encodeURIComponent(code.trim())}`, { token })
+}
+
 export function createGroup(payload: Partial<Group>, token?: string | null) {
   return apiRequest<Group>('/groups', {
     method: 'POST',
@@ -162,6 +166,13 @@ export function createGroup(payload: Partial<Group>, token?: string | null) {
 
 export function joinGroup(groupId: string, token?: string | null) {
   return apiRequest<GroupMember>(`/groups/${groupId}/join`, {
+    method: 'POST',
+    token
+  })
+}
+
+export function createJoinRequest(groupId: string, token?: string | null) {
+  return apiRequest<GroupJoinRequest>(`/groups/${groupId}/join-requests`, {
     method: 'POST',
     token
   })
@@ -201,4 +212,17 @@ export function listMembers(groupId: string, token?: string | null) {
 
 export function listJoinRequests(groupId: string, token?: string | null) {
   return apiRequest<GroupJoinRequest[]>(`/groups/${groupId}/join-requests`, { token })
+}
+
+export function decideJoinRequest(
+  groupId: string,
+  requestId: string,
+  decision: 'APPROVED' | 'REJECTED',
+  token?: string | null
+) {
+  return apiRequest<GroupJoinRequest>(`/groups/${groupId}/join-requests/${requestId}`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify({ decision })
+  })
 }

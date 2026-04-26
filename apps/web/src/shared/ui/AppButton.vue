@@ -7,12 +7,14 @@ const props = withDefaults(defineProps<{
   iconOnly?: boolean
   ariaLabel?: string
   type?: 'button' | 'submit' | 'reset'
+  disabled?: boolean
 }>(), {
   variant: 'primary',
   size: 'md',
   iconOnly: false,
   ariaLabel: undefined,
-  type: 'button'
+  type: 'button',
+  disabled: false
 })
 
 const classes = computed(() => [
@@ -28,6 +30,7 @@ const classes = computed(() => [
     :type="type"
     :class="classes"
     :aria-label="ariaLabel"
+    :disabled="disabled"
   >
     <slot />
   </button>
@@ -52,6 +55,16 @@ const classes = computed(() => [
 
 .app-button:hover {
   transform: translateY(-1px);
+}
+
+.app-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+  transform: none;
+}
+
+.app-button:disabled:hover {
+  transform: none;
 }
 
 .app-button:active {

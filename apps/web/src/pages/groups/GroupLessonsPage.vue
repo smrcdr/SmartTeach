@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { Plus } from 'lucide-vue-next'
+import { computed } from 'vue'
 import { listLessons } from '@/features/groups/api/groups.api'
+import { useGroup } from '@/features/groups/composables/useGroup'
 import { useGroupRouteList } from '@/features/groups/composables/useGroupRouteResource'
+import { canManageGroup } from '@/features/groups/lib/group-permissions'
 import ContentList from '@/features/groups/components/ContentList.vue'
 import WorkspaceItem from '@/features/groups/components/WorkspaceItem.vue'
 import AppButton from '@/shared/ui/AppButton.vue'
@@ -10,7 +13,9 @@ import EmptyState from '@/shared/ui/EmptyState.vue'
 import StatusPill from '@/shared/ui/StatusPill.vue'
 import { formatDateTime } from '@/shared/lib/date'
 
+const { group } = useGroup()
 const { items: lessons, groupId } = useGroupRouteList(listLessons)
+const canManage = computed(() => canManageGroup(group.value))
 </script>
 
 <template>
@@ -21,7 +26,7 @@ const { items: lessons, groupId } = useGroupRouteList(listLessons)
       description="Структурированные материалы группы с черновиками и опубликованными занятиями."
       align="split"
     >
-      <template #actions>
+      <template v-if="canManage" #actions>
         <RouterLink :to="{ name: 'group-lesson-create', params: { groupId } }">
           <AppButton><Plus :size="18" /> Новый урок</AppButton>
         </RouterLink>

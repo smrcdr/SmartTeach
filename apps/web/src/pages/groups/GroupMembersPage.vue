@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import { UserPlus } from 'lucide-vue-next'
+import { computed } from 'vue'
 import { listMembers } from '@/features/groups/api/groups.api'
+import { useGroup } from '@/features/groups/composables/useGroup'
 import { useGroupRouteList } from '@/features/groups/composables/useGroupRouteResource'
+import { canManageGroup } from '@/features/groups/lib/group-permissions'
 import ContentList from '@/features/groups/components/ContentList.vue'
 import AppButton from '@/shared/ui/AppButton.vue'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 
+const { group } = useGroup()
 const { items: members } = useGroupRouteList(listMembers)
+const canManage = computed(() => canManageGroup(group.value))
 </script>
 
 <template>
@@ -18,7 +23,7 @@ const { items: members } = useGroupRouteList(listMembers)
       description="Состав группы, роли и доступ к учебным материалам."
       align="split"
     >
-      <template #actions>
+      <template v-if="canManage" #actions>
         <AppButton><UserPlus :size="18" /> Пригласить</AppButton>
       </template>
     </AppPageHeader>

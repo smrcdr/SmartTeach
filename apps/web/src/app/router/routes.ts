@@ -11,14 +11,53 @@ import {
 } from 'lucide-vue-next'
 
 export const groupWorkspaceNav = [
-  { key: 'overview', label: 'Обзор', icon: Home, toName: 'group-workspace' },
-  { key: 'lessons', label: 'Уроки', icon: BookOpen, toName: 'group-lessons' },
-  { key: 'assignments', label: 'Задания', icon: ClipboardList, toName: 'group-assignments' },
-  { key: 'members', label: 'Участники', icon: Users, toName: 'group-members' },
-  { key: 'schedule', label: 'Расписание', icon: CalendarDays, toName: 'group-schedule' },
-  { key: 'chats', label: 'Чаты', icon: MessageCircle, toName: 'group-chats' },
-  { key: 'requests', label: 'Заявки', icon: UserPlus, toName: 'group-requests' },
-  { key: 'settings', label: 'Настройки', icon: Settings, toName: 'group-settings' }
+  { key: 'overview', label: 'Обзор', icon: Home, toName: 'group-workspace', activeNames: ['group-workspace'] },
+  {
+    key: 'lessons',
+    label: 'Уроки',
+    icon: BookOpen,
+    toName: 'group-lessons',
+    activeNames: ['group-lessons', 'group-lesson-create', 'group-lesson-details', 'group-lesson-edit']
+  },
+  {
+    key: 'assignments',
+    label: 'Задания',
+    icon: ClipboardList,
+    toName: 'group-assignments',
+    activeNames: [
+      'group-assignments',
+      'group-assignment-create',
+      'group-assignment-details',
+      'group-assignment-edit',
+      'group-assignment-submissions',
+      'group-assignment-submission-details'
+    ]
+  },
+  { key: 'members', label: 'Участники', icon: Users, toName: 'group-members', activeNames: ['group-members'] },
+  {
+    key: 'schedule',
+    label: 'Расписание',
+    icon: CalendarDays,
+    toName: 'group-schedule',
+    activeNames: ['group-schedule', 'group-schedule-event-create', 'group-schedule-event-edit']
+  },
+  { key: 'chats', label: 'Чаты', icon: MessageCircle, toName: 'group-chats', activeNames: ['group-chats'] },
+  {
+    key: 'requests',
+    label: 'Заявки',
+    icon: UserPlus,
+    toName: 'group-requests',
+    activeNames: ['group-requests'],
+    adminOnly: true
+  },
+  {
+    key: 'settings',
+    label: 'Настройки',
+    icon: Settings,
+    toName: 'group-settings',
+    activeNames: ['group-settings'],
+    adminOnly: true
+  }
 ] as const
 
 const PublicLayout = () => import('@/layouts/PublicLayout.vue')

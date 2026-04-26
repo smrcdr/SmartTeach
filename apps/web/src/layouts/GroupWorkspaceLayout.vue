@@ -12,10 +12,12 @@
 
       <nav aria-label="Навигация группы">
         <RouterLink
-          v-for="item in groupWorkspaceNav"
+          v-for="item in visibleNavItems"
           :key="item.key"
           :to="{ name: item.toName, params: { groupId: group.id } }"
-          class="workspace-nav__item"
+          :class="['workspace-nav__item', { 'workspace-nav__item--active': isNavItemActive(item) }]"
+          active-class=""
+          exact-active-class=""
         >
           <component :is="item.icon" :size="19" />
           <span>{{ item.label }}</span>
@@ -31,12 +33,24 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { groupWorkspaceNav } from '@/app/router/routes'
 import { useGroup } from '@/features/groups/composables/useGroup'
+import { canManageGroup } from '@/features/groups/lib/group-permissions'
 import AppTopNav from '@/shared/ui/AppTopNav.vue'
 
+type GroupWorkspaceNavItem = (typeof groupWorkspaceNav)[number]
+
+const route = useRoute()
 const { group } = useGroup()
 const initials = computed(() => group.value?.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('') ?? '')
+const visibleNavItems = computed(() => {
+  return groupWorkspaceNav.filter((item) => !('adminOnly' in item) || !item.adminOnly || canManageGroup(group.value))
+})
+
+function isNavItemActive(item: GroupWorkspaceNavItem) {
+  return (item.activeNames as readonly string[]).includes(String(route.name ?? ''))
+}
 </script>
 
 <style scoped>
@@ -114,7 +128,7 @@ const initials = computed(() => group.value?.name.split(/\s+/).slice(0, 2).map((
   transform: translateX(2px);
 }
 
-.workspace-nav__item.router-link-active {
+.workspace-nav__item--active {
   background: var(--color-primary);
   box-shadow: 0 18px 34px -20px rgb(21 25 108 / 60%);
   color: #fff;

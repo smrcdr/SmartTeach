@@ -1,13 +1,21 @@
 <script setup lang="ts">
-import { ArrowRight, BookOpen, LockKeyhole, Users } from 'lucide-vue-next'
+import { ArrowRight, BookOpen, LockKeyhole, UserPlus, Users } from 'lucide-vue-next'
 import { computed } from 'vue'
 import type { Group } from '../api/groups.api'
+import { isGroupMember } from '../lib/group-permissions'
 import AppButton from '@/shared/ui/AppButton.vue'
 import MetricTile from '@/shared/ui/MetricTile.vue'
 import ModuleBadges from './ModuleBadges.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   group: Group
+  isJoining?: boolean
+}>(), {
+  isJoining: false
+})
+
+const emit = defineEmits<{
+  join: []
 }>()
 
 const initials = computed(() => props.group.name
@@ -38,6 +46,46 @@ const accessLabel = computed(() => {
 
   return 'Закрытая'
 })
+
+const joinAction = computed(() => {
+  if (isGroupMember(props.group)) {
+    return null
+  }
+
+  if (props.group.viewerJoinRequestStatus === 'PENDING') {
+    return {
+      label: 'Заявка отправлена',
+      disabled: true
+    }
+  }
+
+  if (props.group.accessMode === 'OPEN') {
+    return {
+      label: props.isJoining ? 'Вступаем...' : 'Вступить',
+      disabled: props.isJoining
+    }
+  }
+
+  if (props.group.accessMode === 'BY_REQUEST') {
+    return {
+      label: props.isJoining ? 'Отправляем...' : 'Подать заявку',
+      disabled: props.isJoining
+    }
+  }
+
+  return {
+    label: 'Доступ закрыт',
+    disabled: true
+  }
+})
+
+function submitJoinAction() {
+  if (!joinAction.value || joinAction.value.disabled) {
+    return
+  }
+
+  emit('join')
+}
 </script>
 
 <template>
@@ -48,9 +96,18 @@ const accessLabel = computed(() => {
       <p class="lead">{{ group.description }}</p>
       <ModuleBadges :settings="group.settings" />
       <div class="group-hero__actions">
-        <RouterLink :to="{ name: 'group-workspace', params: { groupId: group.id } }">
+        <RouterLink v-if="group.viewerMembershipRole" :to="{ name: 'group-workspace', params: { groupId: group.id } }">
           <AppButton size="lg">Открыть группу <ArrowRight :size="18" /></AppButton>
         </RouterLink>
+        <AppButton
+          v-else-if="joinAction"
+          data-testid="group-access-action"
+          size="lg"
+          :disabled="joinAction.disabled"
+          @click="submitJoinAction"
+        >
+          <UserPlus :size="18" /> {{ joinAction.label }}
+        </AppButton>
         <AppButton variant="secondary" size="lg">Код {{ group.code }}</AppButton>
       </div>
     </div>
