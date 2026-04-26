@@ -1,32 +1,48 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { readFileSync } from 'node:fs'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
 import LoginPage from './LoginPage.vue'
 
+const fetchMock = vi.fn()
+
 async function mountPage() {
+  const pinia = createPinia()
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
       { path: '/login', component: LoginPage },
-      { path: '/register', component: { template: '<span />' } }
+      { path: '/register', component: { template: '<span />' } },
+      { path: '/my-groups', component: { template: '<span />' } }
     ]
   })
 
   router.push('/login')
   await router.isReady()
 
-  return mount(LoginPage, {
+  const wrapper = mount(LoginPage, {
     global: {
-      plugins: [createPinia(), router]
+      plugins: [pinia, router]
     }
   })
+
+  return {
+    pinia,
+    wrapper
+  }
 }
 
 describe('LoginPage', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    fetchMock.mockReset()
+    localStorage.clear()
+  })
+
   it('shows only the centered login form without promo copy', async () => {
-    const wrapper = await mountPage()
+    const { wrapper } = await mountPage()
 
     expect(wrapper.find('.auth-shell__story').exists()).toBe(false)
     expect(wrapper.find('.auth-card__header p').exists()).toBe(false)
@@ -46,5 +62,58 @@ describe('LoginPage', () => {
     const source = readFileSync(`${process.cwd()}/src/pages/auth/LoginPage.vue`, 'utf8')
 
     expect(source).toContain('width: min(100%, 480px);')
+  })
+
+  it('shows an error notification when login fails', async () => {
+    vi.stubGlobal('fetch', fetchMock)
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 401,
+      statusText: 'Unauthorized',
+      text: () => Promise.resolve(JSON.stringify({
+        statusCode: 401,
+        message: 'Invalid email or password'
+      }))
+    })
+
+    const { pinia, wrapper } = await mountPage()
+    const notifications = useNotificationStore(pinia)
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(notifications.items.at(-1)).toMatchObject({
+      type: 'error',
+      message: 'Неверный email или пароль'
+    })
+  })
+
+  it('shows a success notification when login succeeds', async () => {
+    vi.stubGlobal('fetch', fetchMock)
+    fetchMock.mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(JSON.stringify({
+        accessToken: 'token',
+        sessionId: 'session',
+        user: {
+          id: 'user-id',
+          email: 'student@smarteach.local',
+          displayName: 'Student Example',
+          bio: null,
+          avatarUrl: null
+        }
+      }))
+    })
+
+    const { pinia, wrapper } = await mountPage()
+    const notifications = useNotificationStore(pinia)
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(notifications.items.at(-1)).toMatchObject({
+      type: 'success',
+      message: 'Вход выполнен'
+    })
   })
 })

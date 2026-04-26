@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { ApiError } from '@/shared/api/http'
 import * as authApi from '../api/auth.api'
 
 const tokenStorageKey = 'smarteach.accessToken'
@@ -11,6 +12,36 @@ function getStoredToken() {
 
 function getStoredSessionId() {
   return localStorage.getItem(sessionStorageKey)
+}
+
+function getAuthErrorMessage(caught: unknown, fallback: string) {
+  if (caught instanceof ApiError) {
+    if (caught.status === 0) {
+      return 'Не удалось подключиться к серверу'
+    }
+
+    if (caught.status === 401) {
+      return 'Неверный email или пароль'
+    }
+
+    if (caught.status === 409) {
+      return 'Пользователь с таким email уже существует'
+    }
+
+    if (caught.status === 400) {
+      return 'Проверьте правильность заполнения полей'
+    }
+
+    if (caught.status >= 500) {
+      return 'Сервер временно недоступен. Попробуйте позже'
+    }
+  }
+
+  if (caught instanceof Error && caught.message) {
+    return caught.message
+  }
+
+  return fallback
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -54,7 +85,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       setSession(await authApi.login(payload))
     } catch (caught) {
-      error.value = caught instanceof Error ? caught.message : 'Не удалось войти'
+      error.value = getAuthErrorMessage(caught, 'Не удалось войти')
       throw caught
     } finally {
       isLoading.value = false
@@ -67,7 +98,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       setSession(await authApi.register(payload))
     } catch (caught) {
-      error.value = caught instanceof Error ? caught.message : 'Не удалось зарегистрироваться'
+      error.value = getAuthErrorMessage(caught, 'Не удалось зарегистрироваться')
       throw caught
     } finally {
       isLoading.value = false

@@ -4,10 +4,12 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
+import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
 import AppButton from '@/shared/ui/AppButton.vue'
 import AppTextField from '@/shared/ui/AppTextField.vue'
 
 const auth = useAuthStore()
+const notifications = useNotificationStore()
 const route = useRoute()
 const router = useRouter()
 const form = reactive({
@@ -18,8 +20,13 @@ const form = reactive({
 const redirectTarget = computed(() => typeof route.query.redirect === 'string' ? route.query.redirect : '/my-groups')
 
 async function submit() {
-  await auth.login(form)
-  await router.push(redirectTarget.value)
+  try {
+    await auth.login(form)
+    notifications.success('Вход выполнен')
+    await router.push(redirectTarget.value)
+  } catch {
+    notifications.error(auth.error ?? 'Не удалось войти')
+  }
 }
 </script>
 
@@ -33,7 +40,6 @@ async function submit() {
         </div>
         <AppTextField v-model="form.email" label="Email" type="email" placeholder="Введите email" />
         <AppTextField v-model="form.password" label="Пароль" type="password" placeholder="Введите пароль" />
-        <p v-if="auth.error" class="auth-page__error">{{ auth.error }}</p>
         <AppButton type="submit" size="lg">{{ auth.isLoading ? 'Входим...' : 'Войти' }}</AppButton>
         <RouterLink class="auth-card__link" to="/register">
           Нет аккаунта? <span class="auth-card__link-action">Зарегистрироваться</span>
@@ -101,11 +107,6 @@ async function submit() {
 
 .auth-card__link-action {
   color: var(--color-primary);
-}
-
-.auth-page__error {
-  color: var(--color-error);
-  margin: 0;
 }
 
 </style>

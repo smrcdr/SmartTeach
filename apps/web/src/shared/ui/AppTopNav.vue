@@ -2,6 +2,7 @@
 import { Menu } from 'lucide-vue-next'
 import { ref } from 'vue'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
+import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
 import AppButton from './AppButton.vue'
 
 const navItems = [
@@ -12,6 +13,7 @@ const navItems = [
 ]
 
 const auth = useAuthStore()
+const notifications = useNotificationStore()
 const isProfileMenuOpen = ref(false)
 
 function toggleProfileMenu() {
@@ -20,7 +22,12 @@ function toggleProfileMenu() {
 
 async function logout() {
   isProfileMenuOpen.value = false
-  await auth.logout()
+  try {
+    await auth.logout()
+    notifications.success('Вы вышли из аккаунта')
+  } catch {
+    notifications.error('Не удалось завершить сессию')
+  }
 }
 </script>
 
