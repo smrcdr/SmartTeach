@@ -47,10 +47,9 @@ const notifications = useNotificationStore()
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-width: min(480px, calc(100vw - 32px));
   position: fixed;
   right: 28px;
-  width: max-content;
+  width: min(600px, calc(100vw - 32px));
   z-index: 80;
 }
 

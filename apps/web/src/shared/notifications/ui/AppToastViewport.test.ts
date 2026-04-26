@@ -52,7 +52,7 @@ describe('AppToastViewport', () => {
   it('uses larger and more saturated toast styling', () => {
     const source = readFileSync(`${process.cwd()}/src/shared/notifications/ui/AppToastViewport.vue`, 'utf8')
 
-    expect(source).toContain('max-width: min(480px, calc(100vw - 32px));')
+    expect(source).toContain('width: min(600px, calc(100vw - 32px));')
     expect(source).toContain('min-height: 72px;')
     expect(source).toContain('font-size: 1rem;')
     expect(source).toContain('background: #fee2e2;')
