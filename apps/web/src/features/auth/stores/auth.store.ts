@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { ApiError } from '@/shared/api/http'
 import * as authApi from '../api/auth.api'
+import { translateAuthValidationError } from '../lib/auth-validation'
 
 const tokenStorageKey = 'smarteach.accessToken'
 const sessionStorageKey = 'smarteach.sessionId'
@@ -12,6 +13,34 @@ function getStoredToken() {
 
 function getStoredSessionId() {
   return localStorage.getItem(sessionStorageKey)
+}
+
+function getPayloadValidationErrors(payload: unknown): string[] {
+  if (!payload || typeof payload !== 'object' || !('errors' in payload)) {
+    return []
+  }
+
+  const errors = (payload as { errors?: unknown }).errors
+
+  if (!Array.isArray(errors)) {
+    return []
+  }
+
+  return errors.map(String)
+}
+
+function getAuthValidationErrorMessage(payload: unknown) {
+  const errors = getPayloadValidationErrors(payload)
+
+  for (const error of errors) {
+    const translated = translateAuthValidationError(error)
+
+    if (translated) {
+      return translated
+    }
+  }
+
+  return errors[0] ?? null
 }
 
 function getAuthErrorMessage(caught: unknown, fallback: string) {
@@ -29,7 +58,7 @@ function getAuthErrorMessage(caught: unknown, fallback: string) {
     }
 
     if (caught.status === 400) {
-      return 'Проверьте правильность заполнения полей'
+      return getAuthValidationErrorMessage(caught.payload) ?? 'Проверьте правильность заполнения полей'
     }
 
     if (caught.status >= 500) {

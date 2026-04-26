@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { reactive } from 'vue'
+import { computed, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { validateRegisterPayload } from '@/features/auth/lib/auth-validation'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
 import AppButton from '@/shared/ui/AppButton.vue'
@@ -20,6 +20,13 @@ const form = reactive({
 const redirectTarget = computed(() => typeof route.query.redirect === 'string' ? route.query.redirect : '/my-groups')
 
 async function submit() {
+  const validationError = validateRegisterPayload(form)
+
+  if (validationError) {
+    notifications.error(validationError)
+    return
+  }
+
   try {
     await auth.register(form)
     notifications.success('Регистрация выполнена')
@@ -33,7 +40,7 @@ async function submit() {
 <template>
   <main class="page auth-page auth-page--centered">
     <section class="auth-shell auth-shell--wide">
-      <form class="auth-card auth-card--wide-fields" @submit.prevent="submit">
+      <form class="auth-card auth-card--wide-fields" novalidate @submit.prevent="submit">
         <div class="auth-card__header">
           <span class="eyebrow">Аккаунт</span>
           <h2>Регистрация</h2>

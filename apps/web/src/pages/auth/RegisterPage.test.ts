@@ -95,6 +95,11 @@ describe('RegisterPage', () => {
 
     const { pinia, wrapper: firstWrapper } = await mountPage()
     const notifications = useNotificationStore(pinia)
+    const firstInputs = firstWrapper.findAll('input')
+
+    await firstInputs[0].setValue('Student Example')
+    await firstInputs[1].setValue('student@smarteach.local')
+    await firstInputs[2].setValue('Password123!')
 
     await firstWrapper.find('form').trigger('submit')
     await flushPromises()
@@ -106,6 +111,11 @@ describe('RegisterPage', () => {
 
     const { pinia: secondPinia, wrapper: secondWrapper } = await mountPage()
     const secondNotifications = useNotificationStore(secondPinia)
+    const secondInputs = secondWrapper.findAll('input')
+
+    await secondInputs[0].setValue('Student Example')
+    await secondInputs[1].setValue('student@smarteach.local')
+    await secondInputs[2].setValue('Password123!')
 
     await secondWrapper.find('form').trigger('submit')
     await flushPromises()
@@ -113,6 +123,67 @@ describe('RegisterPage', () => {
     expect(secondNotifications.items.at(-1)).toMatchObject({
       type: 'error',
       message: 'Пользователь с таким email уже существует'
+    })
+  })
+
+  it('shows a concrete email error on every invalid registration submit', async () => {
+    vi.stubGlobal('fetch', fetchMock)
+    const { pinia, wrapper } = await mountPage()
+    const notifications = useNotificationStore(pinia)
+    const inputs = wrapper.findAll('input')
+
+    await inputs[0].setValue('Student Example')
+    await inputs[1].setValue('wrong-email')
+    await inputs[2].setValue('Password123!')
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('form').attributes()).toHaveProperty('novalidate')
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(notifications.items.at(-1)).toMatchObject({
+      type: 'error',
+      message: 'Введите корректный email'
+    })
+  })
+
+  it('shows a concrete password error on every invalid registration submit', async () => {
+    vi.stubGlobal('fetch', fetchMock)
+    const { pinia, wrapper } = await mountPage()
+    const notifications = useNotificationStore(pinia)
+    const inputs = wrapper.findAll('input')
+
+    await inputs[0].setValue('Student Example')
+    await inputs[1].setValue('student@smarteach.local')
+    await inputs[2].setValue('short')
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(notifications.items.at(-1)).toMatchObject({
+      type: 'error',
+      message: 'Пароль должен быть не короче 8 символов'
+    })
+  })
+
+  it('shows a concrete display name error on every invalid registration submit', async () => {
+    vi.stubGlobal('fetch', fetchMock)
+    const { pinia, wrapper } = await mountPage()
+    const notifications = useNotificationStore(pinia)
+    const inputs = wrapper.findAll('input')
+
+    await inputs[0].setValue('A')
+    await inputs[1].setValue('student@smarteach.local')
+    await inputs[2].setValue('Password123!')
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(notifications.items.at(-1)).toMatchObject({
+      type: 'error',
+      message: 'Имя должно быть не короче 2 символов'
     })
   })
 })

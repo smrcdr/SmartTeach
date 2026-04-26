@@ -78,6 +78,10 @@ describe('LoginPage', () => {
 
     const { pinia, wrapper } = await mountPage()
     const notifications = useNotificationStore(pinia)
+    const inputs = wrapper.findAll('input')
+
+    await inputs[0].setValue('student@smarteach.local')
+    await inputs[1].setValue('Password123!')
 
     await wrapper.find('form').trigger('submit')
     await flushPromises()
@@ -107,6 +111,10 @@ describe('LoginPage', () => {
 
     const { pinia, wrapper } = await mountPage()
     const notifications = useNotificationStore(pinia)
+    const inputs = wrapper.findAll('input')
+
+    await inputs[0].setValue('student@smarteach.local')
+    await inputs[1].setValue('Password123!')
 
     await wrapper.find('form').trigger('submit')
     await flushPromises()
@@ -114,6 +122,45 @@ describe('LoginPage', () => {
     expect(notifications.items.at(-1)).toMatchObject({
       type: 'success',
       message: 'Вход выполнен'
+    })
+  })
+
+  it('shows a concrete email error on every invalid login submit', async () => {
+    vi.stubGlobal('fetch', fetchMock)
+    const { pinia, wrapper } = await mountPage()
+    const notifications = useNotificationStore(pinia)
+    const inputs = wrapper.findAll('input')
+
+    await inputs[0].setValue('wrong-email')
+    await inputs[1].setValue('Password123!')
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('form').attributes()).toHaveProperty('novalidate')
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(notifications.items.at(-1)).toMatchObject({
+      type: 'error',
+      message: 'Введите корректный email'
+    })
+  })
+
+  it('shows a concrete password error on every invalid login submit', async () => {
+    vi.stubGlobal('fetch', fetchMock)
+    const { pinia, wrapper } = await mountPage()
+    const notifications = useNotificationStore(pinia)
+    const inputs = wrapper.findAll('input')
+
+    await inputs[0].setValue('student@smarteach.local')
+    await inputs[1].setValue('short')
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(notifications.items.at(-1)).toMatchObject({
+      type: 'error',
+      message: 'Пароль должен быть не короче 8 символов'
     })
   })
 })

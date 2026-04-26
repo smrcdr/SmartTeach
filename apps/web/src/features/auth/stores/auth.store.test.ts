@@ -66,4 +66,55 @@ describe('auth store', () => {
 
     expect(auth.error).toBe('Сервер временно недоступен. Попробуйте позже')
   })
+
+  it('normalizes backend validation errors into concrete auth messages', async () => {
+    vi.stubGlobal('fetch', fetchMock)
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: 'Bad Request',
+      text: () => Promise.resolve(JSON.stringify({
+        statusCode: 400,
+        message: 'Validation failed',
+        errors: [
+          'email: Invalid email address',
+          'password: Too small: expected string to have >=8 characters'
+        ]
+      }))
+    })
+
+    const auth = useAuthStore()
+
+    await expect(auth.register({
+      displayName: 'Student Example',
+      email: 'wrong-email',
+      password: 'short'
+    })).rejects.toThrow()
+
+    expect(auth.error).toBe('Введите корректный email')
+  })
+
+  it('falls back to a concrete password validation message from backend errors', async () => {
+    vi.stubGlobal('fetch', fetchMock)
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: 'Bad Request',
+      text: () => Promise.resolve(JSON.stringify({
+        statusCode: 400,
+        message: 'Validation failed',
+        errors: ['password: Too small: expected string to have >=8 characters']
+      }))
+    })
+
+    const auth = useAuthStore()
+
+    await expect(auth.register({
+      displayName: 'Student Example',
+      email: 'student@smarteach.local',
+      password: 'short'
+    })).rejects.toThrow()
+
+    expect(auth.error).toBe('Пароль должен быть не короче 8 символов')
+  })
 })
