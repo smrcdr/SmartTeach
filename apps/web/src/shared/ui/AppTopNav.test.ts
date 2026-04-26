@@ -1,8 +1,9 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import type { AuthUser } from '@/features/auth/api/auth.api'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import AppTopNav from './AppTopNav.vue'
 
@@ -44,13 +45,53 @@ async function mountWithRoute(path: string) {
   })
 }
 
-describe('AppTopNav', () => {
-  it('pins brand and sections to the left, and omits search', () => {
-    const wrapper = mount(AppTopNav, {
+async function mountAuthenticatedWithRoute(path: string, userOverrides: Partial<AuthUser> = {}) {
+  const pinia = createPinia()
+  const auth = useAuthStore(pinia)
+  auth.accessToken = 'access-token'
+  auth.user = {
+    id: 'user-id',
+    email: 'student@smarteach.local',
+    displayName: 'Student Example',
+    bio: null,
+    avatarUrl: null,
+    ...userOverrides
+  }
+  auth.logout = vi.fn()
+
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', name: 'home', component: { template: '<span />' } },
+      { path: '/catalog', name: 'catalog', component: { template: '<span />' } },
+      { path: '/login', name: 'login', component: { template: '<span />' } },
+      { path: '/my-groups', name: 'my-groups', meta: { requiresAuth: true }, component: { template: '<span />' } },
+      { path: '/chats', name: 'chats', meta: { requiresAuth: true }, component: { template: '<span />' } },
+      { path: '/profile', name: 'profile', meta: { requiresAuth: true }, component: { template: '<span />' } },
+      { path: '/profile/edit', name: 'profile-edit', meta: { requiresAuth: true }, component: { template: '<span />' } }
+    ]
+  })
+
+  router.push(path)
+  await router.isReady()
+
+  return {
+    auth,
+    router,
+    wrapper: mount(AppTopNav, {
       global: {
-        plugins: [createPinia()]
+        plugins: [pinia, router],
+        stubs: {
+          RouterLink: false
+        }
       }
     })
+  }
+}
+
+describe('AppTopNav', () => {
+  it('pins brand and sections to the left, and omits search', async () => {
+    const wrapper = await mountWithRoute('/')
 
     expect(wrapper.find('.top-nav__inner--full').exists()).toBe(true)
     expect(wrapper.find('.top-nav__primary').text()).toContain('SmarTeach')
@@ -70,23 +111,8 @@ describe('AppTopNav', () => {
     expect(source).toContain('inset 0 -1px 0 rgb(255 255 255 / 62%)')
   })
 
-  it('keeps the authenticated profile on the right', () => {
-    const pinia = createPinia()
-    const auth = useAuthStore(pinia)
-    auth.accessToken = 'access-token'
-    auth.user = {
-      id: 'user-id',
-      email: 'student@smarteach.local',
-      displayName: 'Student Example',
-      bio: null,
-      avatarUrl: null
-    }
-
-    const wrapper = mount(AppTopNav, {
-      global: {
-        plugins: [pinia]
-      }
-    })
+  it('keeps the authenticated profile on the right', async () => {
+    const { wrapper } = await mountAuthenticatedWithRoute('/')
 
     expect(wrapper.find('.top-nav__profile').exists()).toBe(true)
     expect(wrapper.find('.top-nav__profile').text()).toContain('Student Example')
@@ -95,23 +121,7 @@ describe('AppTopNav', () => {
   })
 
   it('opens a minimal profile menu with profile, edit and logout actions', async () => {
-    const pinia = createPinia()
-    const auth = useAuthStore(pinia)
-    auth.accessToken = 'access-token'
-    auth.user = {
-      id: 'user-id',
-      email: 'student@smarteach.local',
-      displayName: 'Student Example',
-      bio: null,
-      avatarUrl: null
-    }
-    auth.logout = vi.fn()
-
-    const wrapper = mount(AppTopNav, {
-      global: {
-        plugins: [pinia]
-      }
-    })
+    const { auth, wrapper } = await mountAuthenticatedWithRoute('/')
 
     expect(wrapper.find('.top-nav__profile-menu').exists()).toBe(false)
 
@@ -133,26 +143,26 @@ describe('AppTopNav', () => {
     expect(actions[2].classes()).toContain('top-nav__profile-menu-logout')
 
     await actions[2].trigger('click')
+    await flushPromises()
 
     expect(auth.logout).toHaveBeenCalledOnce()
   })
 
-  it('renders backend avatar only when avatarUrl is present', () => {
-    const pinia = createPinia()
-    const auth = useAuthStore(pinia)
-    auth.accessToken = 'access-token'
-    auth.user = {
-      id: 'user-id',
-      email: 'student@smarteach.local',
-      displayName: 'Student Example',
-      bio: null,
-      avatarUrl: 'https://cdn.example.com/avatar.png'
-    }
+  it('redirects to login after logout from a protected page', async () => {
+    const { auth, router, wrapper } = await mountAuthenticatedWithRoute('/chats')
 
-    const wrapper = mount(AppTopNav, {
-      global: {
-        plugins: [pinia]
-      }
+    await wrapper.find('.top-nav__profile-trigger').trigger('click')
+    await wrapper.find('.top-nav__profile-menu-logout').trigger('click')
+    await flushPromises()
+
+    expect(auth.logout).toHaveBeenCalledOnce()
+    expect(router.currentRoute.value.name).toBe('login')
+    expect(router.currentRoute.value.query).toEqual({ redirect: '/chats' })
+  })
+
+  it('renders backend avatar only when avatarUrl is present', async () => {
+    const { wrapper } = await mountAuthenticatedWithRoute('/', {
+      avatarUrl: 'https://cdn.example.com/avatar.png'
     })
 
     expect(wrapper.find('.top-nav__profile-trigger img').attributes('src')).toBe('https://cdn.example.com/avatar.png')

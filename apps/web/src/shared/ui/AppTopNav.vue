@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Menu } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
 import AppButton from './AppButton.vue'
@@ -14,11 +15,29 @@ const navItems = [
 
 const auth = useAuthStore()
 const notifications = useNotificationStore()
+const route = useRoute()
+const router = useRouter()
 const isProfileMenuOpen = ref(false)
 const userInitial = computed(() => auth.user?.displayName.slice(0, 1).toUpperCase() ?? '')
 
 function toggleProfileMenu() {
   isProfileMenuOpen.value = !isProfileMenuOpen.value
+}
+
+async function redirectToLogin() {
+  if (route.name === 'login') {
+    return
+  }
+
+  if (route.meta.requiresAuth) {
+    await router.push({
+      name: 'login',
+      query: { redirect: route.fullPath }
+    })
+    return
+  }
+
+  await router.push({ name: 'login' })
 }
 
 async function logout() {
@@ -28,6 +47,8 @@ async function logout() {
     notifications.success('Вы вышли из аккаунта')
   } catch {
     notifications.error('Не удалось завершить сессию')
+  } finally {
+    await redirectToLogin()
   }
 }
 </script>
