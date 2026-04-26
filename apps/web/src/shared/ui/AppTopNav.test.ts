@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import AppTopNav from './AppTopNav.vue'
 
@@ -43,6 +43,37 @@ describe('AppTopNav', () => {
 
     expect(wrapper.find('.top-nav__profile').exists()).toBe(true)
     expect(wrapper.find('.top-nav__profile').text()).toContain('Student Example')
-    expect(wrapper.find('.top-nav__profile').text()).toContain('Выйти')
+  })
+
+  it('opens a minimal profile menu with profile and logout actions', async () => {
+    const pinia = createPinia()
+    const auth = useAuthStore(pinia)
+    auth.accessToken = 'access-token'
+    auth.user = {
+      id: 'user-id',
+      email: 'student@smarteach.local',
+      displayName: 'Student Example',
+      bio: null,
+      avatarUrl: null
+    }
+    auth.logout = vi.fn()
+
+    const wrapper = mount(AppTopNav, {
+      global: {
+        plugins: [pinia]
+      }
+    })
+
+    expect(wrapper.find('.top-nav__profile-menu').exists()).toBe(false)
+
+    await wrapper.find('.top-nav__profile-trigger').trigger('click')
+
+    const actions = wrapper.findAll('.top-nav__profile-menu a, .top-nav__profile-menu button')
+    expect(actions.map((action) => action.text())).toEqual(['Открыть профиль', 'Выйти'])
+    expect(actions[0].attributes('href')).toBe('/profile')
+
+    await actions[1].trigger('click')
+
+    expect(auth.logout).toHaveBeenCalledOnce()
   })
 })

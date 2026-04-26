@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Menu } from 'lucide-vue-next'
+import { ref } from 'vue'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import AppButton from './AppButton.vue'
 
@@ -11,6 +12,16 @@ const navItems = [
 ]
 
 const auth = useAuthStore()
+const isProfileMenuOpen = ref(false)
+
+function toggleProfileMenu() {
+  isProfileMenuOpen.value = !isProfileMenuOpen.value
+}
+
+async function logout() {
+  isProfileMenuOpen.value = false
+  await auth.logout()
+}
 </script>
 
 <template>
@@ -32,9 +43,20 @@ const auth = useAuthStore()
 
       <div class="top-nav__actions">
         <div v-if="auth.isAuthenticated" class="top-nav__user top-nav__profile">
-          <RouterLink to="/profile">{{ auth.displayUser.displayName }}</RouterLink>
-          <img :src="auth.displayUser.avatarUrl || ''" :alt="auth.displayUser.displayName" />
-          <button class="top-nav__logout" type="button" @click="auth.logout()">Выйти</button>
+          <button
+            class="top-nav__profile-trigger"
+            type="button"
+            aria-haspopup="menu"
+            :aria-expanded="isProfileMenuOpen"
+            @click="toggleProfileMenu"
+          >
+            <span>{{ auth.displayUser.displayName }}</span>
+            <img :src="auth.displayUser.avatarUrl || ''" :alt="auth.displayUser.displayName" />
+          </button>
+          <div v-if="isProfileMenuOpen" class="top-nav__profile-menu" role="menu">
+            <RouterLink to="/profile" role="menuitem" @click="isProfileMenuOpen = false">Открыть профиль</RouterLink>
+            <button type="button" role="menuitem" @click="logout">Выйти</button>
+          </div>
         </div>
         <div v-else class="top-nav__auth-actions">
           <RouterLink to="/login">Войти</RouterLink>
@@ -129,14 +151,28 @@ const auth = useAuthStore()
 
 .top-nav__user,
 .top-nav__auth-actions {
-  border-left: 1px solid rgb(199 197 211 / 22%);
   gap: 12px;
-  padding-left: 18px;
 }
 
-.top-nav__user a,
+.top-nav__user {
+  position: relative;
+}
+
+.top-nav__profile-trigger {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-left: 1px solid rgb(199 197 211 / 22%);
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  padding: 0 0 0 18px;
+}
+
+.top-nav__profile-trigger span,
 .top-nav__auth-actions a,
-.top-nav__logout {
+.top-nav__profile-menu a,
+.top-nav__profile-menu button {
   color: var(--color-text);
   font-size: 0.86rem;
   font-weight: 650;
@@ -144,7 +180,9 @@ const auth = useAuthStore()
 
 .top-nav__auth-actions {
   align-items: center;
+  border-left: 1px solid rgb(199 197 211 / 22%);
   display: flex;
+  padding-left: 18px;
 }
 
 .top-nav__register {
@@ -155,15 +193,40 @@ const auth = useAuthStore()
   padding: 10px 14px;
 }
 
-.top-nav__logout {
-  background: transparent;
-  border: 0;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 0;
+.top-nav__profile-menu {
+  background: rgb(255 255 255 / 92%);
+  backdrop-filter: blur(18px);
+  border-radius: var(--radius-md);
+  box-shadow: 0 24px 60px -34px rgb(21 25 108 / 45%);
+  display: grid;
+  gap: 4px;
+  min-width: 180px;
+  padding: 8px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 12px);
 }
 
-.top-nav__user img {
+.top-nav__profile-menu a,
+.top-nav__profile-menu button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  min-height: 38px;
+  padding: 0 12px;
+  text-align: left;
+}
+
+.top-nav__profile-menu a:hover,
+.top-nav__profile-menu button:hover {
+  background: var(--color-surface-low);
+  color: var(--color-primary);
+}
+
+.top-nav__profile-trigger img {
   border-radius: 999px;
   height: 40px;
   object-fit: cover;
