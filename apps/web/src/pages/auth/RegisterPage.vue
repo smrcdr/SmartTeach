@@ -25,7 +25,7 @@ async function submit() {
 
 <template>
   <main class="page auth-page auth-page--centered">
-    <section class="auth-shell">
+    <section class="auth-shell auth-shell--wide">
       <form class="auth-card" @submit.prevent="submit">
         <div class="auth-card__header">
           <span class="eyebrow">Аккаунт</span>
@@ -56,7 +56,7 @@ async function submit() {
   display: flex;
   justify-content: center;
   margin: 0 auto;
-  max-width: 560px;
+  max-width: 700px;
 }
 
 .auth-card {
