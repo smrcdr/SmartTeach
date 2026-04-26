@@ -29,6 +29,7 @@ describe('RegisterPage', () => {
 
     expect(wrapper.find('.auth-shell__story').exists()).toBe(false)
     expect(wrapper.find('.auth-card__header p').exists()).toBe(false)
+    expect(wrapper.find('.auth-card').classes()).toContain('auth-card--wide-fields')
     expect(wrapper.find('.auth-page').classes()).toContain('auth-page--centered')
     expect(wrapper.find('.auth-shell').classes()).toContain('auth-shell--wide')
     expect(wrapper.text()).toContain('Регистрация')

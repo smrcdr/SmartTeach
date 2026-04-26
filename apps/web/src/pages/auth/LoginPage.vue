@@ -26,7 +26,7 @@ async function submit() {
 <template>
   <main class="page auth-page auth-page--centered">
     <section class="auth-shell auth-shell--wide">
-      <form class="auth-card" @submit.prevent="submit">
+      <form class="auth-card auth-card--wide-fields" @submit.prevent="submit">
         <div class="auth-card__header">
           <span class="eyebrow">Сессия</span>
           <h2>Войти</h2>
@@ -69,6 +69,11 @@ async function submit() {
   box-shadow: var(--shadow-soft);
   gap: 17px;
   padding: clamp(28px, 5vw, 44px);
+  width: 100%;
+}
+
+.auth-card--wide-fields :deep(.field),
+.auth-card--wide-fields :deep(.field__control) {
   width: 100%;
 }
 
