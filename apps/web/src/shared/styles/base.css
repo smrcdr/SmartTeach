@@ -91,6 +91,10 @@ img {
   box-shadow: var(--shadow-soft);
 }
 
+.narrow-page {
+  max-width: 980px;
+}
+
 .tonal-panel {
   background: var(--color-surface-low);
   border-radius: var(--radius-lg);
