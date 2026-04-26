@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createJoinRequest, decideJoinRequest, getGroupByCode } from './groups.api'
+import { createGroup, createJoinRequest, decideJoinRequest, getGroupByCode } from './groups.api'
 
 describe('groups api', () => {
   afterEach(() => {
@@ -16,6 +16,30 @@ describe('groups api', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/groups/by-code/web%20101', expect.objectContaining({
       credentials: 'include',
       headers: expect.any(Headers)
+    }))
+  })
+
+  it('creates groups through the backend create endpoint', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ id: 'group-id' }), { status: 201 })
+    )
+    const payload = {
+      name: 'Physics 101',
+      description: 'Механика и задачи',
+      accessMode: 'BY_REQUEST' as const,
+      settings: {
+        chatEnabled: true,
+        lessonsEnabled: true,
+        assignmentsEnabled: true,
+        scheduleEnabled: false
+      }
+    }
+
+    await createGroup(payload, 'access-token')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/groups', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify(payload)
     }))
   })
 

@@ -129,6 +129,13 @@ export type GroupListQuery = {
   mine?: boolean
 }
 
+export type CreateGroupPayload = {
+  name: string
+  description?: string
+  accessMode: Group['accessMode']
+  settings: GroupSettings
+}
+
 function toQuery(query: GroupListQuery = {}) {
   const params = new URLSearchParams()
 
@@ -156,7 +163,7 @@ export function getGroupByCode(code: string, token?: string | null) {
   return apiRequest<Group>(`/groups/by-code/${encodeURIComponent(code.trim())}`, { token })
 }
 
-export function createGroup(payload: Partial<Group>, token?: string | null) {
+export function createGroup(payload: CreateGroupPayload, token?: string | null) {
   return apiRequest<Group>('/groups', {
     method: 'POST',
     token,
