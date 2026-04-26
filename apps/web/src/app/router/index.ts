@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { installAuthGuard } from './guards'
 import { routes } from './routes'
 
 export const router = createRouter({
@@ -8,3 +9,5 @@ export const router = createRouter({
     return { top: 0 }
   }
 })
+
+installAuthGuard(router)

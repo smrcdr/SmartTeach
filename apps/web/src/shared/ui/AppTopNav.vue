@@ -31,9 +31,14 @@ const auth = useAuthStore()
       </div>
 
       <div class="top-nav__actions">
-        <div class="top-nav__user top-nav__profile">
-          <span>{{ auth.displayUser.name }}</span>
-          <img :src="auth.displayUser.avatarUrl || ''" :alt="auth.displayUser.name" />
+        <div v-if="auth.isAuthenticated" class="top-nav__user top-nav__profile">
+          <RouterLink to="/profile">{{ auth.displayUser.displayName }}</RouterLink>
+          <img :src="auth.displayUser.avatarUrl || ''" :alt="auth.displayUser.displayName" />
+          <button class="top-nav__logout" type="button" @click="auth.logout()">Выйти</button>
+        </div>
+        <div v-else class="top-nav__auth-actions">
+          <RouterLink to="/login">Войти</RouterLink>
+          <RouterLink to="/register" class="top-nav__register">Регистрация</RouterLink>
         </div>
         <AppButton variant="quiet" icon-only aria-label="Открыть меню" class="top-nav__menu">
           <Menu :size="19" />
@@ -122,16 +127,40 @@ const auth = useAuthStore()
   gap: 16px;
 }
 
-.top-nav__user {
+.top-nav__user,
+.top-nav__auth-actions {
   border-left: 1px solid rgb(199 197 211 / 22%);
   gap: 12px;
   padding-left: 18px;
 }
 
-.top-nav__user span {
+.top-nav__user a,
+.top-nav__auth-actions a,
+.top-nav__logout {
   color: var(--color-text);
   font-size: 0.86rem;
   font-weight: 650;
+}
+
+.top-nav__auth-actions {
+  align-items: center;
+  display: flex;
+}
+
+.top-nav__register {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-container));
+  border-radius: var(--radius-sm);
+  color: #fff !important;
+  min-height: 36px;
+  padding: 10px 14px;
+}
+
+.top-nav__logout {
+  background: transparent;
+  border: 0;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
 }
 
 .top-nav__user img {
@@ -147,7 +176,8 @@ const auth = useAuthStore()
 
 @media (max-width: 860px) {
   .top-nav__links,
-  .top-nav__user {
+  .top-nav__user,
+  .top-nav__auth-actions {
     display: none;
   }
 

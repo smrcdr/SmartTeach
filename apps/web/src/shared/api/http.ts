@@ -12,7 +12,7 @@ export class ApiError extends Error {
   }
 }
 
-const apiBaseUrl = import.meta.env.VITE_API_URL ?? '/api'
+const apiBaseUrl = import.meta.env.VITE_API_URL ?? '/api/v1'
 
 function buildUrl(path: string): string {
   if (path.startsWith('http')) {

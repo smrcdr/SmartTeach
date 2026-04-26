@@ -40,17 +40,18 @@ export const routes: RouteRecordRaw[] = [
     component: AppShellLayout,
     children: [
       { path: 'catalog', name: 'catalog', component: () => import('@/pages/groups/GroupsPage.vue') },
-      { path: 'my-groups', name: 'my-groups', component: () => import('@/pages/groups/MyGroupsPage.vue') },
-      { path: 'groups/new', name: 'group-create', component: () => import('@/pages/groups/CreateGroupPage.vue') },
+      { path: 'my-groups', name: 'my-groups', meta: { requiresAuth: true }, component: () => import('@/pages/groups/MyGroupsPage.vue') },
+      { path: 'groups/new', name: 'group-create', meta: { requiresAuth: true }, component: () => import('@/pages/groups/CreateGroupPage.vue') },
       { path: 'groups/join', name: 'join-group', component: () => import('@/pages/groups/JoinGroupPage.vue') },
       { path: 'groups/:groupId', name: 'group-preview', component: () => import('@/pages/groups/GroupPreviewPage.vue') },
-      { path: 'chats', name: 'chats', component: () => import('@/pages/chats/ChatsPage.vue') },
-      { path: 'profile', name: 'profile', component: () => import('@/pages/profile/ProfilePage.vue') },
+      { path: 'chats', name: 'chats', meta: { requiresAuth: true }, component: () => import('@/pages/chats/ChatsPage.vue') },
+      { path: 'profile', name: 'profile', meta: { requiresAuth: true }, component: () => import('@/pages/profile/ProfilePage.vue') },
       { path: 'users/:userId', name: 'public-profile', component: () => import('@/pages/profile/PublicUserPage.vue') }
     ]
   },
   {
     path: '/groups/:groupId/workspace',
+    meta: { requiresAuth: true },
     component: GroupWorkspaceLayout,
     children: [
       { path: '', name: 'group-workspace', component: () => import('@/pages/groups/GroupOverviewPage.vue') },

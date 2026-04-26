@@ -3,7 +3,7 @@ import { apiRequest } from '@/shared/api/http'
 export type AuthUser = {
   id: string
   email: string
-  name: string
+  displayName: string
   bio?: string | null
   avatarUrl?: string | null
 }
@@ -11,6 +11,12 @@ export type AuthUser = {
 export type AuthSession = {
   user: AuthUser
   accessToken: string
+  sessionId: string
+}
+
+export type TokenPair = {
+  accessToken: string
+  sessionId: string
 }
 
 export type LoginPayload = {
@@ -19,7 +25,7 @@ export type LoginPayload = {
 }
 
 export type RegisterPayload = LoginPayload & {
-  name: string
+  displayName: string
 }
 
 export function login(payload: LoginPayload) {
@@ -38,6 +44,12 @@ export function register(payload: RegisterPayload) {
 
 export function getMe(token: string) {
   return apiRequest<AuthUser>('/auth/me', { token })
+}
+
+export function refresh() {
+  return apiRequest<TokenPair>('/auth/refresh', {
+    method: 'POST'
+  })
 }
 
 export function logout(token: string | null) {

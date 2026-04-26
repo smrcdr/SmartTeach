@@ -4,27 +4,55 @@ import { currentUser } from '@/app/demo/demo-data'
 import * as authApi from '../api/auth.api'
 
 const tokenStorageKey = 'smarteach.accessToken'
+const sessionStorageKey = 'smarteach.sessionId'
+
+function getStoredToken() {
+  return localStorage.getItem(tokenStorageKey)
+}
+
+function getStoredSessionId() {
+  return localStorage.getItem(sessionStorageKey)
+}
 
 export const useAuthStore = defineStore('auth', () => {
-  const accessToken = ref<string | null>(localStorage.getItem(tokenStorageKey))
+  const accessToken = ref<string | null>(getStoredToken())
+  const sessionId = ref<string | null>(getStoredSessionId())
   const user = ref<authApi.AuthUser | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+  const hasCheckedSession = ref(false)
 
   const displayUser = computed(() => user.value ?? {
     id: currentUser.id,
     email: 'alex@example.com',
-    name: currentUser.name,
+    displayName: currentUser.name,
     bio: currentUser.bio,
     avatarUrl: currentUser.avatarUrl
   })
 
-  const isAuthenticated = computed(() => Boolean(accessToken.value))
+  const isAuthenticated = computed(() => Boolean(accessToken.value && user.value))
 
   function setSession(session: authApi.AuthSession) {
     accessToken.value = session.accessToken
+    sessionId.value = session.sessionId
     user.value = session.user
     localStorage.setItem(tokenStorageKey, session.accessToken)
+    localStorage.setItem(sessionStorageKey, session.sessionId)
+  }
+
+  function setTokenPair(tokenPair: authApi.TokenPair) {
+    accessToken.value = tokenPair.accessToken
+    sessionId.value = tokenPair.sessionId
+    localStorage.setItem(tokenStorageKey, tokenPair.accessToken)
+    localStorage.setItem(sessionStorageKey, tokenPair.sessionId)
+  }
+
+  function clearSession() {
+    accessToken.value = null
+    sessionId.value = null
+    user.value = null
+    localStorage.removeItem(tokenStorageKey)
+    localStorage.removeItem(sessionStorageKey)
   }
 
   async function login(payload: authApi.LoginPayload) {
@@ -61,8 +89,33 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       user.value = await authApi.getMe(accessToken.value)
     } catch {
-      accessToken.value = null
-      localStorage.removeItem(tokenStorageKey)
+      clearSession()
+    }
+  }
+
+  async function ensureSession() {
+    if (accessToken.value) {
+      if (!user.value) {
+        await loadMe()
+      }
+
+      hasCheckedSession.value = true
+      return Boolean(accessToken.value)
+    }
+
+    if (hasCheckedSession.value) {
+      return false
+    }
+
+    hasCheckedSession.value = true
+
+    try {
+      setTokenPair(await authApi.refresh())
+      await loadMe()
+      return Boolean(accessToken.value)
+    } catch {
+      clearSession()
+      return false
     }
   }
 
@@ -70,14 +123,13 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await authApi.logout(accessToken.value)
     } finally {
-      accessToken.value = null
-      user.value = null
-      localStorage.removeItem(tokenStorageKey)
+      clearSession()
     }
   }
 
   return {
     accessToken,
+    sessionId,
     user,
     displayUser,
     isAuthenticated,
@@ -86,6 +138,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     register,
     loadMe,
+    ensureSession,
     logout
   }
 })
