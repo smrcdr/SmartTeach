@@ -39,10 +39,16 @@ const filteredGroups = computed(() => {
     </AppPageHeader>
 
     <section class="catalog-page__filters">
-      <AppTextField v-model="search" placeholder="Поиск по названию..." />
-      <div class="catalog-page__sort">
-        <span>Сортировать:</span>
-        <strong>По популярности</strong>
+      <div class="catalog-page__search">
+        <span
+          id="search"
+          class="material-symbols-outlined catalog-page__search-icon"
+          aria-hidden="true"
+          data-icon-id="search"
+        >
+          search
+        </span>
+        <AppTextField v-model="search" placeholder="Поиск по названию..." />
       </div>
     </section>
 
@@ -67,30 +73,23 @@ const filteredGroups = computed(() => {
   align-items: center;
   border-bottom: 1px solid var(--color-divider);
   border-top: 1px solid var(--color-divider);
-  display: grid;
-  gap: 20px;
-  grid-template-columns: minmax(260px, 480px) 1fr;
+  display: flex;
   margin-bottom: 36px;
   padding: 22px 0;
 }
 
-.catalog-page__sort {
+.catalog-page__search {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 24px minmax(260px, 480px);
+  width: 100%;
+}
+
+.catalog-page__search-icon {
   color: var(--color-text-muted);
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.catalog-page__sort span {
-  font-size: 0.74rem;
-  font-weight: 900;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.catalog-page__sort strong {
-  color: var(--color-primary);
-  font-size: 0.9rem;
+  font-size: 24px;
+  line-height: 1;
 }
 
 .catalog-page__join-button {
@@ -126,12 +125,8 @@ const filteredGroups = computed(() => {
 }
 
 @media (max-width: 760px) {
-  .catalog-page__filters {
-    grid-template-columns: 1fr;
-  }
-
-  .catalog-page__sort {
-    justify-content: flex-start;
+  .catalog-page__search {
+    grid-template-columns: 22px minmax(0, 1fr);
   }
 
   .catalog-page__join-button {
