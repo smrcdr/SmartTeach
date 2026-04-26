@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import type { Group } from '@/features/groups/api/groups.api'
@@ -108,5 +109,13 @@ describe('GroupWorkspaceLayout', () => {
 
     expect(overview?.classes()).not.toContain('workspace-nav__item--active')
     expect(lessons?.classes()).toContain('workspace-nav__item--active')
+  })
+
+  it('keeps active navigation styling stable on hover', () => {
+    const source = readFileSync(`${process.cwd()}/src/layouts/GroupWorkspaceLayout.vue`, 'utf8')
+
+    expect(source).toContain('.workspace-nav__item--active:hover')
+    expect(source).toContain('background: var(--color-primary-container);')
+    expect(source).toContain('color: var(--color-action-primary-text);')
   })
 })

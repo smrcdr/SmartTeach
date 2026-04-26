@@ -129,9 +129,14 @@ function isNavItemActive(item: GroupWorkspaceNavItem) {
 }
 
 .workspace-nav__item--active {
-  background: var(--color-primary);
-  box-shadow: 0 18px 34px -20px rgb(21 25 108 / 60%);
-  color: #fff;
+  background: var(--color-primary-container);
+  box-shadow: var(--shadow-action-primary);
+  color: var(--color-action-primary-text);
+}
+
+.workspace-nav__item--active:hover {
+  background: var(--color-primary-container);
+  color: var(--color-action-primary-text);
 }
 
 .workspace-main {
