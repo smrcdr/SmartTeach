@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createGroup, createJoinRequest, decideJoinRequest, getGroupByCode } from './groups.api'
+import {
+  createGroup,
+  createJoinRequest,
+  decideJoinRequest,
+  getGroupByCode,
+  updateGroup,
+  updateGroupSettings
+} from './groups.api'
 
 describe('groups api', () => {
   afterEach(() => {
@@ -39,6 +46,41 @@ describe('groups api', () => {
 
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/groups', expect.objectContaining({
       method: 'POST',
+      body: JSON.stringify(payload)
+    }))
+  })
+
+  it('updates group details through the backend update endpoint', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ id: 'group-id' }), { status: 200 })
+    )
+    const payload = {
+      name: 'Updated group',
+      description: '',
+      accessMode: 'CLOSED' as const
+    }
+
+    await updateGroup('group-id', payload, 'access-token')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/groups/group-id', expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify(payload)
+    }))
+  })
+
+  it('updates group module settings through the backend settings endpoint', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ chatEnabled: false }), { status: 200 })
+    )
+    const payload = {
+      chatEnabled: false,
+      scheduleEnabled: true
+    }
+
+    await updateGroupSettings('group-id', payload, 'access-token')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/groups/group-id/settings', expect.objectContaining({
+      method: 'PATCH',
       body: JSON.stringify(payload)
     }))
   })

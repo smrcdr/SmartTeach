@@ -136,6 +136,14 @@ export type CreateGroupPayload = {
   settings: GroupSettings
 }
 
+export type UpdateGroupPayload = {
+  name?: string
+  description?: string
+  accessMode?: Group['accessMode']
+}
+
+export type UpdateGroupSettingsPayload = Partial<GroupSettings>
+
 function toQuery(query: GroupListQuery = {}) {
   const params = new URLSearchParams()
 
@@ -166,6 +174,22 @@ export function getGroupByCode(code: string, token?: string | null) {
 export function createGroup(payload: CreateGroupPayload, token?: string | null) {
   return apiRequest<Group>('/groups', {
     method: 'POST',
+    token,
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updateGroup(groupId: string, payload: UpdateGroupPayload, token?: string | null) {
+  return apiRequest<Group>(`/groups/${groupId}`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updateGroupSettings(groupId: string, payload: UpdateGroupSettingsPayload, token?: string | null) {
+  return apiRequest<GroupSettings>(`/groups/${groupId}/settings`, {
+    method: 'PATCH',
     token,
     body: JSON.stringify(payload)
   })

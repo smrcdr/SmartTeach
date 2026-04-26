@@ -57,7 +57,11 @@ describe('CreateGroupPage', () => {
 
     expect(wrapper.find('input[name="name"]').exists()).toBe(true)
     expect(wrapper.find('textarea[name="description"]').exists()).toBe(true)
+    expect(wrapper.findAll('input[name="accessMode"]')).toHaveLength(3)
     expect(wrapper.findAll('input[type="checkbox"]')).toHaveLength(4)
+    expect(wrapper.text()).toContain('Открытая')
+    expect(wrapper.text()).toContain('По заявке')
+    expect(wrapper.text()).toContain('Закрытая')
     expect(wrapper.text()).toContain('Чат')
     expect(wrapper.text()).toContain('Уроки')
     expect(wrapper.text()).toContain('Задания')
@@ -74,7 +78,7 @@ describe('CreateGroupPage', () => {
         id: 'created-group-id',
         name: 'Physics 101',
         description: 'Механика и задачи',
-        accessMode: 'BY_REQUEST',
+        accessMode: 'CLOSED',
         settings: {
           chatEnabled: false,
           lessonsEnabled: true,
@@ -89,6 +93,7 @@ describe('CreateGroupPage', () => {
 
     await wrapper.find('input[name="name"]').setValue('Physics 101')
     await wrapper.find('textarea[name="description"]').setValue('Механика и задачи')
+    await wrapper.find('input[value="CLOSED"]').setValue()
     await wrapper.find('input[name="chatEnabled"]').setValue(false)
     await wrapper.find('form').trigger('submit')
     await flushPromises()
@@ -100,7 +105,7 @@ describe('CreateGroupPage', () => {
     expect(JSON.parse(String(request.body))).toEqual({
       name: 'Physics 101',
       description: 'Механика и задачи',
-      accessMode: 'BY_REQUEST',
+      accessMode: 'CLOSED',
       settings: {
         chatEnabled: false,
         lessonsEnabled: true,

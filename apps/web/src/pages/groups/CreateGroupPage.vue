@@ -7,30 +7,30 @@ import {
   type CreateGroupPayload,
   type GroupSettings
 } from '@/features/groups/api/groups.api'
+import GroupAccessModeSelect from '@/features/groups/components/GroupAccessModeSelect.vue'
 import GroupModuleSwitch from '@/features/groups/components/GroupModuleSwitch.vue'
+import { groupSettingOptions } from '@/features/groups/lib/group-form-options'
 import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
 import AppButton from '@/shared/ui/AppButton.vue'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import AppTextField from '@/shared/ui/AppTextField.vue'
 import AppTextarea from '@/shared/ui/AppTextarea.vue'
 
-type GroupSettingKey = keyof GroupSettings
+type CreateGroupForm = {
+  name: string
+  description: string
+  accessMode: CreateGroupPayload['accessMode']
+  settings: GroupSettings
+}
 
-const settingOptions: Array<{ key: GroupSettingKey, label: string }> = [
-  { key: 'chatEnabled', label: 'Чат' },
-  { key: 'lessonsEnabled', label: 'Уроки' },
-  { key: 'assignmentsEnabled', label: 'Задания' },
-  { key: 'scheduleEnabled', label: 'Расписание' }
-]
-
-const defaultAccessMode: CreateGroupPayload['accessMode'] = 'BY_REQUEST'
 const auth = useAuthStore()
 const notifications = useNotificationStore()
 const router = useRouter()
 const isSubmitting = ref(false)
-const form = reactive({
+const form = reactive<CreateGroupForm>({
   name: '',
   description: '',
+  accessMode: 'BY_REQUEST',
   settings: {
     chatEnabled: true,
     lessonsEnabled: true,
@@ -45,7 +45,7 @@ function buildPayload(): CreateGroupPayload {
   return {
     name: form.name.trim(),
     ...(description ? { description } : {}),
-    accessMode: defaultAccessMode,
+    accessMode: form.accessMode,
     settings: { ...form.settings }
   }
 }
@@ -99,12 +99,13 @@ async function submit() {
         label="Описание"
         placeholder="Добавьте описание"
       />
+      <GroupAccessModeSelect v-model="form.accessMode" name="accessMode" />
 
       <section class="create-group-form__modules" aria-labelledby="group-modules-title">
         <h2 id="group-modules-title">Разделы</h2>
         <div class="create-group-form__module-grid">
           <GroupModuleSwitch
-            v-for="option in settingOptions"
+            v-for="option in groupSettingOptions"
             :key="option.key"
             v-model="form.settings[option.key]"
             :name="option.key"
