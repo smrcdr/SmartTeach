@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { UserPlus } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import GroupCatalogCard from '@/features/groups/components/GroupCatalogCard.vue'
 import { useGroups } from '@/features/groups/composables/useGroups'
@@ -30,7 +31,10 @@ const filteredGroups = computed(() => {
       align="split"
     >
       <template #actions>
-        <RouterLink to="/groups/join" class="catalog-page__join">Вступить по коду</RouterLink>
+        <RouterLink to="/groups/join" class="catalog-page__join-button">
+          <UserPlus :size="18" />
+          Вступить по коду
+        </RouterLink>
       </template>
     </AppPageHeader>
 
@@ -84,10 +88,36 @@ const filteredGroups = computed(() => {
   text-transform: uppercase;
 }
 
-.catalog-page__sort strong,
-.catalog-page__join {
+.catalog-page__sort strong {
   color: var(--color-primary);
   font-size: 0.9rem;
+}
+
+.catalog-page__join-button {
+  align-items: center;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-container));
+  border-radius: var(--radius-sm);
+  box-shadow: 0 16px 30px -18px rgb(21 25 108 / 60%);
+  color: #fff;
+  display: inline-flex;
+  font-size: 0.92rem;
+  font-weight: 800;
+  gap: 10px;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 20px;
+  transition: background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  white-space: nowrap;
+}
+
+.catalog-page__join-button:hover {
+  box-shadow: 0 18px 34px -20px rgb(21 25 108 / 72%);
+  transform: translateY(-1px);
+}
+
+.catalog-page__join-button:focus-visible {
+  outline: 3px solid rgb(21 25 108 / 22%);
+  outline-offset: 3px;
 }
 
 .catalog-page__list {
@@ -102,6 +132,10 @@ const filteredGroups = computed(() => {
 
   .catalog-page__sort {
     justify-content: flex-start;
+  }
+
+  .catalog-page__join-button {
+    width: 100%;
   }
 }
 </style>
