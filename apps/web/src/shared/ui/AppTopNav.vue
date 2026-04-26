@@ -104,6 +104,7 @@ async function logout() {
 .top-nav {
   background: rgb(251 248 255 / 86%);
   backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgb(199 197 211 / 26%);
   box-shadow: 0 4px 40px rgb(27 27 32 / 4%);
   left: 0;
   position: fixed;
