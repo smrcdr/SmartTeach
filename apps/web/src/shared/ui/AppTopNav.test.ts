@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import type { AuthUser } from '@/features/auth/api/auth.api'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
+import { setTheme } from '@/shared/theme/theme'
 import AppTopNav from './AppTopNav.vue'
 
 async function mountWithRoute(path: string) {
@@ -105,6 +106,7 @@ describe('AppTopNav', () => {
     expect(wrapper.find('.top-nav__primary').text()).toContain('Каталог')
     expect(wrapper.find('.top-nav__primary').text()).toContain('Мои группы')
     expect(wrapper.find('.top-nav__primary').text()).toContain('Чаты')
+    expect(wrapper.find('.top-nav__theme-toggle').exists()).toBe(true)
     expect(wrapper.find('.top-nav__auth-actions').text()).toContain('Войти')
     expect(wrapper.find('.top-nav__auth-actions').text()).toContain('Регистрация')
     expect(wrapper.find('[aria-label="Поиск"]').exists()).toBe(false)
@@ -137,21 +139,18 @@ describe('AppTopNav', () => {
     expect(actions.map((action) => action.text())).toEqual([
       'person Открыть профиль',
       'edit Редактировать профиль',
-      'dark_mode Тёмная тема',
       'logout Выйти'
     ])
     expect(actions[0].attributes('href')).toBe('/profile')
     expect(actions[1].attributes('href')).toBe('/profile/edit')
     expect(actions[0].find('.top-nav__menu-icon').text()).toBe('person')
     expect(actions[1].find('.top-nav__menu-icon').text()).toBe('edit')
-    expect(actions[2].find('.top-nav__menu-icon').text()).toBe('dark_mode')
-    expect(actions[2].classes()).toContain('top-nav__profile-menu-theme')
-    expect(actions[3].find('.top-nav__menu-icon').text()).toBe('logout')
-    expect(actions[3].find('.top-nav__menu-icon').attributes('id')).toBe('logout')
-    expect(actions[3].find('.top-nav__menu-icon').attributes('data-icon-id')).toBe('logout')
-    expect(actions[3].classes()).toContain('top-nav__profile-menu-logout')
+    expect(actions[2].find('.top-nav__menu-icon').text()).toBe('logout')
+    expect(actions[2].find('.top-nav__menu-icon').attributes('id')).toBe('logout')
+    expect(actions[2].find('.top-nav__menu-icon').attributes('data-icon-id')).toBe('logout')
+    expect(actions[2].classes()).toContain('top-nav__profile-menu-logout')
 
-    await actions[3].trigger('click')
+    await actions[2].trigger('click')
     await flushPromises()
 
     expect(auth.logout).toHaveBeenCalledOnce()
@@ -178,17 +177,18 @@ describe('AppTopNav', () => {
     expect(source).not.toMatch(/top-nav__profile-menu[\\s\\S]*linear-gradient/)
   })
 
-  it('toggles a persisted dark theme from the profile menu', async () => {
+  it('toggles a persisted dark theme from the navbar switch', async () => {
+    setTheme('light')
+    localStorage.clear()
     const { wrapper } = await mountAuthenticatedWithRoute('/')
 
-    await wrapper.find('.top-nav__profile-trigger').trigger('click')
-    await wrapper.find('.top-nav__profile-menu-theme').trigger('click')
+    await wrapper.find('.top-nav__theme-toggle').trigger('click')
     await wrapper.vm.$nextTick()
 
     expect(document.documentElement.dataset.theme).toBe('dark')
     expect(document.documentElement.style.colorScheme).toBe('dark')
     expect(localStorage.getItem('smarteach.theme')).toBe('dark')
-    expect(wrapper.find('.top-nav__profile-menu-theme').text()).toContain('Светлая тема')
+    expect(wrapper.find('.top-nav__theme-toggle').text()).toContain('Светлая')
   })
 
   it('redirects to login after logout from a protected page', async () => {

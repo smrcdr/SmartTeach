@@ -22,8 +22,9 @@ const isProfileMenuOpen = ref(false)
 const profileRef = ref<HTMLElement | null>(null)
 const { theme, toggleTheme } = useTheme()
 const userInitial = computed(() => auth.user?.displayName.slice(0, 1).toUpperCase() ?? '')
-const themeMenuIcon = computed(() => theme.value === 'dark' ? 'light_mode' : 'dark_mode')
-const themeMenuLabel = computed(() => theme.value === 'dark' ? 'Светлая тема' : 'Тёмная тема')
+const themeToggleIcon = computed(() => theme.value === 'dark' ? 'light_mode' : 'dark_mode')
+const themeToggleLabel = computed(() => theme.value === 'dark' ? 'Светлая' : 'Тёмная')
+const themeToggleAriaLabel = computed(() => theme.value === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему')
 
 function toggleProfileMenu() {
   isProfileMenuOpen.value = !isProfileMenuOpen.value
@@ -100,6 +101,17 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="top-nav__actions">
+        <button
+          class="top-nav__theme-toggle"
+          type="button"
+          :aria-label="themeToggleAriaLabel"
+          @click="toggleTheme"
+        >
+          <span class="material-symbols-outlined top-nav__theme-toggle-icon" aria-hidden="true">
+            {{ themeToggleIcon }}
+          </span>
+          <span>{{ themeToggleLabel }}</span>
+        </button>
         <div v-if="auth.isAuthenticated && auth.user" ref="profileRef" class="top-nav__user top-nav__profile">
           <button
             class="top-nav__profile-trigger"
@@ -125,10 +137,6 @@ onBeforeUnmount(() => {
               <span class="material-symbols-outlined top-nav__menu-icon" aria-hidden="true">edit</span>
               Редактировать профиль
             </RouterLink>
-            <button class="top-nav__profile-menu-theme" type="button" role="menuitem" @click="toggleTheme">
-              <span class="material-symbols-outlined top-nav__menu-icon" aria-hidden="true">{{ themeMenuIcon }}</span>
-              {{ themeMenuLabel }}
-            </button>
             <button class="top-nav__profile-menu-logout" type="button" role="menuitem" @click="logout">
               <span
                 id="logout"
@@ -255,10 +263,38 @@ onBeforeUnmount(() => {
 .top-nav__profile-trigger span,
 .top-nav__auth-actions a,
 .top-nav__profile-menu a,
-.top-nav__profile-menu button {
+.top-nav__profile-menu button,
+.top-nav__theme-toggle {
   color: var(--color-text);
   font-size: 0.86rem;
   font-weight: 650;
+}
+
+.top-nav__theme-toggle {
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 13px 0 11px;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.top-nav__theme-toggle:hover {
+  background: var(--color-menu-hover);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.top-nav__theme-toggle-icon {
+  font-family: 'Material Symbols Outlined';
+  font-size: 19px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1;
 }
 
 .top-nav__auth-actions {
@@ -359,7 +395,8 @@ onBeforeUnmount(() => {
 @media (max-width: 860px) {
   .top-nav__links,
   .top-nav__user,
-  .top-nav__auth-actions {
+  .top-nav__auth-actions,
+  .top-nav__theme-toggle {
     display: none;
   }
 
