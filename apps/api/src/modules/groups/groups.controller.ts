@@ -27,9 +27,10 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger'
 import { ErrorResponseDto } from '../../common/dto/error-response.dto'
-import { CurrentAuth } from '../../security/current-auth.decorator'
+import { CurrentAuth, CurrentOptionalAuth } from '../../security/current-auth.decorator'
 import type { AuthContext } from '../../security/auth.types'
 import { AccessTokenAuthGuard } from '../../security/access-token-auth.guard'
+import { OptionalAccessTokenAuthGuard } from '../../security/optional-access-token-auth.guard'
 import { CreateGroupRequestDto } from './dto/create-group-request.dto'
 import { GroupDto } from './dto/group.dto'
 import { ListGroupsQueryDto } from './dto/list-groups-query.dto'
@@ -37,8 +38,6 @@ import { UpdateGroupRequestDto } from './dto/update-group-request.dto'
 import { GroupsService } from './groups.service'
 
 @ApiTags('Groups')
-@ApiBearerAuth('bearerAuth')
-@UseGuards(AccessTokenAuthGuard)
 @Controller({
   path: 'groups',
   version: '1',
@@ -48,6 +47,7 @@ export class GroupsController {
 
   @Get()
   @HttpCode(HttpStatus.OK)
+  @UseGuards(OptionalAccessTokenAuthGuard)
   @ApiQuery({
     name: 'search',
     required: false,
@@ -75,7 +75,7 @@ export class GroupsController {
   })
   @ApiOperation({
     summary: 'Получить список групп',
-    description: 'Возвращает группы с учетом фильтров, прав доступа и участия текущего пользователя.',
+    description: 'Возвращает публичные группы без входа в аккаунт и дополняет ответ данными участия, если передан access token.',
   })
   @ApiOkResponse({
     type: GroupDto,
@@ -85,13 +85,15 @@ export class GroupsController {
     type: ErrorResponseDto,
   })
   listGroups(
-    @CurrentAuth() auth: AuthContext,
+    @CurrentOptionalAuth() auth: AuthContext | null,
     @Query() query: ListGroupsQueryDto,
   ) {
-    return this.groupsService.listGroups(auth.userId, query)
+    return this.groupsService.listGroups(auth?.userId ?? null, query)
   }
 
   @Post()
+  @UseGuards(AccessTokenAuthGuard)
+  @ApiBearerAuth('bearerAuth')
   @ApiOperation({
     summary: 'Создать группу',
     description: 'Создает группу, настройки группы и запись владельца в составе участников.',
@@ -114,6 +116,7 @@ export class GroupsController {
 
   @Get('by-code/:code')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(OptionalAccessTokenAuthGuard)
   @ApiOperation({
     summary: 'Найти группу по коду',
   })
@@ -127,14 +130,15 @@ export class GroupsController {
     type: ErrorResponseDto,
   })
   getGroupByCode(
-    @CurrentAuth() auth: AuthContext,
+    @CurrentOptionalAuth() auth: AuthContext | null,
     @Param('code') code: string,
   ) {
-    return this.groupsService.getGroupByCodeOrThrow(auth.userId, code)
+    return this.groupsService.getGroupByCodeOrThrow(auth?.userId ?? null, code)
   }
 
   @Get(':groupId')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(OptionalAccessTokenAuthGuard)
   @ApiOperation({
     summary: 'Получить группу по идентификатору',
   })
@@ -148,14 +152,16 @@ export class GroupsController {
     type: ErrorResponseDto,
   })
   getGroupById(
-    @CurrentAuth() auth: AuthContext,
+    @CurrentOptionalAuth() auth: AuthContext | null,
     @Param('groupId', new ParseUUIDPipe({ version: '4' })) groupId: string,
   ) {
-    return this.groupsService.getGroupByIdOrThrow(auth.userId, groupId)
+    return this.groupsService.getGroupByIdOrThrow(auth?.userId ?? null, groupId)
   }
 
   @Patch(':groupId')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(AccessTokenAuthGuard)
+  @ApiBearerAuth('bearerAuth')
   @ApiOperation({
     summary: 'Обновить группу',
     description: 'Позволяет владельцу или администратору обновить базовые поля группы.',
@@ -185,6 +191,8 @@ export class GroupsController {
 
   @Delete(':groupId')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(AccessTokenAuthGuard)
+  @ApiBearerAuth('bearerAuth')
   @ApiOperation({
     summary: 'Удалить группу',
     description: 'Выполняет мягкое удаление группы и переводит ее в статус DELETED.',

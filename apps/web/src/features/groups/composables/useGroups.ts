@@ -1,4 +1,4 @@
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import type { Group } from '../api/groups.api'
 import { listGroups } from '../api/groups.api'
@@ -10,7 +10,7 @@ export function useGroups(options: { mine?: boolean } = {}) {
   const error = ref<string | null>(null)
 
   async function refresh(search?: string) {
-    if (!auth.accessToken) {
+    if (options.mine && !auth.accessToken) {
       return
     }
 
@@ -26,6 +26,10 @@ export function useGroups(options: { mine?: boolean } = {}) {
   }
 
   onMounted(() => {
+    void refresh()
+  })
+
+  watch(() => auth.accessToken, () => {
     void refresh()
   })
 

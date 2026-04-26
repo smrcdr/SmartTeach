@@ -1,7 +1,7 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { defineComponent } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useGroups } from './useGroups'
 
 const TestComponent = defineComponent({
@@ -12,13 +12,26 @@ const TestComponent = defineComponent({
 })
 
 describe('useGroups', () => {
-  it('starts without demo groups before backend data is loaded', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('loads public groups without an active session', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify([{ id: 'group-id' }]), { status: 200 })
+    )
     const wrapper = mount(TestComponent, {
       global: {
         plugins: [createPinia()]
       }
     })
 
-    expect(wrapper.text()).toBe('0')
+    await flushPromises()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/groups', expect.objectContaining({
+      credentials: 'include',
+      headers: expect.any(Headers)
+    }))
+    expect(wrapper.text()).toBe('1')
   })
 })

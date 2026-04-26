@@ -601,7 +601,7 @@ paths:
         - Files
   /groups:
     get:
-      description: Возвращает группы с учетом фильтров, прав доступа и участия текущего пользователя.
+      description: Возвращает публичные группы без входа в аккаунт и дополняет ответ данными участия, если передан access token.
       parameters:
         - in: query
           name: search
@@ -654,8 +654,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      security:
-        - bearerAuth: []
       summary: Получить список групп
       tags:
         - Groups
@@ -754,8 +752,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      security:
-        - bearerAuth: []
       summary: Получить группу по идентификатору
       tags:
         - Groups
@@ -2494,8 +2490,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      security:
-        - bearerAuth: []
       summary: Найти группу по коду
       tags:
         - Groups

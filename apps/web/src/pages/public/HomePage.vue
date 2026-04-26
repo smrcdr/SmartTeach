@@ -39,8 +39,8 @@ const { groups, isLoading, error } = useGroups()
         />
         <EmptyState
           v-if="!isLoading && !error && groups.length === 0"
-          title="Группы загружаются после входа"
-          description="Каталог будет заполнен данными из API, когда появится активная сессия."
+          title="Группы пока не опубликованы"
+          description="Когда в каталоге появятся открытые группы, они будут показаны здесь."
         />
         <EmptyState v-if="error" title="Не удалось загрузить группы" :description="error" />
       </div>

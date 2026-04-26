@@ -13,7 +13,7 @@ export function useGroup() {
   const groupId = computed(() => String(route.params.groupId ?? ''))
 
   async function refresh() {
-    if (!groupId.value || !auth.accessToken) {
+    if (!groupId.value) {
       return
     }
 
@@ -28,7 +28,7 @@ export function useGroup() {
     }
   }
 
-  watch(groupId, () => void refresh(), { immediate: true })
+  watch([groupId, () => auth.accessToken], () => void refresh(), { immediate: true })
 
   return {
     group,

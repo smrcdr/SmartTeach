@@ -6,6 +6,7 @@ import {
   createLesson,
   createScheduleEvent,
   decideJoinRequest,
+  listGroups,
   getGroupByCode,
   updateGroup,
   updateGroupSettings
@@ -14,6 +15,23 @@ import {
 describe('groups api', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  it('loads the public catalog without an authorization token', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 })
+    )
+
+    await listGroups()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/groups', expect.objectContaining({
+      credentials: 'include',
+      headers: expect.any(Headers)
+    }))
+
+    const headers = fetchMock.mock.calls[0]?.[1]?.headers
+    expect(headers).toBeInstanceOf(Headers)
+    expect((headers as Headers).has('Authorization')).toBe(false)
   })
 
   it('loads groups by code through the backend lookup endpoint', async () => {
