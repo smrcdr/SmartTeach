@@ -56,8 +56,8 @@ async function submit() {
   display: flex;
   justify-content: center;
   margin: 0 auto;
-  max-width: 700px;
-  width: min(100%, 700px);
+  max-width: 640px;
+  width: min(100%, 640px);
 }
 
 .auth-card {
