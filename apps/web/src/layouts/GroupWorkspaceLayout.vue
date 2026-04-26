@@ -32,9 +32,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { groupWorkspaceNav } from '@/app/router/routes'
+import type { Group } from '@/features/groups/api/groups.api'
 import { useGroup } from '@/features/groups/composables/useGroup'
 import { canManageGroup } from '@/features/groups/lib/group-permissions'
 import AppTopNav from '@/shared/ui/AppTopNav.vue'
@@ -42,15 +43,52 @@ import AppTopNav from '@/shared/ui/AppTopNav.vue'
 type GroupWorkspaceNavItem = (typeof groupWorkspaceNav)[number]
 
 const route = useRoute()
+const router = useRouter()
 const { group } = useGroup()
 const initials = computed(() => group.value?.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('') ?? '')
 const visibleNavItems = computed(() => {
-  return groupWorkspaceNav.filter((item) => !('adminOnly' in item) || !item.adminOnly || canManageGroup(group.value))
+  return groupWorkspaceNav.filter((item) => isNavItemVisible(item, group.value))
 })
+
+function isModuleEnabled(item: GroupWorkspaceNavItem, currentGroup: Group | null) {
+  if (!('settingKey' in item)) {
+    return true
+  }
+
+  return Boolean(currentGroup?.settings[item.settingKey])
+}
+
+function isNavItemVisible(item: GroupWorkspaceNavItem, currentGroup: Group | null) {
+  const isAdminAllowed = !('adminOnly' in item) || !item.adminOnly || canManageGroup(currentGroup)
+
+  return isAdminAllowed && isModuleEnabled(item, currentGroup)
+}
+
+function findCurrentNavItem() {
+  const routeName = String(route.name ?? '')
+
+  return groupWorkspaceNav.find((item) => (item.activeNames as readonly string[]).includes(routeName)) ?? null
+}
 
 function isNavItemActive(item: GroupWorkspaceNavItem) {
   return (item.activeNames as readonly string[]).includes(String(route.name ?? ''))
 }
+
+watch([() => route.name, () => group.value], () => {
+  const currentGroup = group.value
+  const currentItem = findCurrentNavItem()
+
+  if (!currentGroup || !currentItem || !('settingKey' in currentItem) || isModuleEnabled(currentItem, currentGroup)) {
+    return
+  }
+
+  void router.replace({
+    name: 'group-workspace',
+    params: {
+      groupId: currentGroup.id
+    }
+  })
+}, { immediate: true })
 </script>
 
 <style scoped>

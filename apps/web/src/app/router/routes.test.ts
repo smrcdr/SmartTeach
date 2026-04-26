@@ -38,5 +38,12 @@ describe('routes', () => {
       'requests',
       'settings'
     ])
+
+    expect(groupWorkspaceNav.flatMap((item) => 'settingKey' in item ? [`${item.key}:${item.settingKey}`] : [])).toEqual([
+      'lessons:lessonsEnabled',
+      'assignments:assignmentsEnabled',
+      'schedule:scheduleEnabled',
+      'chats:chatEnabled'
+    ])
   })
 })

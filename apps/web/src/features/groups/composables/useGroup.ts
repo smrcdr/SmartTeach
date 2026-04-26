@@ -1,17 +1,19 @@
-import { computed, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { ApiError } from '@/shared/api/http'
 import type { Group } from '../api/groups.api'
 import { getGroup } from '../api/groups.api'
 
+const groupCache = reactive<Record<string, Group | undefined>>({})
+
 export function useGroup() {
   const route = useRoute()
   const auth = useAuthStore()
-  const group = ref<Group | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
   const groupId = computed(() => String(route.params.groupId ?? ''))
+  const group = computed(() => groupId.value ? groupCache[groupId.value] ?? null : null)
 
   async function resolveRequestToken() {
     if (!auth.accessToken) {
@@ -29,11 +31,11 @@ export function useGroup() {
     isLoading.value = true
     error.value = null
     try {
-      group.value = await getGroup(groupId.value, await resolveRequestToken())
+      groupCache[groupId.value] = await getGroup(groupId.value, await resolveRequestToken())
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 401) {
         auth.clearSession()
-        group.value = await getGroup(groupId.value, null)
+        groupCache[groupId.value] = await getGroup(groupId.value, null)
         return
       }
 

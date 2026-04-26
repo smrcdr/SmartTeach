@@ -10,6 +10,10 @@ const mockGroup = vi.hoisted(() => ({
   value: null as Group | null
 }))
 
+type GroupOverrides = Partial<Omit<Group, 'settings'>> & {
+  settings?: Partial<Group['settings']>
+}
+
 vi.mock('@/features/groups/composables/useGroup', () => ({
   useGroup: () => ({
     group: mockGroup
@@ -22,7 +26,15 @@ vi.mock('@/shared/ui/AppTopNav.vue', () => ({
   }
 }))
 
-function buildGroup(role: Group['viewerMembershipRole']): Group {
+function buildGroup(role: Group['viewerMembershipRole'], overrides: GroupOverrides = {}): Group {
+  const settings = {
+    chatEnabled: true,
+    lessonsEnabled: true,
+    assignmentsEnabled: true,
+    scheduleEnabled: true,
+    ...overrides.settings
+  }
+
   return {
     id: 'group-id',
     code: 'WEB101',
@@ -37,24 +49,20 @@ function buildGroup(role: Group['viewerMembershipRole']): Group {
     },
     accessMode: 'OPEN',
     status: 'ACTIVE',
-    settings: {
-      chatEnabled: true,
-      lessonsEnabled: true,
-      assignmentsEnabled: true,
-      scheduleEnabled: true
-    },
     membersCount: 2,
     viewerMembershipRole: role,
     viewerJoinRequestStatus: null,
     createdAt: '2026-04-01T00:00:00.000Z',
     updatedAt: '2026-04-01T00:00:00.000Z',
     archivedAt: null,
-    deletedAt: null
+    deletedAt: null,
+    ...overrides,
+    settings
   }
 }
 
-async function mountAt(path: string, role: Group['viewerMembershipRole']) {
-  mockGroup.value = buildGroup(role)
+async function mountAt(path: string, role: Group['viewerMembershipRole'], overrides: GroupOverrides = {}) {
+  mockGroup.value = buildGroup(role, overrides)
 
   const router = createRouter({
     history: createMemoryHistory(),
@@ -97,8 +105,28 @@ describe('GroupWorkspaceLayout', () => {
   it('shows administration navigation to group admins', async () => {
     const wrapper = await mountAt('/groups/group-id/workspace', 'ADMIN')
 
+    expect(navLabels(wrapper)).toContain('Чаты')
     expect(navLabels(wrapper)).toContain('Заявки')
     expect(navLabels(wrapper)).toContain('Настройки')
+  })
+
+  it('hides disabled modules from group navigation', async () => {
+    const wrapper = await mountAt('/groups/group-id/workspace', 'ADMIN', {
+      settings: {
+        chatEnabled: false,
+        lessonsEnabled: false,
+        assignmentsEnabled: true,
+        scheduleEnabled: false
+      }
+    })
+    const labels = navLabels(wrapper)
+
+    expect(labels).not.toContain('Чаты')
+    expect(labels).not.toContain('Уроки')
+    expect(labels).not.toContain('Расписание')
+    expect(labels).toContain('Задания')
+    expect(labels).toContain('Участники')
+    expect(labels).toContain('Настройки')
   })
 
   it('only highlights overview on the exact overview route', async () => {

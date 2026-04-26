@@ -17,6 +17,7 @@ export const groupWorkspaceNav = [
     label: 'Уроки',
     icon: BookOpen,
     toName: 'group-lessons',
+    settingKey: 'lessonsEnabled',
     activeNames: ['group-lessons', 'group-lesson-create', 'group-lesson-details', 'group-lesson-edit']
   },
   {
@@ -24,6 +25,7 @@ export const groupWorkspaceNav = [
     label: 'Задания',
     icon: ClipboardList,
     toName: 'group-assignments',
+    settingKey: 'assignmentsEnabled',
     activeNames: [
       'group-assignments',
       'group-assignment-create',
@@ -39,9 +41,17 @@ export const groupWorkspaceNav = [
     label: 'Расписание',
     icon: CalendarDays,
     toName: 'group-schedule',
+    settingKey: 'scheduleEnabled',
     activeNames: ['group-schedule', 'group-schedule-event-create', 'group-schedule-event-edit']
   },
-  { key: 'chats', label: 'Чаты', icon: MessageCircle, toName: 'group-chats', activeNames: ['group-chats'] },
+  {
+    key: 'chats',
+    label: 'Чаты',
+    icon: MessageCircle,
+    toName: 'group-chats',
+    settingKey: 'chatEnabled',
+    activeNames: ['group-chats']
+  },
   {
     key: 'requests',
     label: 'Заявки',
