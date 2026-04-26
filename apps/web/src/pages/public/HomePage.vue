@@ -13,7 +13,7 @@ const { groups, isLoading, error } = useGroups()
     <section class="home-hero">
       <div>
         <span class="eyebrow">Академическая платформа</span>
-        <h1 class="display-title">Учитесь <br /><span>вместе.</span></h1>
+        <h1 class="display-title">Учитесь, <br /><span>общайтесь, растите.</span></h1>
       </div>
       <div class="home-hero__aside">
         <p class="lead">Присоединяйтесь к учебным группам, ведите уроки, задания, расписание и чаты в единой рабочей среде.</p>
