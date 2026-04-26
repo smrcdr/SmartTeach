@@ -103,6 +103,11 @@ const accessModes: Array<{ value: AccessMode, label: string }> = [
   color: var(--color-action-primary-text);
 }
 
+.group-access-mode__option--active:hover {
+  background: var(--color-action-primary-bg);
+  color: var(--color-action-primary-text);
+}
+
 .group-access-mode__option:has(input:focus-visible) {
   box-shadow: 0 0 0 4px var(--color-focus-ring);
 }
