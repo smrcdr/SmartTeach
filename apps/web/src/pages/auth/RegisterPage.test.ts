@@ -44,9 +44,9 @@ describe('RegisterPage', () => {
     expect(wrapper.text()).not.toContain('Защищённый доступ')
   })
 
-  it('sets the auth shell width so input fields stay moderately wide', () => {
+  it('sets the auth shell width so input fields stay compact', () => {
     const source = readFileSync(`${process.cwd()}/src/pages/auth/RegisterPage.vue`, 'utf8')
 
-    expect(source).toContain('width: min(100%, 640px);')
+    expect(source).toContain('width: min(100%, 544px);')
   })
 })
