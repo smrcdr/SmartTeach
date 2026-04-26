@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Menu, Search } from 'lucide-vue-next'
+import { Menu } from 'lucide-vue-next'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import AppButton from './AppButton.vue'
 
@@ -15,8 +15,8 @@ const auth = useAuthStore()
 
 <template>
   <header class="top-nav">
-    <div class="top-nav__inner">
-      <div class="top-nav__left">
+    <div class="top-nav__inner top-nav__inner--full">
+      <div class="top-nav__primary">
         <RouterLink to="/" class="top-nav__brand">SmarTeach</RouterLink>
         <nav class="top-nav__links" aria-label="Основная навигация">
           <RouterLink
@@ -31,10 +31,7 @@ const auth = useAuthStore()
       </div>
 
       <div class="top-nav__actions">
-        <AppButton variant="quiet" icon-only aria-label="Поиск">
-          <Search :size="18" />
-        </AppButton>
-        <div class="top-nav__user">
+        <div class="top-nav__user top-nav__profile">
           <span>{{ auth.displayUser.name }}</span>
           <img :src="auth.displayUser.avatarUrl || ''" :alt="auth.displayUser.name" />
         </div>
@@ -63,20 +60,25 @@ const auth = useAuthStore()
   display: flex;
   height: 64px;
   justify-content: space-between;
-  margin: 0 auto;
-  max-width: var(--max-page);
   padding: 0 var(--space-page-x);
+  width: 100%;
 }
 
-.top-nav__left,
+.top-nav__inner--full {
+  max-width: none;
+}
+
+.top-nav__primary,
 .top-nav__actions,
 .top-nav__user {
   align-items: center;
   display: flex;
 }
 
-.top-nav__left {
-  gap: clamp(28px, 5vw, 56px);
+.top-nav__primary {
+  gap: 34px;
+  justify-content: flex-start;
+  min-width: 0;
 }
 
 .top-nav__brand {
@@ -145,8 +147,7 @@ const auth = useAuthStore()
 
 @media (max-width: 860px) {
   .top-nav__links,
-  .top-nav__user,
-  .top-nav__actions > .app-button:first-child {
+  .top-nav__user {
     display: none;
   }
 
