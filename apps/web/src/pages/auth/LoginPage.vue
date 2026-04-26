@@ -79,7 +79,7 @@ async function submit() {
 .auth-card {
   align-content: center;
   background: var(--color-surface-lowest);
-  border: 1px solid var(--color-menu-border);
+  border: 2px solid var(--color-outline-variant);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
   gap: 17px;
