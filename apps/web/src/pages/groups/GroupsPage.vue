@@ -4,7 +4,6 @@ import { computed, ref } from 'vue'
 import GroupCatalogCard from '@/features/groups/components/GroupCatalogCard.vue'
 import { useGroups } from '@/features/groups/composables/useGroups'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
-import AppTextField from '@/shared/ui/AppTextField.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 
 const search = ref('')
@@ -48,7 +47,13 @@ const filteredGroups = computed(() => {
         >
           search
         </span>
-        <AppTextField v-model="search" placeholder="Поиск по названию..." />
+        <input
+          v-model="search"
+          class="catalog-page__search-input"
+          type="search"
+          aria-label="Поиск по названию"
+          placeholder="Поиск по названию..."
+        >
       </div>
     </section>
 
@@ -80,16 +85,49 @@ const filteredGroups = computed(() => {
 
 .catalog-page__search {
   align-items: center;
+  background: var(--color-surface-lowest);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-md);
   display: grid;
   gap: 12px;
-  grid-template-columns: 24px minmax(260px, 480px);
-  width: 100%;
+  grid-template-columns: 24px minmax(0, 1fr);
+  min-height: 52px;
+  max-width: 540px;
+  padding: 0 16px;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  width: min(100%, 540px);
+}
+
+.catalog-page__search:focus-within {
+  background: var(--color-surface-low);
+  border-color: var(--color-outline);
+  box-shadow: 0 0 0 3px rgb(21 25 108 / 7%);
 }
 
 .catalog-page__search-icon {
   color: var(--color-text-muted);
   font-size: 24px;
   line-height: 1;
+}
+
+.catalog-page__search-input {
+  background: transparent;
+  border: 0;
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 650;
+  min-width: 0;
+  outline: none;
+  width: 100%;
+}
+
+.catalog-page__search-input::placeholder {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.catalog-page__search-input::-webkit-search-cancel-button {
+  display: none;
 }
 
 .catalog-page__join-button {
@@ -126,7 +164,8 @@ const filteredGroups = computed(() => {
 
 @media (max-width: 760px) {
   .catalog-page__search {
-    grid-template-columns: 22px minmax(0, 1fr);
+    max-width: none;
+    width: 100%;
   }
 
   .catalog-page__join-button {
