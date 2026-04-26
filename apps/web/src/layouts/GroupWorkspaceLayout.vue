@@ -56,6 +56,7 @@ function isNavItemActive(item: GroupWorkspaceNavItem) {
 <style scoped>
 .workspace-nav {
   background: var(--color-surface-low);
+  border-right: 1px solid var(--color-divider);
   bottom: 0;
   display: flex;
   flex-direction: column;

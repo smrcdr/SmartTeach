@@ -118,4 +118,10 @@ describe('GroupWorkspaceLayout', () => {
     expect(source).toContain('background: var(--color-primary-container);')
     expect(source).toContain('color: var(--color-action-primary-text);')
   })
+
+  it('separates group navigation from workspace content with a divider', () => {
+    const source = readFileSync(`${process.cwd()}/src/layouts/GroupWorkspaceLayout.vue`, 'utf8')
+
+    expect(source).toContain('border-right: 1px solid var(--color-divider);')
+  })
 })
