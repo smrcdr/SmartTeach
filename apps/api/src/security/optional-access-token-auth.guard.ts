@@ -1,4 +1,10 @@
-import { CanActivate, ExecutionContext, Inject, Injectable } from '@nestjs/common'
+import {
+  CanActivate,
+  ExecutionContext,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common'
 import type { AuthenticatedRequest } from './auth.types'
 import { SessionAuthService } from './session-auth.service'
 
@@ -13,11 +19,19 @@ export class OptionalAccessTokenAuthGuard implements CanActivate {
       return true
     }
 
-    const accessToken = this.sessionAuthService.extractAccessTokenFromAuthorizationHeader(
-      request.headers.authorization,
-    )
+    try {
+      const accessToken = this.sessionAuthService.extractAccessTokenFromAuthorizationHeader(
+        request.headers.authorization,
+      )
 
-    request.auth = await this.sessionAuthService.authenticateAccessToken(accessToken)
+      request.auth = await this.sessionAuthService.authenticateAccessToken(accessToken)
+    } catch (error) {
+      if (!(error instanceof UnauthorizedException)) {
+        throw error
+      }
+
+      request.auth = undefined
+    }
 
     return true
   }

@@ -159,6 +159,17 @@ test('public catalog and group preview are available without authentication', as
   assert.equal(publicGroup.viewerMembershipRole, null)
   assert.equal(publicGroup.viewerJoinRequestStatus, null)
 
+  const catalogWithInvalidTokenResult = await request<GroupResponse[]>('/groups', {
+    method: 'GET',
+    headers: {
+      authorization: 'Bearer invalid-token',
+    },
+  })
+
+  assert.equal(catalogWithInvalidTokenResult.response.status, 200)
+  assert.ok(catalogWithInvalidTokenResult.body)
+  assert.ok(catalogWithInvalidTokenResult.body.some((group) => group.id === createResult.body?.id))
+
   const previewResult = await request<GroupResponse>(`/groups/${createResult.body.id}`, {
     method: 'GET',
   })
