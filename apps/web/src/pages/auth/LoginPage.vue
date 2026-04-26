@@ -24,13 +24,12 @@ async function submit() {
 </script>
 
 <template>
-  <main class="page auth-page">
+  <main class="page auth-page auth-page--centered">
     <section class="auth-shell">
       <form class="auth-card" @submit.prevent="submit">
         <div class="auth-card__header">
           <span class="eyebrow">Сессия</span>
           <h2>Войти</h2>
-          <p>Используйте email и пароль, созданные при регистрации.</p>
         </div>
         <AppTextField v-model="form.email" label="Email" type="email" placeholder="Введите email" />
         <AppTextField v-model="form.password" label="Пароль" type="password" placeholder="Введите пароль" />
@@ -44,6 +43,9 @@ async function submit() {
 
 <style scoped>
 .auth-page {
+  align-items: center;
+  display: flex;
+  justify-content: center;
   min-height: 100vh;
 }
 
@@ -68,8 +70,7 @@ async function submit() {
   width: 100%;
 }
 
-.auth-card__header h2,
-.auth-card__header p {
+.auth-card__header h2 {
   margin: 0;
 }
 
@@ -79,7 +80,6 @@ async function submit() {
   margin-bottom: 8px;
 }
 
-.auth-card__header p,
 .auth-card__link {
   color: var(--color-text-muted);
   line-height: 1.55;

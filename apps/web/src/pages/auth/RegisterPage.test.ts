@@ -28,8 +28,11 @@ describe('RegisterPage', () => {
     const wrapper = await mountPage()
 
     expect(wrapper.find('.auth-shell__story').exists()).toBe(false)
+    expect(wrapper.find('.auth-card__header p').exists()).toBe(false)
+    expect(wrapper.find('.auth-page').classes()).toContain('auth-page--centered')
     expect(wrapper.text()).toContain('Создать профиль')
     expect(wrapper.text()).not.toContain('Новый профиль')
+    expect(wrapper.text()).not.toContain('Имя будет видно')
     expect(wrapper.text()).not.toContain('Создайте аккаунт, чтобы присоединяться')
     expect(wrapper.text()).not.toContain('Курсы и классы')
     expect(wrapper.text()).not.toContain('Чаты')
