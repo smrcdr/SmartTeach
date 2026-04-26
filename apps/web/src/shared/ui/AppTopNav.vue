@@ -368,9 +368,10 @@ onBeforeUnmount(() => {
 }
 
 .top-nav__register {
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-container));
+  background: var(--color-action-primary-bg);
   border-radius: var(--radius-sm);
-  color: #fff !important;
+  box-shadow: var(--shadow-action-primary);
+  color: var(--color-action-primary-text) !important;
   min-height: 36px;
   padding: 10px 14px;
 }

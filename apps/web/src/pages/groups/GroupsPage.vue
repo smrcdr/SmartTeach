@@ -95,10 +95,10 @@ const filteredGroups = computed(() => {
 
 .catalog-page__join-button {
   align-items: center;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-container));
+  background: var(--color-action-primary-bg);
   border-radius: var(--radius-sm);
-  box-shadow: 0 16px 30px -18px rgb(21 25 108 / 60%);
-  color: #fff;
+  box-shadow: var(--shadow-action-primary);
+  color: var(--color-action-primary-text);
   display: inline-flex;
   font-size: 0.92rem;
   font-weight: 800;
@@ -111,12 +111,12 @@ const filteredGroups = computed(() => {
 }
 
 .catalog-page__join-button:hover {
-  box-shadow: 0 18px 34px -20px rgb(21 25 108 / 72%);
+  box-shadow: var(--shadow-action-primary-hover);
   transform: translateY(-1px);
 }
 
 .catalog-page__join-button:focus-visible {
-  outline: 3px solid rgb(21 25 108 / 22%);
+  outline: 3px solid var(--color-focus-border);
   outline-offset: 3px;
 }
 

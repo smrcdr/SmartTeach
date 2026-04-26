@@ -35,6 +35,10 @@
   --color-toast-close-hover: rgb(255 255 255 / 52%);
   --color-focus-border: rgb(21 25 108 / 22%);
   --color-focus-ring: rgb(21 25 108 / 10%);
+  --color-action-primary-bg: linear-gradient(135deg, var(--color-primary), var(--color-primary-container));
+  --color-action-primary-text: #fff;
+  --shadow-action-primary: 0 16px 30px -18px rgb(21 25 108 / 60%);
+  --shadow-action-primary-hover: 0 18px 34px -20px rgb(21 25 108 / 72%);
   --shadow-ambient: 0 40px 80px -24px rgb(21 25 108 / 12%);
   --shadow-soft: 0 20px 50px -28px rgb(27 27 32 / 18%);
   --shadow-nav: inset 0 -1px 0 rgb(255 255 255 / 62%), 0 6px 24px rgb(27 27 32 / 5%);
@@ -49,11 +53,11 @@
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --color-primary: #c9c8ff;
-  --color-primary-container: #787dff;
-  --color-primary-fixed: #34385f;
-  --color-secondary: #bfc2e8;
-  --color-secondary-container: #3c4164;
+  --color-primary: #aeb6d1;
+  --color-primary-container: #4b5670;
+  --color-primary-fixed: #2b3346;
+  --color-secondary: #9ea6bd;
+  --color-secondary-container: #343b50;
   --color-surface: #0f111a;
   --color-surface-lowest: #151720;
   --color-surface-low: #1a1d29;
@@ -66,7 +70,7 @@
   --color-text: #f4f2ff;
   --color-text-muted: #c8c8dc;
   --color-error: #ffb4ab;
-  --color-body-gradient: linear-gradient(180deg, rgb(43 47 78 / 44%) 0, rgb(15 17 26 / 0%) 380px);
+  --color-body-gradient: linear-gradient(180deg, rgb(31 36 52 / 34%) 0, rgb(15 17 26 / 0%) 380px);
   --color-panel-border: rgb(137 141 176 / 18%);
   --color-divider: rgb(137 141 176 / 26%);
   --color-nav-surface: rgb(15 17 26 / 88%);
@@ -82,8 +86,12 @@
   --color-toast-surface: rgb(21 23 32 / 96%);
   --color-toast-border: rgb(137 141 176 / 30%);
   --color-toast-close-hover: rgb(255 255 255 / 10%);
-  --color-focus-border: rgb(201 200 255 / 34%);
-  --color-focus-ring: rgb(201 200 255 / 14%);
+  --color-focus-border: rgb(174 182 209 / 26%);
+  --color-focus-ring: rgb(174 182 209 / 12%);
+  --color-action-primary-bg: #4b5670;
+  --color-action-primary-text: #f7f8ff;
+  --shadow-action-primary: 0 14px 30px -22px rgb(0 0 0 / 68%);
+  --shadow-action-primary-hover: 0 16px 34px -24px rgb(0 0 0 / 72%);
   --shadow-ambient: 0 40px 92px -32px rgb(0 0 0 / 58%);
   --shadow-soft: 0 24px 58px -34px rgb(0 0 0 / 64%);
   --shadow-nav: inset 0 -1px 0 rgb(255 255 255 / 6%), 0 12px 34px rgb(0 0 0 / 28%);

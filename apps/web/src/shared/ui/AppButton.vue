@@ -72,14 +72,18 @@ const classes = computed(() => [
 }
 
 .app-button:focus-visible {
-  outline: 3px solid rgb(21 25 108 / 22%);
+  outline: 3px solid var(--color-focus-border);
   outline-offset: 3px;
 }
 
 .app-button--primary {
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-container));
-  box-shadow: 0 16px 30px -18px rgb(21 25 108 / 60%);
-  color: #fff;
+  background: var(--color-action-primary-bg);
+  box-shadow: var(--shadow-action-primary);
+  color: var(--color-action-primary-text);
+}
+
+.app-button--primary:hover {
+  box-shadow: var(--shadow-action-primary-hover);
 }
 
 .app-button--secondary {

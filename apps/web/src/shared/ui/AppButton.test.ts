@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import AppButton from './AppButton.vue'
 
 describe('AppButton', () => {
-  it('renders gradient primary actions from the Stitch design system', () => {
+  it('renders primary actions from the design system tokens', () => {
     const wrapper = mount(AppButton, {
       props: { variant: 'primary' },
       slots: { default: 'Открыть группу' }
