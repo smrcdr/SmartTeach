@@ -55,7 +55,7 @@ defineEmits<{
 
 .textarea__control:focus {
   background: var(--color-surface-highest);
-  border-color: rgb(21 25 108 / 22%);
-  box-shadow: 0 0 0 4px rgb(21 25 108 / 10%);
+  border-color: var(--color-focus-border);
+  box-shadow: 0 0 0 4px var(--color-focus-ring);
 }
 </style>

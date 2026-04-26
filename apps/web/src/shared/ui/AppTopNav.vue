@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { Menu } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
+import { useTheme } from '@/shared/theme/theme'
 import AppButton from './AppButton.vue'
 
 const navItems = [
@@ -18,10 +19,28 @@ const notifications = useNotificationStore()
 const route = useRoute()
 const router = useRouter()
 const isProfileMenuOpen = ref(false)
+const profileRef = ref<HTMLElement | null>(null)
+const { theme, toggleTheme } = useTheme()
 const userInitial = computed(() => auth.user?.displayName.slice(0, 1).toUpperCase() ?? '')
+const themeMenuIcon = computed(() => theme.value === 'dark' ? 'light_mode' : 'dark_mode')
+const themeMenuLabel = computed(() => theme.value === 'dark' ? 'Светлая тема' : 'Тёмная тема')
 
 function toggleProfileMenu() {
   isProfileMenuOpen.value = !isProfileMenuOpen.value
+}
+
+function closeProfileMenuOnOutsidePointerDown(event: Event) {
+  const target = event.target
+
+  if (!isProfileMenuOpen.value || !(target instanceof Node)) {
+    return
+  }
+
+  if (profileRef.value?.contains(target)) {
+    return
+  }
+
+  isProfileMenuOpen.value = false
 }
 
 async function redirectToLogin() {
@@ -51,6 +70,14 @@ async function logout() {
     await redirectToLogin()
   }
 }
+
+onMounted(() => {
+  document.addEventListener('pointerdown', closeProfileMenuOnOutsidePointerDown)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', closeProfileMenuOnOutsidePointerDown)
+})
 </script>
 
 <template>
@@ -73,7 +100,7 @@ async function logout() {
       </div>
 
       <div class="top-nav__actions">
-        <div v-if="auth.isAuthenticated && auth.user" class="top-nav__user top-nav__profile">
+        <div v-if="auth.isAuthenticated && auth.user" ref="profileRef" class="top-nav__user top-nav__profile">
           <button
             class="top-nav__profile-trigger"
             type="button"
@@ -98,6 +125,10 @@ async function logout() {
               <span class="material-symbols-outlined top-nav__menu-icon" aria-hidden="true">edit</span>
               Редактировать профиль
             </RouterLink>
+            <button class="top-nav__profile-menu-theme" type="button" role="menuitem" @click="toggleTheme">
+              <span class="material-symbols-outlined top-nav__menu-icon" aria-hidden="true">{{ themeMenuIcon }}</span>
+              {{ themeMenuLabel }}
+            </button>
             <button class="top-nav__profile-menu-logout" type="button" role="menuitem" @click="logout">
               <span
                 id="logout"
@@ -123,12 +154,10 @@ async function logout() {
 
 <style scoped>
 .top-nav {
-  background: rgb(251 248 255 / 86%);
+  background: var(--color-nav-surface);
   backdrop-filter: blur(14px);
-  border-bottom: 1px solid rgb(199 197 211 / 54%);
-  box-shadow:
-    inset 0 -1px 0 rgb(255 255 255 / 62%),
-    0 6px 24px rgb(27 27 32 / 5%);
+  border-bottom: 1px solid var(--color-nav-border);
+  box-shadow: var(--shadow-nav);
   left: 0;
   position: fixed;
   right: 0;
@@ -216,7 +245,7 @@ async function logout() {
   align-items: center;
   background: transparent;
   border: 0;
-  border-left: 1px solid rgb(199 197 211 / 22%);
+  border-left: 1px solid var(--color-divider);
   cursor: pointer;
   display: flex;
   gap: 12px;
@@ -234,7 +263,7 @@ async function logout() {
 
 .top-nav__auth-actions {
   align-items: center;
-  border-left: 1px solid rgb(199 197 211 / 22%);
+  border-left: 1px solid var(--color-divider);
   display: flex;
   padding-left: 18px;
 }
@@ -248,14 +277,15 @@ async function logout() {
 }
 
 .top-nav__profile-menu {
-  background: rgb(255 255 255 / 92%);
+  background: var(--color-menu-surface);
   backdrop-filter: blur(18px);
+  border: 1px solid var(--color-menu-border);
   border-radius: var(--radius-md);
-  box-shadow: 0 24px 60px -34px rgb(21 25 108 / 45%);
+  box-shadow: var(--shadow-menu);
   display: grid;
   gap: 4px;
-  min-width: 180px;
-  padding: 8px;
+  min-width: 236px;
+  padding: 10px;
   position: absolute;
   right: 0;
   top: calc(100% + 12px);
@@ -270,14 +300,14 @@ async function logout() {
   cursor: pointer;
   display: flex;
   gap: 10px;
-  min-height: 38px;
-  padding: 0 12px;
+  min-height: 42px;
+  padding: 0 14px;
   text-align: left;
 }
 
 .top-nav__profile-menu a:hover,
 .top-nav__profile-menu button:hover {
-  background: var(--color-surface-low);
+  background: var(--color-menu-hover);
   color: var(--color-primary);
 }
 
@@ -290,14 +320,14 @@ async function logout() {
 }
 
 .top-nav__profile-menu .top-nav__profile-menu-logout {
-  border-top: 1px solid rgb(199 197 211 / 32%);
+  border-top: 1px solid var(--color-divider);
   color: var(--color-error);
   margin-top: 4px;
   padding-top: 8px;
 }
 
 .top-nav__profile-menu .top-nav__profile-menu-logout:hover {
-  background: rgb(255 244 242 / 82%);
+  background: var(--color-danger-surface);
   color: var(--color-error);
 }
 

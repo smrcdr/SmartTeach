@@ -13,9 +13,7 @@ html {
 body {
   min-height: 100vh;
   margin: 0;
-  background:
-    linear-gradient(180deg, rgb(245 242 250 / 52%) 0, rgb(251 248 255 / 0%) 360px),
-    var(--color-surface);
+  background: var(--color-body-gradient), var(--color-surface);
   color: var(--color-text);
   font-family: inherit;
   text-rendering: optimizeLegibility;
@@ -87,6 +85,7 @@ img {
 
 .surface-panel {
   background: var(--color-surface-lowest);
+  border: 1px solid var(--color-panel-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
 }
@@ -101,7 +100,7 @@ img {
 }
 
 .ghost-border {
-  border: 1px solid rgb(199 197 211 / 18%);
+  border: 1px solid var(--color-panel-border);
 }
 
 @media (max-width: 760px) {

@@ -65,8 +65,8 @@ const filteredGroups = computed(() => {
 <style scoped>
 .catalog-page__filters {
   align-items: center;
-  border-bottom: 1px solid rgb(199 197 211 / 22%);
-  border-top: 1px solid rgb(199 197 211 / 22%);
+  border-bottom: 1px solid var(--color-divider);
+  border-top: 1px solid var(--color-divider);
   display: grid;
   gap: 20px;
   grid-template-columns: minmax(260px, 480px) 1fr;

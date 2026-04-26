@@ -268,7 +268,7 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
 
 .chat-list {
   background: var(--color-surface-low);
-  border-right: 1px solid rgb(199 197 211 / 42%);
+  border-right: 1px solid var(--color-divider);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -329,7 +329,7 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
 }
 
 .chat-list__item:hover {
-  background: rgb(228 225 233 / 45%);
+  background: var(--color-list-hover);
 }
 
 .chat-list__item--active {
@@ -428,9 +428,9 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
 
 .chat-room__header {
   align-items: center;
-  background: rgb(251 248 255 / 84%);
+  background: var(--color-chat-header-surface);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgb(199 197 211 / 38%);
+  border-bottom: 1px solid var(--color-divider);
   display: flex;
   justify-content: space-between;
   padding: 0 32px;
@@ -525,7 +525,7 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
 .chat-date {
   background: var(--color-surface-low);
   border-radius: 999px;
-  color: rgb(70 70 81 / 72%);
+  color: var(--color-subtle-text);
   font-size: 0.64rem;
   font-weight: 900;
   justify-self: center;
@@ -637,7 +637,7 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
 .chat-composer {
   align-items: center;
   background: var(--color-surface);
-  border-top: 1px solid rgb(199 197 211 / 38%);
+  border-top: 1px solid var(--color-divider);
   display: grid;
   gap: 12px;
   grid-template-columns: 44px minmax(0, 1fr) 48px;
@@ -662,7 +662,7 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
 
 .chat-composer__field:focus-within {
   background: var(--color-surface-highest);
-  border-color: rgb(21 25 108 / 22%);
+  border-color: var(--color-focus-border);
 }
 
 .chat-composer__field input {
@@ -675,7 +675,7 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
 }
 
 .chat-composer__field input::placeholder {
-  color: rgb(70 70 81 / 62%);
+  color: var(--color-placeholder);
 }
 
 .chat-composer__send {
@@ -697,7 +697,7 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
   }
 
   .chat-list {
-    border-bottom: 1px solid rgb(199 197 211 / 38%);
+    border-bottom: 1px solid var(--color-divider);
     border-right: 0;
     max-height: 42vh;
   }

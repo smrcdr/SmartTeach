@@ -48,9 +48,9 @@ describe('ChatsPage', () => {
   it('keeps visible dividers between chat list, messages and composer', () => {
     const source = readFileSync(`${process.cwd()}/src/pages/chats/ChatsPage.vue`, 'utf8')
 
-    expect(source).toContain('border-right: 1px solid rgb(199 197 211 / 42%);')
-    expect(source).toContain('border-bottom: 1px solid rgb(199 197 211 / 38%);')
-    expect(source).toContain('border-top: 1px solid rgb(199 197 211 / 38%);')
+    expect(source).toContain('border-right: 1px solid var(--color-divider);')
+    expect(source).toContain('border-bottom: 1px solid var(--color-divider);')
+    expect(source).toContain('border-top: 1px solid var(--color-divider);')
   })
 
   it('renders chats and messages from backend API without hardcoded demo data', async () => {

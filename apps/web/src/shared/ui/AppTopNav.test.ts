@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { readFileSync } from 'node:fs'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import type { AuthUser } from '@/features/auth/api/auth.api'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
@@ -90,6 +90,12 @@ async function mountAuthenticatedWithRoute(path: string, userOverrides: Partial<
 }
 
 describe('AppTopNav', () => {
+  afterEach(() => {
+    localStorage.clear()
+    document.documentElement.removeAttribute('data-theme')
+    document.documentElement.style.colorScheme = ''
+  })
+
   it('pins brand and sections to the left, and omits search', async () => {
     const wrapper = await mountWithRoute('/')
 
@@ -107,8 +113,8 @@ describe('AppTopNav', () => {
   it('keeps a visible bottom divider between navbar and page content', () => {
     const source = readFileSync(`${process.cwd()}/src/shared/ui/AppTopNav.vue`, 'utf8')
 
-    expect(source).toContain('border-bottom: 1px solid rgb(199 197 211 / 54%);')
-    expect(source).toContain('inset 0 -1px 0 rgb(255 255 255 / 62%)')
+    expect(source).toContain('border-bottom: 1px solid var(--color-nav-border);')
+    expect(source).toContain('box-shadow: var(--shadow-nav);')
   })
 
   it('keeps the authenticated profile on the right', async () => {
@@ -131,21 +137,58 @@ describe('AppTopNav', () => {
     expect(actions.map((action) => action.text())).toEqual([
       'person Открыть профиль',
       'edit Редактировать профиль',
+      'dark_mode Тёмная тема',
       'logout Выйти'
     ])
     expect(actions[0].attributes('href')).toBe('/profile')
     expect(actions[1].attributes('href')).toBe('/profile/edit')
     expect(actions[0].find('.top-nav__menu-icon').text()).toBe('person')
     expect(actions[1].find('.top-nav__menu-icon').text()).toBe('edit')
-    expect(actions[2].find('.top-nav__menu-icon').text()).toBe('logout')
-    expect(actions[2].find('.top-nav__menu-icon').attributes('id')).toBe('logout')
-    expect(actions[2].find('.top-nav__menu-icon').attributes('data-icon-id')).toBe('logout')
-    expect(actions[2].classes()).toContain('top-nav__profile-menu-logout')
+    expect(actions[2].find('.top-nav__menu-icon').text()).toBe('dark_mode')
+    expect(actions[2].classes()).toContain('top-nav__profile-menu-theme')
+    expect(actions[3].find('.top-nav__menu-icon').text()).toBe('logout')
+    expect(actions[3].find('.top-nav__menu-icon').attributes('id')).toBe('logout')
+    expect(actions[3].find('.top-nav__menu-icon').attributes('data-icon-id')).toBe('logout')
+    expect(actions[3].classes()).toContain('top-nav__profile-menu-logout')
 
-    await actions[2].trigger('click')
+    await actions[3].trigger('click')
     await flushPromises()
 
     expect(auth.logout).toHaveBeenCalledOnce()
+  })
+
+  it('closes the profile menu after clicking outside the navbar profile area', async () => {
+    const { wrapper } = await mountAuthenticatedWithRoute('/')
+
+    await wrapper.find('.top-nav__profile-trigger').trigger('click')
+    expect(wrapper.find('.top-nav__profile-menu').exists()).toBe(true)
+
+    document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }))
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.top-nav__profile-menu').exists()).toBe(false)
+  })
+
+  it('keeps the profile dropdown wider, bordered and flat', () => {
+    const source = readFileSync(`${process.cwd()}/src/shared/ui/AppTopNav.vue`, 'utf8')
+
+    expect(source).toContain('background: var(--color-menu-surface);')
+    expect(source).toContain('border: 1px solid var(--color-menu-border);')
+    expect(source).toContain('min-width: 236px;')
+    expect(source).not.toMatch(/top-nav__profile-menu[\\s\\S]*linear-gradient/)
+  })
+
+  it('toggles a persisted dark theme from the profile menu', async () => {
+    const { wrapper } = await mountAuthenticatedWithRoute('/')
+
+    await wrapper.find('.top-nav__profile-trigger').trigger('click')
+    await wrapper.find('.top-nav__profile-menu-theme').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    expect(document.documentElement.style.colorScheme).toBe('dark')
+    expect(localStorage.getItem('smarteach.theme')).toBe('dark')
+    expect(wrapper.find('.top-nav__profile-menu-theme').text()).toContain('Светлая тема')
   })
 
   it('redirects to login after logout from a protected page', async () => {

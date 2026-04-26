@@ -56,9 +56,9 @@ const notifications = useNotificationStore()
 
 .toast-card {
   align-items: flex-start;
-  background: rgb(255 255 255 / 96%);
+  background: var(--color-toast-surface);
   backdrop-filter: blur(18px);
-  border: 1px solid rgb(199 197 211 / 32%);
+  border: 1px solid var(--color-toast-border);
   border-radius: var(--radius-md);
   box-shadow: 0 26px 64px -30px rgb(21 25 108 / 50%);
   color: var(--color-text);
@@ -119,7 +119,7 @@ const notifications = useNotificationStore()
 }
 
 .toast-card__close:hover {
-  background: rgb(255 255 255 / 52%);
+  background: var(--color-toast-close-hover);
   color: currentColor;
 }
 
