@@ -1,19 +1,63 @@
 <script setup lang="ts">
-import { UserPlus } from 'lucide-vue-next'
+import { Clipboard, MessageCircle, UserPlus } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
-import { listMembers } from '@/features/groups/api/groups.api'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/features/auth/stores/auth.store'
+import { createDirectChat } from '@/features/chats/api/chats.api'
+import { listMembers, type GroupMember } from '@/features/groups/api/groups.api'
 import { useGroup } from '@/features/groups/composables/useGroup'
 import { useGroupRouteList } from '@/features/groups/composables/useGroupRouteResource'
 import { canManageGroup } from '@/features/groups/lib/group-permissions'
+import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
 import ContentList from '@/features/groups/components/ContentList.vue'
 import AppButton from '@/shared/ui/AppButton.vue'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 
+const auth = useAuthStore()
+const notifications = useNotificationStore()
+const router = useRouter()
 const { group } = useGroup()
 const { items: members } = useGroupRouteList(listMembers)
 const canManage = computed(() => canManageGroup(group.value))
 const isInviteDialogOpen = ref(false)
+const selectedMember = ref<GroupMember | null>(null)
+const isOpeningChat = ref(false)
+
+async function copyGroupCode() {
+  if (!group.value?.code) {
+    return
+  }
+
+  try {
+    await navigator.clipboard.writeText(group.value.code)
+    notifications.success('Код скопирован')
+  } catch {
+    notifications.error('Не удалось скопировать код')
+  }
+}
+
+async function openDirectChat() {
+  if (!selectedMember.value || !auth.accessToken || isOpeningChat.value) {
+    return
+  }
+
+  if (selectedMember.value.userId === auth.user?.id) {
+    notifications.error('Нельзя создать чат с собой')
+    return
+  }
+
+  isOpeningChat.value = true
+  try {
+    const chat = await createDirectChat(selectedMember.value.userId, auth.accessToken)
+    selectedMember.value = null
+    await router.push({ name: 'chats', query: { chatId: chat.id } })
+  } catch (caught) {
+    notifications.error(caught instanceof Error ? caught.message : 'Не удалось открыть чат')
+  } finally {
+    isOpeningChat.value = false
+  }
+}
 </script>
 
 <template>
@@ -30,7 +74,13 @@ const isInviteDialogOpen = ref(false)
     </AppPageHeader>
 
     <ContentList title="Список участников">
-      <article v-for="member in members" :key="member.userId" class="member-row">
+      <button
+        v-for="member in members"
+        :key="member.userId"
+        class="member-row"
+        type="button"
+        @click="selectedMember = member"
+      >
         <img v-if="member.user.avatarUrl" :src="member.user.avatarUrl" :alt="member.user.displayName" />
         <span v-else class="member-row__initials">{{ member.user.displayName.slice(0, 1) }}</span>
         <div>
@@ -38,7 +88,7 @@ const isInviteDialogOpen = ref(false)
           <p>{{ member.user.bio }}</p>
         </div>
         <strong>{{ member.role }}</strong>
-      </article>
+      </button>
       <EmptyState v-if="members.length === 0" title="Участников пока нет" />
     </ContentList>
 
@@ -58,8 +108,54 @@ const isInviteDialogOpen = ref(false)
           <span class="invite-dialog__eyebrow">Код группы</span>
           <h2 id="invite-dialog-title">Приглашение</h2>
         </div>
-        <strong class="invite-dialog__code">{{ group.code }}</strong>
+        <button
+          class="invite-dialog__code"
+          type="button"
+          aria-label="Скопировать код группы"
+          @click="copyGroupCode"
+        >
+          <Clipboard :size="20" />
+          <strong>{{ group.code }}</strong>
+        </button>
         <AppButton type="button" variant="secondary" @click="isInviteDialogOpen = false">Закрыть</AppButton>
+      </section>
+    </div>
+
+    <div
+      v-if="selectedMember"
+      class="member-dialog"
+      role="presentation"
+      @click.self="selectedMember = null"
+    >
+      <section
+        class="member-dialog__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="member-dialog-title"
+      >
+        <div class="member-dialog__identity">
+          <img
+            v-if="selectedMember.user.avatarUrl"
+            :src="selectedMember.user.avatarUrl"
+            :alt="selectedMember.user.displayName"
+          />
+          <span v-else class="member-row__initials">{{ selectedMember.user.displayName.slice(0, 1) }}</span>
+          <div>
+            <span class="invite-dialog__eyebrow">{{ selectedMember.role }}</span>
+            <h2 id="member-dialog-title">{{ selectedMember.user.displayName }}</h2>
+            <p>{{ selectedMember.user.bio ?? 'Участник группы' }}</p>
+          </div>
+        </div>
+        <div class="member-dialog__actions">
+          <AppButton
+            type="button"
+            :disabled="isOpeningChat || selectedMember.userId === auth.user?.id"
+            @click="openDirectChat"
+          >
+            <MessageCircle :size="18" /> {{ isOpeningChat ? 'Открываем...' : 'Написать' }}
+          </AppButton>
+          <AppButton type="button" variant="secondary" @click="selectedMember = null">Закрыть</AppButton>
+        </div>
       </section>
     </div>
   </main>
@@ -70,10 +166,22 @@ const isInviteDialogOpen = ref(false)
   align-items: center;
   background: var(--color-surface-lowest);
   border-radius: var(--radius-md);
+  border: 0;
+  color: inherit;
+  cursor: pointer;
   display: grid;
+  font: inherit;
   gap: 16px;
   grid-template-columns: 52px 1fr auto;
   padding: 18px 20px;
+  text-align: left;
+  transition: background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.member-row:hover {
+  background: var(--color-surface-low);
+  box-shadow: 0 12px 32px -24px rgb(21 25 108 / 42%);
+  transform: translateY(-1px);
 }
 
 .member-row img,
@@ -117,7 +225,8 @@ const isInviteDialogOpen = ref(false)
   font-size: 0.85rem;
 }
 
-.invite-dialog {
+.invite-dialog,
+.member-dialog {
   align-items: center;
   background: rgb(0 0 0 / 34%);
   bottom: 0;
@@ -131,7 +240,8 @@ const isInviteDialogOpen = ref(false)
   z-index: 90;
 }
 
-.invite-dialog__panel {
+.invite-dialog__panel,
+.member-dialog__panel {
   background: var(--color-menu-surface);
   border: 1px solid var(--color-menu-border);
   border-radius: var(--radius-lg);
@@ -159,15 +269,83 @@ const isInviteDialogOpen = ref(false)
 }
 
 .invite-dialog__code {
+  align-items: center;
   background: var(--color-surface-low);
   border: 1px solid var(--color-divider);
   border-radius: var(--radius-md);
   color: var(--color-primary);
-  display: block;
+  cursor: pointer;
+  display: inline-flex;
   font-size: 2rem;
   font-weight: 900;
+  gap: 12px;
+  justify-content: center;
   letter-spacing: 0.08em;
   padding: 18px;
   text-align: center;
+  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+  width: 100%;
+}
+
+.invite-dialog__code:hover {
+  background: var(--color-surface-highest);
+  border-color: var(--color-focus-border);
+  transform: translateY(-1px);
+}
+
+.invite-dialog__code strong {
+  font: inherit;
+}
+
+.member-dialog__panel {
+  max-width: 460px;
+  width: min(100%, 460px);
+}
+
+.member-dialog__identity {
+  align-items: center;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.member-dialog__identity img,
+.member-dialog__identity .member-row__initials {
+  height: 64px;
+  width: 64px;
+}
+
+.member-dialog h2,
+.member-dialog p {
+  margin: 0;
+}
+
+.member-dialog h2 {
+  color: var(--color-primary);
+  font-size: 1.35rem;
+  margin-top: 4px;
+}
+
+.member-dialog p {
+  color: var(--color-text-muted);
+  line-height: 1.45;
+  margin-top: 6px;
+}
+
+.member-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+@media (max-width: 620px) {
+  .member-row {
+    align-items: start;
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .member-row strong {
+    grid-column: 2;
+  }
 }
 </style>

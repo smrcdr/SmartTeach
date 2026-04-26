@@ -378,19 +378,23 @@ model ChatMember {
 }
 
 model Message {
-  id        String    @id @default(uuid()) @db.Uuid
-  chatId    String    @map("chat_id") @db.Uuid
-  authorId  String    @map("author_id") @db.Uuid
-  text      String?   @db.Text
-  editedAt  DateTime? @map("edited_at") @db.Timestamptz(6)
-  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  chat      Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  author    User      @relation("MessageAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  files     MessageFile[]
+  id               String    @id @default(uuid()) @db.Uuid
+  chatId           String    @map("chat_id") @db.Uuid
+  authorId         String    @map("author_id") @db.Uuid
+  replyToMessageId String?   @map("reply_to_message_id") @db.Uuid
+  text             String?   @db.Text
+  editedAt         DateTime? @map("edited_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  chat             Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  author           User      @relation("MessageAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  replyToMessage   Message?  @relation("MessageReplies", fields: [replyToMessageId], references: [id], onDelete: SetNull)
+  replies          Message[] @relation("MessageReplies")
+  files            MessageFile[]
 
   @@index([chatId, createdAt])
   @@index([authorId])
+  @@index([replyToMessageId])
   @@map("messages")
 }
 

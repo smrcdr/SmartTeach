@@ -144,6 +144,34 @@ export type UpdateGroupPayload = {
 
 export type UpdateGroupSettingsPayload = Partial<GroupSettings>
 
+export type CreateLessonPayload = {
+  title: string
+  content?: string
+  status?: Lesson['status']
+  sortOrder?: number
+  startsAt?: string
+  endsAt?: string
+  fileIds?: string[]
+}
+
+export type CreateAssignmentPayload = {
+  lessonId?: string
+  title: string
+  content?: string
+  status?: Assignment['status']
+  dueAt?: string
+  maxScore?: number
+  fileIds?: string[]
+}
+
+export type CreateScheduleEventPayload = {
+  title: string
+  description?: string
+  startsAt: string
+  endsAt: string
+  location?: string
+}
+
 function toQuery(query: GroupListQuery = {}) {
   const params = new URLSearchParams()
 
@@ -217,12 +245,28 @@ export function getLesson(groupId: string, lessonId: string, token?: string | nu
   return apiRequest<Lesson>(`/groups/${groupId}/lessons/${lessonId}`, { token })
 }
 
+export function createLesson(groupId: string, payload: CreateLessonPayload, token?: string | null) {
+  return apiRequest<Lesson>(`/groups/${groupId}/lessons`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload)
+  })
+}
+
 export function listAssignments(groupId: string, token?: string | null) {
   return apiRequest<Assignment[]>(`/groups/${groupId}/assignments`, { token })
 }
 
 export function getAssignment(groupId: string, assignmentId: string, token?: string | null) {
   return apiRequest<Assignment>(`/groups/${groupId}/assignments/${assignmentId}`, { token })
+}
+
+export function createAssignment(groupId: string, payload: CreateAssignmentPayload, token?: string | null) {
+  return apiRequest<Assignment>(`/groups/${groupId}/assignments`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload)
+  })
 }
 
 export function listSubmissions(groupId: string, assignmentId: string, token?: string | null) {
@@ -235,6 +279,14 @@ export function getSubmission(groupId: string, assignmentId: string, submissionI
 
 export function listScheduleEvents(groupId: string, token?: string | null) {
   return apiRequest<ScheduleEvent[]>(`/groups/${groupId}/schedule/events`, { token })
+}
+
+export function createScheduleEvent(groupId: string, payload: CreateScheduleEventPayload, token?: string | null) {
+  return apiRequest<ScheduleEvent>(`/groups/${groupId}/schedule/events`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload)
+  })
 }
 
 export function listMembers(groupId: string, token?: string | null) {

@@ -1,27 +1,40 @@
 <script setup lang="ts">
 import {
   CheckCheck,
+  FileText,
   GraduationCap,
   MoreVertical,
   PlusCircle,
+  Reply,
   Search,
   Send,
   Smile,
-  Users
+  Users,
+  X
 } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { createMessage, listChats, listMessages } from '@/features/chats/api/chats.api'
 import type { Chat, Message } from '@/features/chats/api/chats.api'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
+import { uploadFile } from '@/shared/api/files.api'
+import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 
 type ChatFilterKey = 'ALL' | 'GROUP' | 'DIRECT'
 
 const auth = useAuthStore()
+const notifications = useNotificationStore()
+const route = useRoute()
+const router = useRouter()
 const chats = ref<Chat[]>([])
 const messages = ref<Message[]>([])
 const activeChatId = ref<string | null>(null)
 const composerText = ref('')
+const selectedFiles = ref<File[]>([])
+const fileInput = ref<HTMLInputElement | null>(null)
+const replyTarget = ref<Message | null>(null)
+const isSending = ref(false)
 const error = ref<string | null>(null)
 const activeFilter = ref<ChatFilterKey>('ALL')
 const filterItems: Array<{ key: ChatFilterKey; label: string }> = [
@@ -32,13 +45,17 @@ const filterItems: Array<{ key: ChatFilterKey; label: string }> = [
 
 const activeChat = computed(() => chats.value.find((chat) => chat.id === activeChatId.value) ?? null)
 const activeChatQuery = computed(() => {
-  if (activeFilter.value === 'ALL') {
-    return undefined
+  const query: { chatType?: 'GROUP' | 'DIRECT'; groupId?: string } = {}
+
+  if (activeFilter.value !== 'ALL') {
+    query.chatType = activeFilter.value
   }
 
-  return {
-    chatType: activeFilter.value
+  if (typeof route.query.groupId === 'string') {
+    query.groupId = route.query.groupId
   }
+
+  return Object.keys(query).length > 0 ? query : undefined
 })
 
 function formatTime(value: string | null) {
@@ -86,6 +103,53 @@ function getChatPreview(chat: Chat) {
   return 'Сообщений пока нет'
 }
 
+function getRequestedChatId() {
+  return typeof route.query.chatId === 'string' ? route.query.chatId : null
+}
+
+function pickFiles() {
+  fileInput.value?.click()
+}
+
+function selectFiles(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+
+  if (files.length > 0) {
+    selectedFiles.value = [...selectedFiles.value, ...files]
+  }
+
+  input.value = ''
+}
+
+function removeSelectedFile(index: number) {
+  selectedFiles.value = selectedFiles.value.filter((_, fileIndex) => fileIndex !== index)
+}
+
+function formatFileSize(sizeBytes: number) {
+  if (sizeBytes < 1024) {
+    return `${sizeBytes} Б`
+  }
+
+  if (sizeBytes < 1024 * 1024) {
+    return `${Math.round(sizeBytes / 1024)} КБ`
+  }
+
+  return `${(sizeBytes / 1024 / 1024).toFixed(1)} МБ`
+}
+
+function getReplyPreviewText(message: Message['replyToMessage']) {
+  if (!message) {
+    return ''
+  }
+
+  if (message.deletedAt) {
+    return 'Сообщение удалено'
+  }
+
+  return message.text ?? 'Вложение'
+}
+
 async function loadChats() {
   if (!auth.accessToken) {
     return
@@ -95,6 +159,12 @@ async function loadChats() {
     error.value = null
     const nextChats = await listChats(activeChatQuery.value, auth.accessToken)
     chats.value = nextChats
+    const requestedChatId = getRequestedChatId()
+
+    if (requestedChatId && nextChats.some((chat) => chat.id === requestedChatId)) {
+      activeChatId.value = requestedChatId
+      return
+    }
 
     if (!nextChats.some((chat) => chat.id === activeChatId.value)) {
       activeChatId.value = nextChats[0]?.id ?? null
@@ -128,20 +198,67 @@ async function loadMessages(chatId: string | null) {
 
 async function submitMessage() {
   const text = composerText.value.trim()
-  if (!activeChatId.value || !auth.accessToken || !text) {
+  if (!activeChatId.value || !auth.accessToken || isSending.value || (!text && selectedFiles.value.length === 0)) {
     return
   }
 
-  const message = await createMessage(activeChatId.value, { text }, auth.accessToken)
-  messages.value = [...messages.value, message]
-  composerText.value = ''
+  isSending.value = true
+
+  try {
+    const uploadedFiles = []
+
+    for (const file of selectedFiles.value) {
+      uploadedFiles.push(await uploadFile(file, 'messages', auth.accessToken))
+    }
+
+    const message = await createMessage(activeChatId.value, {
+      ...(text ? { text } : {}),
+      ...(uploadedFiles.length > 0 ? { fileIds: uploadedFiles.map((file) => file.id) } : {}),
+      ...(replyTarget.value ? { replyToMessageId: replyTarget.value.id } : {})
+    }, auth.accessToken)
+    messages.value = [...messages.value, message]
+    composerText.value = ''
+    selectedFiles.value = []
+    replyTarget.value = null
+    await loadChats()
+  } catch (caught) {
+    notifications.error(caught instanceof Error ? caught.message : 'Не удалось отправить сообщение')
+  } finally {
+    isSending.value = false
+  }
 }
 
 onMounted(() => {
   void loadChats()
 })
 
-watch(activeChatId, (chatId) => void loadMessages(chatId))
+watch(activeChatId, (chatId) => {
+  replyTarget.value = null
+  void loadMessages(chatId)
+
+  if (chatId && route.query.chatId !== chatId) {
+    void router.replace({
+      query: {
+        ...route.query,
+        chatId
+      }
+    })
+  }
+})
+watch(() => route.query.chatId, () => {
+  const requestedChatId = getRequestedChatId()
+
+  if (requestedChatId && requestedChatId !== activeChatId.value) {
+    activeChatId.value = requestedChatId
+  }
+})
+watch(() => route.query.groupId, () => {
+  if (typeof route.query.groupId === 'string') {
+    activeFilter.value = 'GROUP'
+  }
+
+  void loadChats()
+})
 </script>
 
 <template>
@@ -233,21 +350,69 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
           <div class="message__stack">
             <div class="message__bubble">
               <strong v-if="message.authorId !== auth.user?.id">{{ message.author.displayName }}</strong>
-              {{ message.deletedAt ? 'Сообщение удалено' : message.text }}
+              <div v-if="message.replyToMessage" class="message__reply-preview">
+                <span>{{ message.replyToMessage.author.displayName }}</span>
+                <p>{{ getReplyPreviewText(message.replyToMessage) }}</p>
+              </div>
+              <span v-if="message.deletedAt">Сообщение удалено</span>
+              <span v-else-if="message.text">{{ message.text }}</span>
+              <div v-if="!message.deletedAt && message.files.length > 0" class="message__files">
+                <a
+                  v-for="file in message.files"
+                  :key="file.id"
+                  class="message__file"
+                  :href="file.url"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <FileText :size="16" /> {{ file.originalName }} <span>{{ formatFileSize(file.sizeBytes) }}</span>
+                </a>
+              </div>
             </div>
-            <time>{{ formatTime(message.createdAt) }} <CheckCheck v-if="message.authorId === auth.user?.id" :size="14" /></time>
+            <div class="message__meta">
+              <button
+                v-if="!message.deletedAt"
+                class="message__reply"
+                type="button"
+                @click="replyTarget = message"
+              >
+                <Reply :size="14" /> Ответить
+              </button>
+              <time>{{ formatTime(message.createdAt) }} <CheckCheck v-if="message.authorId === auth.user?.id" :size="14" /></time>
+            </div>
           </div>
         </article>
         <EmptyState v-if="messages.length === 0" title="Сообщений пока нет" />
       </div>
 
       <form class="chat-composer" @submit.prevent="submitMessage">
-        <button type="button" aria-label="Прикрепить файл"><PlusCircle :size="24" /></button>
-        <div class="chat-composer__field">
-          <input v-model="composerText" placeholder="Написать сообщение..." />
-          <button type="button" aria-label="Добавить реакцию"><Smile :size="20" /></button>
+        <input ref="fileInput" class="chat-composer__file-input" type="file" multiple @change="selectFiles" />
+        <button type="button" aria-label="Прикрепить файл" @click="pickFiles"><PlusCircle :size="24" /></button>
+        <div class="chat-composer__body">
+          <div v-if="replyTarget" class="chat-composer__reply">
+            <Reply :size="15" />
+            <div>
+              <span>Ответ {{ replyTarget.author.displayName }}</span>
+              <p>{{ replyTarget.text ?? 'Вложение' }}</p>
+            </div>
+            <button type="button" aria-label="Убрать ответ" @click="replyTarget = null"><X :size="16" /></button>
+          </div>
+          <div v-if="selectedFiles.length > 0" class="chat-composer__attachments">
+            <button
+              v-for="(file, index) in selectedFiles"
+              :key="`${file.name}-${index}`"
+              type="button"
+              @click="removeSelectedFile(index)"
+            >
+              <FileText :size="15" /> {{ file.name }} <X :size="14" />
+            </button>
+          </div>
+          <div class="chat-composer__field">
+            <input v-model="composerText" placeholder="Написать сообщение..." />
+            <button type="button" aria-label="Добавить реакцию"><Smile :size="20" /></button>
+          </div>
         </div>
-        <button class="chat-composer__send" type="submit" aria-label="Отправить сообщение"><Send :size="20" /></button>
+        <button class="chat-composer__send" type="submit" :disabled="isSending" aria-label="Отправить сообщение"><Send :size="20" /></button>
       </form>
     </section>
     <section v-else class="chat-room chat-room--empty" aria-label="Чат не выбран">
@@ -610,6 +775,35 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
   color: #fff;
 }
 
+.message__reply-preview {
+  background: rgb(255 255 255 / 44%);
+  border-left: 3px solid currentColor;
+  border-radius: 10px;
+  display: grid;
+  gap: 2px;
+  margin-bottom: 8px;
+  padding: 7px 9px;
+}
+
+.message__reply-preview span {
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.message__reply-preview p {
+  margin: 0;
+  opacity: 0.82;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message__files {
+  display: grid;
+  gap: 7px;
+  margin-top: 8px;
+}
+
 .message time {
   align-items: center;
   color: var(--color-text-muted);
@@ -620,8 +814,35 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
   padding: 0 4px;
 }
 
+.message__meta {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
 .message--outgoing time {
   justify-content: flex-end;
+}
+
+.message--outgoing .message__meta {
+  justify-content: flex-end;
+}
+
+.message__reply {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 800;
+  gap: 4px;
+  padding: 0;
+}
+
+.message__reply:hover {
+  color: var(--color-primary);
 }
 
 .message__file {
@@ -634,6 +855,12 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
   text-decoration: underline;
 }
 
+.message__file span {
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  text-decoration: none;
+}
+
 .chat-composer {
   align-items: center;
   background: var(--color-surface);
@@ -644,9 +871,71 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
   padding: 18px 32px 24px;
 }
 
+.chat-composer__file-input {
+  display: none;
+}
+
 .chat-composer > button {
   height: 44px;
   width: 44px;
+}
+
+.chat-composer__body {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.chat-composer__reply {
+  align-items: center;
+  background: var(--color-surface-low);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr) 32px;
+  padding: 10px 12px;
+}
+
+.chat-composer__reply span {
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.chat-composer__reply p {
+  color: var(--color-text-muted);
+  margin: 2px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-composer__reply button {
+  height: 30px;
+  width: 30px;
+}
+
+.chat-composer__attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chat-composer__attachments button {
+  align-items: center;
+  background: var(--color-surface-low);
+  border: 1px solid var(--color-divider);
+  border-radius: 999px;
+  color: var(--color-primary);
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 800;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 0 10px;
 }
 
 .chat-composer__field {
@@ -690,6 +979,12 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
   transform: scale(1.03);
 }
 
+.chat-composer__send:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+}
+
 @media (max-width: 900px) {
   .chats-shell {
     grid-template-columns: 1fr;
@@ -720,11 +1015,18 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
   }
 
   .chat-composer {
-    grid-template-columns: 1fr 48px;
+    gap: 8px;
+    grid-template-columns: 40px minmax(0, 1fr) 44px;
   }
 
-  .chat-composer > button:first-child {
-    display: none;
+  .chat-composer > button {
+    height: 40px;
+    width: 40px;
+  }
+
+  .chat-composer__send {
+    height: 44px !important;
+    width: 44px !important;
   }
 }
 </style>

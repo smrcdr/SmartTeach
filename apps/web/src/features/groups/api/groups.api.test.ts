@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  createAssignment,
   createGroup,
   createJoinRequest,
+  createLesson,
+  createScheduleEvent,
   decideJoinRequest,
   getGroupByCode,
   updateGroup,
@@ -94,6 +97,42 @@ describe('groups api', () => {
 
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/groups/group-id/join-requests', expect.objectContaining({
       method: 'POST'
+    }))
+  })
+
+  it('creates lessons, assignments and schedule events through resource endpoints', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ id: 'resource-id' }), { status: 201 }))
+    )
+    const lessonPayload = {
+      title: 'Intro',
+      status: 'PUBLISHED' as const
+    }
+    const assignmentPayload = {
+      title: 'Homework',
+      dueAt: '2026-04-26T12:00:00.000Z'
+    }
+    const eventPayload = {
+      title: 'Live lesson',
+      startsAt: '2026-04-26T10:00:00.000Z',
+      endsAt: '2026-04-26T11:00:00.000Z'
+    }
+
+    await createLesson('group-id', lessonPayload, 'access-token')
+    await createAssignment('group-id', assignmentPayload, 'access-token')
+    await createScheduleEvent('group-id', eventPayload, 'access-token')
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/v1/groups/group-id/lessons', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify(lessonPayload)
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/v1/groups/group-id/assignments', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify(assignmentPayload)
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(3, '/api/v1/groups/group-id/schedule/events', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify(eventPayload)
     }))
   })
 

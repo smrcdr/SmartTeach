@@ -309,6 +309,7 @@ export class ChatsService {
 
     const text = this.normalizeNullableText(payload.text)
     const fileIds = this.normalizeFileIds(payload.fileIds)
+    const replyToMessageId = payload.replyToMessageId ?? null
 
     if (text === undefined && fileIds.length === 0) {
       throw new BadRequestException({
@@ -318,12 +319,14 @@ export class ChatsService {
     }
 
     await this.assertAttachableMessageFiles(fileIds, userId)
+    await this.assertReplyTarget(chatId, replyToMessageId)
 
     const message = await this.prismaService.$transaction(async (tx) => {
       const createdMessage = await tx.message.create({
         data: {
           chatId,
           authorId: userId,
+          replyToMessageId,
           text: text ?? null,
         },
         select: {
@@ -765,6 +768,26 @@ export class ChatsService {
     }
   }
 
+  private async assertReplyTarget(chatId: string, replyToMessageId: string | null) {
+    if (!replyToMessageId) {
+      return
+    }
+
+    const replyTarget = await this.prismaService.message.findFirst({
+      where: {
+        id: replyToMessageId,
+        chatId,
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    if (!replyTarget) {
+      throw new NotFoundException('Reply target message not found')
+    }
+  }
+
   private async syncMessageFiles(
     executor: Prisma.TransactionClient,
     messageId: string,
@@ -819,7 +842,11 @@ export class ChatsService {
         : [],
     )
 
-    const avatarUrlByFileId = await buildAvatarUrlByFileId(this.minioService, [message.author])
+    const avatarUsers = [
+      message.author,
+      ...(message.replyToMessage ? [message.replyToMessage.author] : []),
+    ]
+    const avatarUrlByFileId = await buildAvatarUrlByFileId(this.minioService, avatarUsers)
 
     return mapMessageToDto(message, fileUrlsById, avatarUrlByFileId)
   }
@@ -838,7 +865,10 @@ export class ChatsService {
 
     const avatarUrlByFileId = await buildAvatarUrlByFileId(
       this.minioService,
-      messages.map((message) => message.author),
+      messages.flatMap((message) => [
+        message.author,
+        ...(message.replyToMessage ? [message.replyToMessage.author] : []),
+      ]),
     )
 
     return messages.map((message) => mapMessageToDto(message, fileUrlsById, avatarUrlByFileId))

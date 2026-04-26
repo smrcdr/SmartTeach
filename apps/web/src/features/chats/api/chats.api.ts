@@ -1,4 +1,5 @@
 import type { PublicUser } from '@/features/groups/api/groups.api'
+import type { FileObject } from '@/shared/api/files.api'
 import { apiRequest } from '@/shared/api/http'
 
 export type ChatMember = {
@@ -27,7 +28,15 @@ export type Message = {
   chatId: string
   authorId: string
   text: string | null
-  files: unknown[]
+  files: FileObject[]
+  replyToMessage: {
+    id: string
+    authorId: string
+    text: string | null
+    deletedAt: string | null
+    createdAt: string
+    author: PublicUser
+  } | null
   editedAt: string | null
   deletedAt: string | null
   createdAt: string
@@ -62,11 +71,33 @@ export function listGroupChats(groupId: string, token?: string | null) {
   return apiRequest<Chat[]>(`/groups/${groupId}/chats`, { token })
 }
 
+export function createGroupChat(groupId: string, payload: { title: string }, token?: string | null) {
+  return apiRequest<Chat>(`/groups/${groupId}/chats`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload)
+  })
+}
+
+export function createDirectChat(userId: string, token?: string | null) {
+  return apiRequest<Chat>('/chats/direct', {
+    method: 'POST',
+    token,
+    body: JSON.stringify({ userId })
+  })
+}
+
 export function listMessages(chatId: string, token?: string | null) {
   return apiRequest<Message[]>(`/chats/${chatId}/messages`, { token })
 }
 
-export function createMessage(chatId: string, payload: { text: string }, token?: string | null) {
+export type CreateMessagePayload = {
+  text?: string
+  fileIds?: string[]
+  replyToMessageId?: string
+}
+
+export function createMessage(chatId: string, payload: CreateMessagePayload, token?: string | null) {
   return apiRequest<Message>(`/chats/${chatId}/messages`, {
     method: 'POST',
     token,

@@ -70,6 +70,7 @@ export const messageSelect = {
   id: true,
   chatId: true,
   authorId: true,
+  replyToMessageId: true,
   text: true,
   editedAt: true,
   deletedAt: true,
@@ -91,6 +92,18 @@ export const messageSelect = {
   },
   author: {
     select: publicUserSelect,
+  },
+  replyToMessage: {
+    select: {
+      id: true,
+      authorId: true,
+      text: true,
+      deletedAt: true,
+      createdAt: true,
+      author: {
+        select: publicUserSelect,
+      },
+    },
   },
 } satisfies Prisma.MessageSelect
 
@@ -139,6 +152,16 @@ export function mapMessageToDto(
     files: isDeleted
       ? []
       : message.files.map((link) => mapFileToDto(link.file, fileUrlsById.get(link.file.id) ?? '')),
+    replyToMessage: isDeleted || !message.replyToMessage
+      ? null
+      : {
+          id: message.replyToMessage.id,
+          authorId: message.replyToMessage.authorId,
+          text: message.replyToMessage.deletedAt ? null : message.replyToMessage.text,
+          deletedAt: message.replyToMessage.deletedAt?.toISOString() ?? null,
+          createdAt: message.replyToMessage.createdAt.toISOString(),
+          author: mapPublicUserToDto(message.replyToMessage.author, avatarUrlByFileId),
+        },
     editedAt: message.editedAt?.toISOString() ?? null,
     deletedAt: message.deletedAt?.toISOString() ?? null,
     createdAt: message.createdAt.toISOString(),
