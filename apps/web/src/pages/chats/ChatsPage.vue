@@ -268,6 +268,7 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
 
 .chat-list {
   background: var(--color-surface-low);
+  border-right: 1px solid rgb(199 197 211 / 42%);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -429,6 +430,7 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
   align-items: center;
   background: rgb(251 248 255 / 84%);
   backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgb(199 197 211 / 38%);
   display: flex;
   justify-content: space-between;
   padding: 0 32px;
@@ -635,6 +637,7 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
 .chat-composer {
   align-items: center;
   background: var(--color-surface);
+  border-top: 1px solid rgb(199 197 211 / 38%);
   display: grid;
   gap: 12px;
   grid-template-columns: 44px minmax(0, 1fr) 48px;
@@ -694,6 +697,8 @@ watch(activeChatId, (chatId) => void loadMessages(chatId))
   }
 
   .chat-list {
+    border-bottom: 1px solid rgb(199 197 211 / 38%);
+    border-right: 0;
     max-height: 42vh;
   }
 

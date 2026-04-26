@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
@@ -60,6 +61,13 @@ describe('AppTopNav', () => {
     expect(wrapper.find('.top-nav__auth-actions').text()).toContain('Войти')
     expect(wrapper.find('.top-nav__auth-actions').text()).toContain('Регистрация')
     expect(wrapper.find('[aria-label="Поиск"]').exists()).toBe(false)
+  })
+
+  it('keeps a visible bottom divider between navbar and page content', () => {
+    const source = readFileSync(`${process.cwd()}/src/shared/ui/AppTopNav.vue`, 'utf8')
+
+    expect(source).toContain('border-bottom: 1px solid rgb(199 197 211 / 54%);')
+    expect(source).toContain('inset 0 -1px 0 rgb(255 255 255 / 62%)')
   })
 
   it('keeps the authenticated profile on the right', () => {
