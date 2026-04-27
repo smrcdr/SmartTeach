@@ -24,4 +24,9 @@ export class UpdateGroupSettingsRequestDto {
     example: true,
   })
   scheduleEnabled?: boolean
+
+  @ApiPropertyOptional({
+    example: true,
+  })
+  usefulLinksEnabled?: boolean
 }

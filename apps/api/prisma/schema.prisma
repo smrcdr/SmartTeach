@@ -82,6 +82,7 @@ model User {
   createdChats    Chat[] @relation("ChatCreator")
   chatMemberships ChatMember[]
   messages        Message[] @relation("MessageAuthor")
+  createdUsefulLinks GroupUsefulLink[] @relation("GroupUsefulLinkCreator")
 
   @@map("users")
 }
@@ -119,6 +120,7 @@ model File {
   assignmentFiles  AssignmentFile[]
   submissionFiles  SubmissionFile[]
   messageFiles     MessageFile[]
+  groupUsefulLinkImages GroupUsefulLink[] @relation("GroupUsefulLinkImage")
 
   @@index([uploadedByUserId])
   @@map("files")
@@ -144,6 +146,7 @@ model Group {
   assignments Assignment[]
   scheduleEvents ScheduleEvent[]
   chats       Chat[]
+  usefulLinks GroupUsefulLink[]
 
   @@index([ownerId])
   @@index([status])
@@ -156,6 +159,7 @@ model GroupSettings {
   lessonsEnabled      Boolean  @default(true) @map("lessons_enabled")
   assignmentsEnabled  Boolean  @default(true) @map("assignments_enabled")
   scheduleEnabled     Boolean  @default(true) @map("schedule_enabled")
+  usefulLinksEnabled  Boolean  @default(true) @map("useful_links_enabled")
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
   group               Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
@@ -196,6 +200,26 @@ model GroupJoinRequest {
   @@index([userId])
   @@index([reviewedByUserId])
   @@map("group_join_requests")
+}
+
+model GroupUsefulLink {
+  id              String   @id @default(uuid()) @db.Uuid
+  groupId         String   @map("group_id") @db.Uuid
+  title           String   @db.VarChar(120)
+  url             String   @db.VarChar(2048)
+  imageFileId     String?  @map("image_file_id") @db.Uuid
+  sortOrder       Int      @map("sort_order")
+  createdByUserId String   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  group           Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  imageFile       File?    @relation("GroupUsefulLinkImage", fields: [imageFileId], references: [id], onDelete: SetNull)
+  createdByUser   User     @relation("GroupUsefulLinkCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([groupId, sortOrder])
+  @@index([imageFileId])
+  @@index([createdByUserId])
+  @@map("group_useful_links")
 }
 
 model Lesson {

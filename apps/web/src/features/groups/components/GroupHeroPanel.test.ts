@@ -22,7 +22,8 @@ function buildGroup(overrides: Partial<Group> = {}): Group {
       chatEnabled: true,
       lessonsEnabled: true,
       assignmentsEnabled: true,
-      scheduleEnabled: true
+      scheduleEnabled: true,
+      usefulLinksEnabled: true
     },
     membersCount: 4,
     viewerMembershipRole: null,

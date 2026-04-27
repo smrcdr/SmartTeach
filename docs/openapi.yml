@@ -2463,6 +2463,98 @@ paths:
       summary: Обновить настройки группы
       tags:
         - Group Settings
+  /groups/{groupId}/useful-links:
+    get:
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupUsefulLink'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить полезные ссылки группы
+      tags:
+        - Group useful links
+    post:
+      description: Доступно владельцу и администраторам группы, если useful_links_enabled включен.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupUsefulLinkRequest'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupUsefulLink'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Добавить полезную ссылку
+      tags:
+        - Group useful links
   /groups/by-code/{code}:
     get:
       parameters:
@@ -2840,6 +2932,31 @@ components:
         - name
         - accessMode
         - settings
+    CreateGroupUsefulLinkRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: Телеграм
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+          example: https://t.me/test123
+        imageFileId:
+          type: string
+          format: uuid
+          nullable: true
+          example: aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 10
+      required:
+        - title
+        - url
     CreateLessonRequest:
       type: object
       properties:
@@ -3181,11 +3298,62 @@ components:
         scheduleEnabled:
           type: boolean
           example: true
+        usefulLinksEnabled:
+          type: boolean
+          example: true
       required:
         - chatEnabled
         - lessonsEnabled
         - assignmentsEnabled
         - scheduleEnabled
+        - usefulLinksEnabled
+    GroupUsefulLink:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: ddddddd4-dddd-4ddd-8ddd-dddddddddddd
+        groupId:
+          type: string
+          format: uuid
+          example: 66666666-6666-4666-8666-666666666666
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: Телеграм
+        url:
+          type: string
+          format: uri
+          example: https://t.me/test123
+        image:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/FileObject'
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 10
+        createdByUserId:
+          type: string
+          format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - groupId
+        - title
+        - url
+        - sortOrder
+        - createdByUserId
+        - createdAt
+        - updatedAt
     HealthResponse:
       type: object
       properties:
@@ -3725,6 +3893,9 @@ components:
           type: boolean
           example: true
         scheduleEnabled:
+          type: boolean
+          example: true
+        usefulLinksEnabled:
           type: boolean
           example: true
     UpdateLessonRequest:

@@ -99,6 +99,7 @@ export class FilesService {
             assignmentFiles: true,
             submissionFiles: true,
             messageFiles: true,
+            groupUsefulLinkImages: true,
           },
         },
       },
@@ -117,7 +118,8 @@ export class FilesService {
       file._count.lessonFiles > 0 ||
       file._count.assignmentFiles > 0 ||
       file._count.submissionFiles > 0 ||
-      file._count.messageFiles > 0
+      file._count.messageFiles > 0 ||
+      file._count.groupUsefulLinkImages > 0
     ) {
       throw new ConflictException('File is still attached to existing resources')
     }

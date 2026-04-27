@@ -32,6 +32,7 @@ function buildGroup(role: Group['viewerMembershipRole'], overrides: GroupOverrid
     lessonsEnabled: true,
     assignmentsEnabled: true,
     scheduleEnabled: true,
+    usefulLinksEnabled: true,
     ...overrides.settings
   }
 
@@ -116,7 +117,8 @@ describe('GroupWorkspaceLayout', () => {
         chatEnabled: false,
         lessonsEnabled: false,
         assignmentsEnabled: true,
-        scheduleEnabled: false
+        scheduleEnabled: false,
+        usefulLinksEnabled: true
       }
     })
     const labels = navLabels(wrapper)

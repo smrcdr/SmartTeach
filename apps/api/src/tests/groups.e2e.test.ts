@@ -78,6 +78,7 @@ type GroupSettingsResponse = {
   lessonsEnabled: boolean
   assignmentsEnabled: boolean
   scheduleEnabled: boolean
+  usefulLinksEnabled: boolean
 }
 
 type GroupResponse = {

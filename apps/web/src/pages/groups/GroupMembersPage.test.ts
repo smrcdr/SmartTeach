@@ -54,7 +54,8 @@ function buildGroup(role: Group['viewerMembershipRole'] = 'ADMIN'): Group {
       chatEnabled: true,
       lessonsEnabled: true,
       assignmentsEnabled: true,
-      scheduleEnabled: true
+      scheduleEnabled: true,
+      usefulLinksEnabled: true
     },
     membersCount: 2,
     viewerMembershipRole: role,

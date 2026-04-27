@@ -4,7 +4,10 @@ import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 
 export function useGroupRouteList<T>(
-  loader: (groupId: string, token: string) => Promise<T[]>
+  loader: (groupId: string, token: string) => Promise<T[]>,
+  options: {
+    enabled?: () => boolean
+  } = {}
 ) {
   const route = useRoute()
   const auth = useAuthStore()
@@ -14,6 +17,11 @@ export function useGroupRouteList<T>(
   const groupId = computed(() => String(route.params.groupId ?? ''))
 
   async function refresh() {
+    if (!(options.enabled?.() ?? true)) {
+      items.value = []
+      return
+    }
+
     if (!groupId.value || !auth.accessToken) {
       return
     }
@@ -29,7 +37,7 @@ export function useGroupRouteList<T>(
     }
   }
 
-  watch(groupId, () => void refresh(), { immediate: true })
+  watch([groupId, () => options.enabled?.() ?? true], () => void refresh(), { immediate: true })
 
   return {
     items,

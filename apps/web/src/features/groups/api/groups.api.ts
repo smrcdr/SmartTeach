@@ -1,4 +1,5 @@
 import { apiRequest } from '@/shared/api/http'
+import type { FileObject } from '@/shared/api/files.api'
 
 export type PublicUser = {
   id: string
@@ -13,6 +14,7 @@ export type GroupSettings = {
   lessonsEnabled: boolean
   assignmentsEnabled: boolean
   scheduleEnabled: boolean
+  usefulLinksEnabled: boolean
 }
 
 export type Group = {
@@ -102,6 +104,18 @@ export type ScheduleEvent = {
   updatedAt: string
 }
 
+export type UsefulLink = {
+  id: string
+  groupId: string
+  title: string
+  url: string
+  image: FileObject | null
+  sortOrder: number
+  createdByUserId: string
+  createdAt: string
+  updatedAt: string
+}
+
 export type GroupMember = {
   groupId: string
   userId: string
@@ -170,6 +184,13 @@ export type CreateScheduleEventPayload = {
   startsAt: string
   endsAt: string
   location?: string
+}
+
+export type CreateUsefulLinkPayload = {
+  title: string
+  url: string
+  imageFileId?: string | null
+  sortOrder?: number
 }
 
 function toQuery(query: GroupListQuery = {}) {
@@ -283,6 +304,18 @@ export function listScheduleEvents(groupId: string, token?: string | null) {
 
 export function createScheduleEvent(groupId: string, payload: CreateScheduleEventPayload, token?: string | null) {
   return apiRequest<ScheduleEvent>(`/groups/${groupId}/schedule/events`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload)
+  })
+}
+
+export function listUsefulLinks(groupId: string, token?: string | null) {
+  return apiRequest<UsefulLink[]>(`/groups/${groupId}/useful-links`, { token })
+}
+
+export function createUsefulLink(groupId: string, payload: CreateUsefulLinkPayload, token?: string | null) {
+  return apiRequest<UsefulLink>(`/groups/${groupId}/useful-links`, {
     method: 'POST',
     token,
     body: JSON.stringify(payload)

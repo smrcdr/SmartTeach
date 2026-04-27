@@ -4,8 +4,10 @@ import {
   createGroup,
   createJoinRequest,
   createLesson,
+  createUsefulLink,
   createScheduleEvent,
   decideJoinRequest,
+  listUsefulLinks,
   listGroups,
   getGroupByCode,
   updateGroup,
@@ -59,7 +61,8 @@ describe('groups api', () => {
         chatEnabled: true,
         lessonsEnabled: true,
         assignmentsEnabled: true,
-        scheduleEnabled: false
+        scheduleEnabled: false,
+        usefulLinksEnabled: true
       }
     }
 
@@ -91,11 +94,12 @@ describe('groups api', () => {
 
   it('updates group module settings through the backend settings endpoint', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ chatEnabled: false }), { status: 200 })
+      new Response(JSON.stringify({ chatEnabled: false, usefulLinksEnabled: true }), { status: 200 })
     )
     const payload = {
       chatEnabled: false,
-      scheduleEnabled: true
+      scheduleEnabled: true,
+      usefulLinksEnabled: true
     }
 
     await updateGroupSettings('group-id', payload, 'access-token')
@@ -118,7 +122,7 @@ describe('groups api', () => {
     }))
   })
 
-  it('creates lessons, assignments and schedule events through resource endpoints', async () => {
+  it('creates lessons, assignments, schedule events and useful links through resource endpoints', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
       Promise.resolve(new Response(JSON.stringify({ id: 'resource-id' }), { status: 201 }))
     )
@@ -135,10 +139,17 @@ describe('groups api', () => {
       startsAt: '2026-04-26T10:00:00.000Z',
       endsAt: '2026-04-26T11:00:00.000Z'
     }
+    const usefulLinkPayload = {
+      title: 'Телеграм',
+      url: 'https://t.me/test123',
+      imageFileId: 'file-id'
+    }
 
     await createLesson('group-id', lessonPayload, 'access-token')
     await createAssignment('group-id', assignmentPayload, 'access-token')
     await createScheduleEvent('group-id', eventPayload, 'access-token')
+    await createUsefulLink('group-id', usefulLinkPayload, 'access-token')
+    await listUsefulLinks('group-id', 'access-token')
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/v1/groups/group-id/lessons', expect.objectContaining({
       method: 'POST',
@@ -151,6 +162,13 @@ describe('groups api', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(3, '/api/v1/groups/group-id/schedule/events', expect.objectContaining({
       method: 'POST',
       body: JSON.stringify(eventPayload)
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(4, '/api/v1/groups/group-id/useful-links', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify(usefulLinkPayload)
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(5, '/api/v1/groups/group-id/useful-links', expect.objectContaining({
+      credentials: 'include'
     }))
   })
 

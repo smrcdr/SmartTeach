@@ -58,7 +58,7 @@ describe('CreateGroupPage', () => {
     expect(wrapper.find('input[name="name"]').exists()).toBe(true)
     expect(wrapper.find('textarea[name="description"]').exists()).toBe(true)
     expect(wrapper.findAll('input[name="accessMode"]')).toHaveLength(3)
-    expect(wrapper.findAll('input[type="checkbox"]')).toHaveLength(4)
+    expect(wrapper.findAll('input[type="checkbox"]')).toHaveLength(5)
     expect(wrapper.text()).toContain('Открытая')
     expect(wrapper.text()).toContain('По заявке')
     expect(wrapper.text()).toContain('Закрытая')
@@ -66,6 +66,7 @@ describe('CreateGroupPage', () => {
     expect(wrapper.text()).toContain('Уроки')
     expect(wrapper.text()).toContain('Задания')
     expect(wrapper.text()).toContain('Расписание')
+    expect(wrapper.text()).toContain('Полезные ссылки')
     expect(wrapper.text()).not.toContain('Статус')
     expect(wrapper.text()).not.toContain('Дата')
   })
@@ -83,7 +84,8 @@ describe('CreateGroupPage', () => {
           chatEnabled: false,
           lessonsEnabled: true,
           assignmentsEnabled: true,
-          scheduleEnabled: true
+          scheduleEnabled: true,
+          usefulLinksEnabled: true
         }
       }))
     })
@@ -110,7 +112,8 @@ describe('CreateGroupPage', () => {
         chatEnabled: false,
         lessonsEnabled: true,
         assignmentsEnabled: true,
-        scheduleEnabled: true
+        scheduleEnabled: true,
+        usefulLinksEnabled: true
       }
     })
     expect(router.currentRoute.value.name).toBe('group-workspace')

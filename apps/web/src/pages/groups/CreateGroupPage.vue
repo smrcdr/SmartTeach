@@ -35,7 +35,8 @@ const form = reactive<CreateGroupForm>({
     chatEnabled: true,
     lessonsEnabled: true,
     assignmentsEnabled: true,
-    scheduleEnabled: true
+    scheduleEnabled: true,
+    usefulLinksEnabled: true
   } satisfies GroupSettings
 })
 

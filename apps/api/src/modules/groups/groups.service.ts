@@ -142,6 +142,7 @@ export class GroupsService {
                   lessonsEnabled: payload.settings.lessonsEnabled,
                   assignmentsEnabled: payload.settings.assignmentsEnabled,
                   scheduleEnabled: payload.settings.scheduleEnabled,
+                  usefulLinksEnabled: payload.settings.usefulLinksEnabled,
                 },
               },
               members: {
@@ -350,6 +351,11 @@ export class GroupsService {
       ...(payload.scheduleEnabled !== undefined
         ? {
             scheduleEnabled: payload.scheduleEnabled,
+          }
+        : {}),
+      ...(payload.usefulLinksEnabled !== undefined
+        ? {
+            usefulLinksEnabled: payload.usefulLinksEnabled,
           }
         : {}),
     }

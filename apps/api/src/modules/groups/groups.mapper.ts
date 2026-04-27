@@ -11,6 +11,7 @@ export const groupSettingsSelect = {
   lessonsEnabled: true,
   assignmentsEnabled: true,
   scheduleEnabled: true,
+  usefulLinksEnabled: true,
 } satisfies Prisma.GroupSettingsSelect
 
 const groupBaseSelect = {
@@ -90,6 +91,7 @@ export function mapGroupSettingsToDto(settings: GroupSettingsRecord): GroupSetti
     lessonsEnabled: settings.lessonsEnabled,
     assignmentsEnabled: settings.assignmentsEnabled,
     scheduleEnabled: settings.scheduleEnabled,
+    usefulLinksEnabled: settings.usefulLinksEnabled,
   }
 }
 

@@ -20,4 +20,9 @@ export class GroupSettingsDto {
     example: true,
   })
   scheduleEnabled!: boolean
+
+  @ApiProperty({
+    example: true,
+  })
+  usefulLinksEnabled!: boolean
 }
