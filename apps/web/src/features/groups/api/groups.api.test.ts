@@ -15,7 +15,8 @@ import {
   listGroups,
   getGroupByCode,
   updateGroup,
-  updateGroupSettings
+  updateGroupSettings,
+  updateLesson
 } from './groups.api'
 
 describe('groups api', () => {
@@ -204,6 +205,25 @@ describe('groups api', () => {
     }))
     expect(fetchMock).toHaveBeenNthCalledWith(9, '/api/v1/groups/group-id/useful-links', expect.objectContaining({
       credentials: 'include'
+    }))
+  })
+
+  it('updates lessons through the backend update endpoint', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ id: 'lesson-id' }), { status: 200 })
+    )
+    const payload = {
+      title: 'Updated lesson',
+      materialSubsectionId: 'subsection-id',
+      content: '## Конспект',
+      status: 'PUBLISHED' as const
+    }
+
+    await updateLesson('group-id', 'lesson-id', payload, 'access-token')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/groups/group-id/lessons/lesson-id', expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify(payload)
     }))
   })
 

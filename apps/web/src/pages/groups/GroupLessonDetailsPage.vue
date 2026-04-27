@@ -1,22 +1,36 @@
 <script setup lang="ts">
+import { Edit } from 'lucide-vue-next'
+import { computed } from 'vue'
 import { getLesson } from '@/features/groups/api/groups.api'
+import MarkdownPreview from '@/features/groups/components/MarkdownPreview.vue'
+import { useGroup } from '@/features/groups/composables/useGroup'
 import { useGroupRouteItem } from '@/features/groups/composables/useGroupRouteResource'
+import { canManageGroup } from '@/features/groups/lib/group-permissions'
+import AppButton from '@/shared/ui/AppButton.vue'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 import StatusPill from '@/shared/ui/StatusPill.vue'
 
-const { item: lesson, error } = useGroupRouteItem('lessonId', getLesson)
+const { group } = useGroup()
+const { item: lesson, groupId, itemId: lessonId, error } = useGroupRouteItem('lessonId', getLesson)
+const canManage = computed(() => canManageGroup(group.value))
 </script>
 
 <template>
   <main v-if="lesson" class="page narrow-page">
-    <AppPageHeader eyebrow="Материал" :title="lesson.title" :description="lesson.content ?? undefined" align="split">
+    <AppPageHeader eyebrow="Материал" :title="lesson.title" align="split">
       <template #actions>
+        <RouterLink v-if="canManage" :to="{ name: 'group-lesson-edit', params: { groupId, lessonId } }">
+          <AppButton variant="secondary">
+            <Edit :size="18" />
+            Редактировать
+          </AppButton>
+        </RouterLink>
         <StatusPill :label="lesson.status" :tone="lesson.status === 'PUBLISHED' ? 'success' : 'muted'" />
       </template>
     </AppPageHeader>
     <section class="reading-panel surface-panel">
-      <p>{{ lesson.content ?? 'Материал урока пока не заполнен.' }}</p>
+      <MarkdownPreview :content="lesson.content" />
       <div v-if="lesson.files.length > 0" class="reading-panel__files">
         <a
           v-for="file in lesson.files"
@@ -37,16 +51,9 @@ const { item: lesson, error } = useGroupRouteItem('lessonId', getLesson)
 
 <style scoped>
 .reading-panel {
-  color: var(--color-text-muted);
   display: grid;
-  font-size: 1.05rem;
   gap: 18px;
-  line-height: 1.75;
   padding: clamp(24px, 4vw, 38px);
-}
-
-.reading-panel p {
-  margin: 0;
 }
 
 .reading-panel__files {

@@ -212,6 +212,8 @@ export type CreateLessonPayload = {
   fileIds?: string[]
 }
 
+export type UpdateLessonPayload = Partial<CreateLessonPayload>
+
 export type CreateAssignmentPayload = {
   lessonId?: string | null
   materialSectionId?: string | null
@@ -396,6 +398,14 @@ export function getLesson(groupId: string, lessonId: string, token?: string | nu
 export function createLesson(groupId: string, payload: CreateLessonPayload, token?: string | null) {
   return apiRequest<Lesson>(`/groups/${groupId}/lessons`, {
     method: 'POST',
+    token,
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updateLesson(groupId: string, lessonId: string, payload: UpdateLessonPayload, token?: string | null) {
+  return apiRequest<Lesson>(`/groups/${groupId}/lessons/${lessonId}`, {
+    method: 'PATCH',
     token,
     body: JSON.stringify(payload)
   })
