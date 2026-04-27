@@ -51,18 +51,6 @@ export class LessonDto {
     format: 'date-time',
     nullable: true,
   })
-  startsAt!: string | null
-
-  @ApiPropertyOptional({
-    format: 'date-time',
-    nullable: true,
-  })
-  endsAt!: string | null
-
-  @ApiPropertyOptional({
-    format: 'date-time',
-    nullable: true,
-  })
   publishedAt!: string | null
 
   @ApiPropertyOptional({

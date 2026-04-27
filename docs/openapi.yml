@@ -3216,14 +3216,6 @@ components:
           type: number
           minimum: 1
           example: 20
-        startsAt:
-          type: string
-          format: date-time
-          example: '2026-04-15T09:00:00.000Z'
-        endsAt:
-          type: string
-          format: date-time
-          example: '2026-04-15T10:30:00.000Z'
         fileIds:
           example:
             - aaaaaaa3-aaaa-4aaa-8aaa-aaaaaaaaaaa3
@@ -3678,14 +3670,6 @@ components:
           type: number
           minimum: 1
           example: 10
-        startsAt:
-          type: object
-          format: date-time
-          nullable: true
-        endsAt:
-          type: object
-          format: date-time
-          nullable: true
         publishedAt:
           type: object
           format: date-time
@@ -4063,10 +4047,9 @@ components:
         sourceType:
           type: string
           enum:
-            - LESSON
             - ASSIGNMENT_DEADLINE
             - CUSTOM_EVENT
-          example: LESSON
+          example: CUSTOM_EVENT
         sourceId:
           type: string
           format: uuid
@@ -4375,16 +4358,6 @@ components:
           type: number
           minimum: 1
           example: 5
-        startsAt:
-          type: object
-          format: date-time
-          example: '2026-04-20T09:00:00.000Z'
-          nullable: true
-        endsAt:
-          type: object
-          format: date-time
-          example: '2026-04-20T10:30:00.000Z'
-          nullable: true
         fileIds:
           example:
             - aaaaaaa3-aaaa-4aaa-8aaa-aaaaaaaaaaa3

@@ -332,22 +332,6 @@ test('rejects schedule events when schedule_enabled is false', async () => {
   )
 })
 
-test('rejects schedule events that duplicate lesson-derived entries', async () => {
-  await expectFailure(
-    prisma.scheduleEvent.create({
-      data: {
-        id: randomUUID(),
-        groupId: seededIds.groups.webBasics,
-        title: 'Введение в структуру страницы',
-        startsAt: new Date('2026-03-17T09:00:00.000Z'),
-        endsAt: new Date('2026-03-17T10:30:00.000Z'),
-        createdByUserId: seededIds.users.alex,
-      },
-    }),
-    'duplicates lesson-derived schedule entry',
-  )
-})
-
 test('rejects schedule events that duplicate assignment-derived entries', async () => {
   await expectFailure(
     prisma.scheduleEvent.create({

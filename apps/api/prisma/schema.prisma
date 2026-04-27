@@ -234,8 +234,6 @@ model Lesson {
   content         String?      @db.Text
   status          LessonStatus @default(DRAFT)
   sortOrder       Int          @map("sort_order")
-  startsAt        DateTime?    @map("starts_at") @db.Timestamptz(6)
-  endsAt          DateTime?    @map("ends_at") @db.Timestamptz(6)
   publishedAt     DateTime?    @map("published_at") @db.Timestamptz(6)
   archivedAt      DateTime?    @map("archived_at") @db.Timestamptz(6)
   createdByUserId String       @map("created_by_user_id") @db.Uuid
@@ -251,7 +249,6 @@ model Lesson {
   @@index([materialSubsectionId])
   @@index([createdByUserId])
   @@index([groupId, status])
-  @@index([groupId, startsAt])
   @@index([groupId, materialSubsectionId, sortOrder])
   @@map("lessons")
 }

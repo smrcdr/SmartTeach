@@ -4,7 +4,7 @@ import { scheduleEntryTypeValues } from '../schedule.schemas'
 export class ScheduleEntryDto {
   @ApiProperty({
     enum: scheduleEntryTypeValues,
-    example: 'LESSON',
+    example: 'CUSTOM_EVENT',
   })
   sourceType!: (typeof scheduleEntryTypeValues)[number]
 

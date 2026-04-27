@@ -99,7 +99,7 @@ type ScheduleEventResponse = {
 }
 
 type ScheduleEntryResponse = {
-  sourceType: 'LESSON' | 'ASSIGNMENT_DEADLINE' | 'CUSTOM_EVENT'
+  sourceType: 'ASSIGNMENT_DEADLINE' | 'CUSTOM_EVENT'
   sourceId: string
   groupId: string
   title: string
@@ -182,7 +182,7 @@ async function createGroup(
   return result.body
 }
 
-test('schedule endpoints aggregate lessons, deadlines and custom events', async () => {
+test('schedule endpoints aggregate deadlines and custom events without lesson windows', async () => {
   const owner = await registerUser('owner')
   const member = await registerUser('member')
   const group = await createGroup(owner.accessToken)
@@ -195,23 +195,15 @@ test('schedule endpoints aggregate lessons, deadlines and custom events', async 
     },
   })
 
-  const lesson = await prisma.lesson.create({
+  await prisma.lesson.create({
     data: {
       groupId: group.id,
       title: 'Architecture workshop',
       content: 'Разбираем boundaries и инварианты.',
       status: 'PUBLISHED',
       sortOrder: 1,
-      startsAt: new Date('2026-04-15T09:00:00.000Z'),
-      endsAt: new Date('2026-04-15T10:30:00.000Z'),
       createdByUserId: owner.user.id,
       publishedAt: new Date('2026-04-10T08:00:00.000Z'),
-    },
-    select: {
-      id: true,
-      title: true,
-      startsAt: true,
-      endsAt: true,
     },
   })
 
@@ -250,19 +242,6 @@ test('schedule endpoints aggregate lessons, deadlines and custom events', async 
       createdByUserId: owner.user.id,
     },
   })
-
-  const duplicateLessonResult = await request<ErrorResponse>(`/groups/${group.id}/schedule/events`, {
-    method: 'POST',
-    token: owner.accessToken,
-    body: {
-      title: lesson.title,
-      startsAt: lesson.startsAt!.toISOString(),
-      endsAt: lesson.endsAt!.toISOString(),
-    },
-  })
-
-  assert.equal(duplicateLessonResult.response.status, 400)
-  assert.ok(duplicateLessonResult.body?.errors?.some((error) => error.includes('lesson-derived')))
 
   const duplicateAssignmentResult = await request<ErrorResponse>(
     `/groups/${group.id}/schedule/events`,
@@ -312,14 +291,14 @@ test('schedule endpoints aggregate lessons, deadlines and custom events', async 
 
   assert.equal(fullScheduleResult.response.status, 200)
   assert.ok(fullScheduleResult.body)
-  assert.equal(fullScheduleResult.body.length, 3)
+  assert.equal(fullScheduleResult.body.length, 2)
   assert.deepEqual(
     fullScheduleResult.body.map((entry) => entry.sourceType),
-    ['LESSON', 'CUSTOM_EVENT', 'ASSIGNMENT_DEADLINE'],
+    ['CUSTOM_EVENT', 'ASSIGNMENT_DEADLINE'],
   )
   assert.deepEqual(
     fullScheduleResult.body.map((entry) => entry.title),
-    ['Architecture workshop', 'Demo day rehearsal', 'Submit API review'],
+    ['Demo day rehearsal', 'Submit API review'],
   )
 
   const filteredScheduleResult = await request<ScheduleEntryResponse[]>(
@@ -404,7 +383,7 @@ test('schedule endpoints aggregate lessons, deadlines and custom events', async 
 
   assert.equal(scheduleWithoutCancelledEvent.response.status, 200)
   assert.ok(scheduleWithoutCancelledEvent.body)
-  assert.equal(scheduleWithoutCancelledEvent.body.length, 2)
+  assert.equal(scheduleWithoutCancelledEvent.body.length, 1)
   assert.ok(
     scheduleWithoutCancelledEvent.body.every((entry) => entry.sourceType !== 'CUSTOM_EVENT'),
   )
@@ -428,23 +407,9 @@ test('schedule endpoints aggregate lessons, deadlines and custom events', async 
   assert.equal(missingEventResult.response.status, 404)
 })
 
-test('schedule feed hides lesson and assignment entries when their feature flags are disabled', async () => {
+test('schedule feed hides assignment entries when assignments are disabled', async () => {
   const owner = await registerUser('owner-feature-flags')
   const group = await createGroup(owner.accessToken)
-
-  const createLessonResult = await request(`/groups/${group.id}/lessons`, {
-    method: 'POST',
-    token: owner.accessToken,
-    body: {
-      title: 'Feature-flagged lesson',
-      status: 'PUBLISHED',
-      sortOrder: 1,
-      startsAt: '2026-04-14T09:00:00.000Z',
-      endsAt: '2026-04-14T10:00:00.000Z',
-    },
-  })
-
-  assert.equal(createLessonResult.response.status, 201)
 
   const createAssignmentResult = await request(`/groups/${group.id}/assignments`, {
     method: 'POST',
@@ -481,26 +446,6 @@ test('schedule feed hides lesson and assignment entries when their feature flags
   assert.equal(fullScheduleResult.response.status, 200)
   assert.deepEqual(
     fullScheduleResult.body?.map((entry) => entry.sourceType),
-    ['LESSON', 'CUSTOM_EVENT', 'ASSIGNMENT_DEADLINE'],
-  )
-
-  const disableLessonsResult = await request(`/groups/${group.id}/settings`, {
-    method: 'PATCH',
-    token: owner.accessToken,
-    body: {
-      lessonsEnabled: false,
-    },
-  })
-
-  assert.equal(disableLessonsResult.response.status, 200)
-
-  const scheduleWithoutLessons = await request<ScheduleEntryResponse[]>(`/groups/${group.id}/schedule`, {
-    token: owner.accessToken,
-  })
-
-  assert.equal(scheduleWithoutLessons.response.status, 200)
-  assert.deepEqual(
-    scheduleWithoutLessons.body?.map((entry) => entry.sourceType),
     ['CUSTOM_EVENT', 'ASSIGNMENT_DEADLINE'],
   )
 

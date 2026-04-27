@@ -26,9 +26,7 @@ const form = reactive({
   title: '',
   materialSubsectionId: '',
   content: '',
-  status: 'DRAFT' as CreateLessonPayload['status'],
-  startsAt: '',
-  endsAt: ''
+  status: 'DRAFT' as CreateLessonPayload['status']
 })
 const subsectionOptions = computed(() =>
   materials.value.flatMap((section, sectionIndex) =>
@@ -59,10 +57,6 @@ watch(
   { immediate: true }
 )
 
-function toIsoDateTime(value: string) {
-  return value ? new Date(value).toISOString() : undefined
-}
-
 function validateForm() {
   if (form.title.trim().length < 2) {
     notifications.error('Название урока должно быть не короче 2 символов')
@@ -71,16 +65,6 @@ function validateForm() {
 
   if (!form.materialSubsectionId) {
     notifications.error('Выберите подраздел для урока')
-    return false
-  }
-
-  if (!form.startsAt && form.endsAt) {
-    notifications.error('Укажите начало урока перед окончанием')
-    return false
-  }
-
-  if (form.startsAt && form.endsAt && new Date(form.startsAt).getTime() > new Date(form.endsAt).getTime()) {
-    notifications.error('Окончание урока должно быть позже начала')
     return false
   }
 
@@ -94,9 +78,7 @@ function buildPayload(): CreateLessonPayload {
     title: form.title.trim(),
     materialSubsectionId: form.materialSubsectionId,
     ...(content ? { content } : {}),
-    status: form.status,
-    ...(form.startsAt ? { startsAt: toIsoDateTime(form.startsAt) } : {}),
-    ...(form.endsAt ? { endsAt: toIsoDateTime(form.endsAt) } : {})
+    status: form.status
   }
 }
 
@@ -155,8 +137,6 @@ async function submit() {
               <option value="PUBLISHED">Опубликован</option>
             </select>
           </label>
-          <AppTextField v-model="form.startsAt" name="startsAt" label="Начало" type="datetime-local" />
-          <AppTextField v-model="form.endsAt" name="endsAt" label="Окончание" type="datetime-local" />
         </div>
 
         <div class="resource-form__actions">

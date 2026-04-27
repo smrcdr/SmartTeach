@@ -44,8 +44,6 @@ export type Lesson = {
   content: string | null
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
   sortOrder: number
-  startsAt: string | null
-  endsAt: string | null
   publishedAt: string | null
   archivedAt: string | null
   createdByUserId: string
@@ -211,8 +209,6 @@ export type CreateLessonPayload = {
   content?: string
   status?: Lesson['status']
   sortOrder?: number
-  startsAt?: string
-  endsAt?: string
   fileIds?: string[]
 }
 

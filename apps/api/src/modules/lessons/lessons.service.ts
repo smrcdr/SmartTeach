@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -76,10 +75,6 @@ export class LessonsService {
       requireWritable: true,
     })
 
-    const dates = this.resolveDateRange({
-      startsAt: payload.startsAt,
-      endsAt: payload.endsAt,
-    })
     const status = payload.status ?? LessonStatus.DRAFT
     const fileIds = this.normalizeFileIds(payload.fileIds)
 
@@ -100,8 +95,6 @@ export class LessonsService {
           sortOrder:
             payload.sortOrder ??
             (await this.getNextSortOrder(tx, groupId, payload.materialSubsectionId ?? null)),
-          startsAt: dates.startsAt,
-          endsAt: dates.endsAt,
           publishedAt: status === LessonStatus.PUBLISHED ? new Date() : null,
           archivedAt: status === LessonStatus.ARCHIVED ? new Date() : null,
           createdByUserId: userId,
@@ -149,16 +142,6 @@ export class LessonsService {
       await this.assertAttachableFiles(fileIds, groupId, lessonId)
     }
 
-    const dates = this.resolveDateRange({
-      startsAt:
-        payload.startsAt !== undefined
-          ? payload.startsAt
-          : (existingLesson.startsAt?.toISOString() ?? null),
-      endsAt:
-        payload.endsAt !== undefined
-          ? payload.endsAt
-          : (existingLesson.endsAt?.toISOString() ?? null),
-    })
     const nextStatus = payload.status ?? existingLesson.status
     const statusMetadata = this.resolveStatusMetadata(
       existingLesson.status,
@@ -192,16 +175,6 @@ export class LessonsService {
       ...(payload.sortOrder !== undefined
         ? {
             sortOrder: payload.sortOrder,
-          }
-        : {}),
-      ...(payload.startsAt !== undefined
-        ? {
-            startsAt: dates.startsAt,
-          }
-        : {}),
-      ...(payload.endsAt !== undefined
-        ? {
-            endsAt: dates.endsAt,
           }
         : {}),
     }
@@ -301,33 +274,6 @@ export class LessonsService {
 
     if (!subsection) {
       throw new NotFoundException('Material subsection not found')
-    }
-  }
-
-  private resolveDateRange(params: {
-    startsAt?: string | null
-    endsAt?: string | null
-  }) {
-    const startsAt = params.startsAt ? new Date(params.startsAt) : null
-    const endsAt = params.endsAt ? new Date(params.endsAt) : null
-
-    if (!startsAt && endsAt) {
-      throw new BadRequestException({
-        message: 'Validation failed',
-        errors: ['endsAt: cannot be set without startsAt'],
-      })
-    }
-
-    if (startsAt && endsAt && startsAt.getTime() > endsAt.getTime()) {
-      throw new BadRequestException({
-        message: 'Validation failed',
-        errors: ['endsAt: must be greater than or equal to startsAt'],
-      })
-    }
-
-    return {
-      startsAt,
-      endsAt,
     }
   }
 
