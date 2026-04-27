@@ -82,6 +82,29 @@ function getTargetRoute(routeName: string, targetId: string) {
 
   return { name: routeName, params: { groupId: groupId.value }, query: { sectionId: targetId } }
 }
+
+function getSubmissionStatusLabel(status: Submission['status']) {
+  switch (status) {
+    case 'REVIEWED':
+      return 'Проверено'
+    case 'SUBMITTED':
+      return 'Отправлено'
+    case 'DRAFT':
+      return 'Черновик'
+  }
+}
+
+function getSubmissionScoreLabel(submission: Submission) {
+  if (submission.status !== 'REVIEWED' || submission.score === null) {
+    return null
+  }
+
+  const assignmentMaxScore = assignment.value?.maxScore ?? null
+
+  return assignmentMaxScore === null
+    ? `${submission.score} баллов`
+    : `${submission.score} из ${assignmentMaxScore}`
+}
 </script>
 
 <template>
@@ -111,7 +134,11 @@ function getTargetRoute(routeName: string, targetId: string) {
             Отправить ответ
           </AppButton>
         </RouterLink>
-        <StatusPill :label="assignment.status" :tone="assignment.status === 'PUBLISHED' ? 'success' : 'muted'" />
+        <StatusPill
+          v-if="canManage"
+          :label="assignment.status"
+          :tone="assignment.status === 'PUBLISHED' ? 'success' : 'muted'"
+        />
       </template>
     </AppPageHeader>
 
@@ -161,22 +188,27 @@ function getTargetRoute(routeName: string, targetId: string) {
     <section v-if="!canManage" class="surface-panel submissions-panel">
       <header>
         <h2>Мои ответы</h2>
-        <RouterLink :to="{ name: 'group-assignment-submit', params: { groupId, assignmentId } }">
-          <AppButton variant="secondary" size="sm">Новая попытка</AppButton>
-        </RouterLink>
       </header>
 
       <div v-if="submissions.length > 0" class="submission-list">
-        <article v-for="submission in submissions" :key="submission.id" class="submission-row">
+        <RouterLink
+          v-for="submission in submissions"
+          :key="submission.id"
+          class="submission-row"
+          :to="{ name: 'group-assignment-submission-details', params: { groupId, assignmentId, submissionId: submission.id } }"
+        >
           <div>
             <strong>Попытка {{ submission.attemptNumber }}</strong>
             <span>{{ submission.submittedAt ? formatDateTime(submission.submittedAt) : 'Черновик' }}</span>
           </div>
+          <span v-if="getSubmissionScoreLabel(submission)" class="submission-row__score">
+            {{ getSubmissionScoreLabel(submission) }}
+          </span>
           <StatusPill
-            :label="submission.status"
+            :label="getSubmissionStatusLabel(submission.status)"
             :tone="submission.status === 'REVIEWED' ? 'success' : submission.status === 'SUBMITTED' ? 'warning' : 'muted'"
           />
-        </article>
+        </RouterLink>
       </div>
       <EmptyState
         v-else-if="!submissionsError"
@@ -341,10 +373,18 @@ function getTargetRoute(routeName: string, targetId: string) {
   background: var(--color-surface-low);
   border: 1px solid var(--color-divider);
   border-radius: var(--radius-md);
+  color: inherit;
   display: flex;
   gap: 14px;
   justify-content: space-between;
   padding: 14px 16px;
+  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.submission-row:hover {
+  background: var(--color-surface-highest);
+  border-color: var(--color-outline-variant);
+  transform: translateY(-1px);
 }
 
 .submission-row div {
@@ -359,6 +399,17 @@ function getTargetRoute(routeName: string, targetId: string) {
 .submission-row span {
   color: var(--color-text-muted);
   font-size: 0.86rem;
+}
+
+.submission-row__score {
+  background: var(--color-surface-lowest);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-sm);
+  color: var(--color-primary) !important;
+  font-weight: 850;
+  margin-left: auto;
+  padding: 7px 9px;
+  white-space: nowrap;
 }
 
 @media (max-width: 680px) {

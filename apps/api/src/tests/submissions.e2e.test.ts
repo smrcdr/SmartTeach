@@ -227,12 +227,20 @@ async function createOwnedFile(userId: string, label: string) {
   return file
 }
 
-async function createAssignment(groupId: string, userId: string, title: string) {
+async function createAssignment(
+  groupId: string,
+  userId: string,
+  title: string,
+  options: {
+    maxScore?: number
+  } = {},
+) {
   return prisma.assignment.create({
     data: {
       groupId,
       title,
       status: 'PUBLISHED',
+      maxScore: options.maxScore ?? null,
       createdByUserId: userId,
       publishedAt: new Date(),
     },
@@ -249,7 +257,9 @@ test('submission endpoints create attempts, scope visibility and allow manager r
   const peer = await registerUser('peer')
   const outsider = await registerUser('outsider')
   const group = await createGroup(owner.accessToken)
-  const assignment = await createAssignment(group.id, owner.user.id, 'Submission assignment')
+  const assignment = await createAssignment(group.id, owner.user.id, 'Submission assignment', {
+    maxScore: 100,
+  })
   const studentFile = await createOwnedFile(student.user.id, 'student-solution')
   const studentSecondFile = await createOwnedFile(student.user.id, 'student-second-solution')
   const ownerFile = await createOwnedFile(owner.user.id, 'owner-brief')
@@ -459,6 +469,19 @@ test('submission endpoints create attempts, scope visibility and allow manager r
   assert.deepEqual(updatedSecondSubmissionResult.body.files.map((file) => file.id), [
     studentSecondFile.id,
   ])
+
+  const overMaxScoreReviewResult = await request(
+    `/groups/${group.id}/assignments/${assignment.id}/submissions/${firstSubmissionCreateResult.body.id}`,
+    {
+      method: 'PATCH',
+      token: admin.accessToken,
+      body: {
+        score: 101,
+      },
+    },
+  )
+
+  assert.equal(overMaxScoreReviewResult.response.status, 400)
 
   const reviewSubmissionResult = await request<SubmissionResponse>(
     `/groups/${group.id}/assignments/${assignment.id}/submissions/${firstSubmissionCreateResult.body.id}`,

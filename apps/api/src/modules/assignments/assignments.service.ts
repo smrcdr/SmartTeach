@@ -450,6 +450,14 @@ export class AssignmentsService {
           errors: ['status: review updates must use REVIEWED status'],
         })
       }
+
+      if (payload.score !== undefined) {
+        await this.assertSubmissionScoreWithinAssignmentMax(
+          this.prismaService,
+          assignmentId,
+          payload.score,
+        )
+      }
     }
 
     if (contentPatchRequested && fileIds !== undefined) {
@@ -564,6 +572,28 @@ export class AssignmentsService {
 
     if (!assignment) {
       throw new NotFoundException('Assignment not found')
+    }
+  }
+
+  private async assertSubmissionScoreWithinAssignmentMax(
+    executor: PrismaExecutor,
+    assignmentId: string,
+    score: number,
+  ) {
+    const assignment = await executor.assignment.findUnique({
+      where: {
+        id: assignmentId,
+      },
+      select: {
+        maxScore: true,
+      },
+    })
+
+    if (assignment && assignment.maxScore !== null && score > assignment.maxScore) {
+      throw new BadRequestException({
+        message: 'Validation failed',
+        errors: ['score: cannot be greater than assignment maxScore'],
+      })
     }
   }
 

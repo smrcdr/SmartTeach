@@ -49,6 +49,7 @@ const canManage = computed(() => canManageGroup(group.value))
             <AppButton variant="secondary" size="sm">Проверить</AppButton>
           </RouterLink>
           <StatusPill
+            v-if="canManage"
             :label="assignment.status === 'PUBLISHED' ? 'Опубликовано' : 'Черновик'"
             :tone="assignment.status === 'PUBLISHED' ? 'success' : 'muted'"
           />

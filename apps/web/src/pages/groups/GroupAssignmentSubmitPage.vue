@@ -60,14 +60,21 @@ async function submit() {
       uploadedFiles.push(await uploadFile(file, 'submissions', auth.accessToken))
     }
 
-    await createSubmission(groupId.value, assignmentId.value, {
+    const submission = await createSubmission(groupId.value, assignmentId.value, {
       text: form.text.trim() || undefined,
       fileIds: uploadedFiles.map((file) => file.id),
       status: 'SUBMITTED'
     }, auth.accessToken)
 
     notifications.success('Ответ отправлен')
-    await router.push({ name: 'group-assignment-details', params: { groupId: groupId.value, assignmentId: assignmentId.value } })
+    await router.push({
+      name: 'group-assignment-submission-details',
+      params: {
+        groupId: groupId.value,
+        assignmentId: assignmentId.value,
+        submissionId: submission.id
+      }
+    })
   } catch (caught) {
     notifications.error(caught instanceof Error ? caught.message : 'Не удалось отправить ответ')
   } finally {
@@ -85,24 +92,28 @@ async function submit() {
     />
 
     <form class="submission-form surface-panel" novalidate @submit.prevent="submit">
-      <AppTextarea v-model="form.text" name="text" label="Ответ" placeholder="Опишите решение" :rows="8" />
+      <section class="submission-form__section">
+        <AppTextarea v-model="form.text" name="text" label="Ответ" placeholder="Опишите решение" :rows="10" />
+      </section>
 
-      <label class="file-field">
-        <span>
-          <Paperclip :size="18" />
-          Файлы
-        </span>
-        <strong>{{ fileNames || 'Выберите файлы' }}</strong>
-        <input ref="fileInput" type="file" multiple @change="handleFilesChange">
-      </label>
+      <section class="submission-form__section">
+        <label class="file-field">
+          <span>
+            <Paperclip :size="18" />
+            Файлы
+          </span>
+          <strong>{{ fileNames || 'Выберите файлы' }}</strong>
+          <input ref="fileInput" type="file" multiple @change="handleFilesChange">
+        </label>
 
-      <div v-if="selectedFiles.length > 0" class="selected-files">
-        <span>{{ selectedFiles.length }} файлов выбрано</span>
-        <button type="button" @click="clearFiles">
-          <X :size="16" />
-          Убрать
-        </button>
-      </div>
+        <div v-if="selectedFiles.length > 0" class="selected-files">
+          <span>{{ selectedFiles.length }} файлов выбрано</span>
+          <button type="button" @click="clearFiles">
+            <X :size="16" />
+            Убрать
+          </button>
+        </div>
+      </section>
 
       <div class="submission-form__actions">
         <AppButton type="submit" :disabled="isSubmitting">
@@ -121,14 +132,24 @@ async function submit() {
 
 <style scoped>
 .submission-form {
+  border: 1.5px solid var(--color-outline-variant);
   display: grid;
   gap: 18px;
   padding: clamp(24px, 4vw, 36px);
 }
 
+.submission-form__section {
+  background: var(--color-surface-lowest);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
 .file-field {
   background: var(--color-surface-low);
-  border: 1px solid var(--color-outline-variant);
+  border: 1.5px solid var(--color-outline-variant);
   border-radius: var(--radius-md);
   cursor: pointer;
   display: grid;
