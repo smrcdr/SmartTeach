@@ -119,6 +119,42 @@ type LessonResponse = {
   updatedAt: string
 }
 
+type MaterialSubsectionResponse = {
+  id: string
+  groupId: string
+  sectionId: string
+  title: string
+  sortOrder: number
+  lessonsCount: number
+  createdByUserId: string
+  createdAt: string
+  updatedAt: string
+}
+
+type MaterialSectionResponse = {
+  id: string
+  groupId: string
+  title: string
+  sortOrder: number
+  createdByUserId: string
+  subsections: MaterialSubsectionResponse[]
+  createdAt: string
+  updatedAt: string
+}
+
+type MaterialSubsectionDetailsResponse = {
+  section: {
+    id: string
+    title: string
+    sortOrder: number
+  }
+  subsection: MaterialSubsectionResponse
+  lessons: Array<{
+    id: string
+    title: string
+  }>
+}
+
 async function request<T = JsonRecord>(
   path: string,
   init: RequestOptions = {},
@@ -216,6 +252,100 @@ async function createOwnedFile(userId: string, label: string) {
 
   return file
 }
+
+test('materials endpoints create and update sections and subsections inside one group', async () => {
+  const owner = await registerUser('materials-owner')
+  const member = await registerUser('materials-member')
+  const group = await createGroup(owner.accessToken)
+
+  await prisma.groupMember.create({
+    data: {
+      groupId: group.id,
+      userId: member.user.id,
+      role: GroupRole.USER,
+    },
+  })
+
+  const sectionCreateResult = await request<MaterialSectionResponse>(`/groups/${group.id}/materials/sections`, {
+    method: 'POST',
+    token: owner.accessToken,
+    body: {
+      title: 'HTML',
+    },
+  })
+
+  assert.equal(sectionCreateResult.response.status, 201)
+  assert.ok(sectionCreateResult.body)
+  assert.equal(sectionCreateResult.body.title, 'HTML')
+
+  const subsectionCreateResult = await request<MaterialSubsectionDetailsResponse>(
+    `/groups/${group.id}/materials/sections/${sectionCreateResult.body.id}/subsections`,
+    {
+      method: 'POST',
+      token: owner.accessToken,
+      body: {
+        title: 'Семантика',
+      },
+    },
+  )
+
+  assert.equal(subsectionCreateResult.response.status, 201)
+  assert.ok(subsectionCreateResult.body)
+  assert.equal(subsectionCreateResult.body.subsection.title, 'Семантика')
+
+  const sectionUpdateResult = await request<MaterialSectionResponse>(
+    `/groups/${group.id}/materials/sections/${sectionCreateResult.body.id}`,
+    {
+      method: 'PATCH',
+      token: owner.accessToken,
+      body: {
+        title: 'Основы HTML',
+      },
+    },
+  )
+
+  assert.equal(sectionUpdateResult.response.status, 200)
+  assert.ok(sectionUpdateResult.body)
+  assert.equal(sectionUpdateResult.body.title, 'Основы HTML')
+
+  const subsectionUpdateResult = await request<MaterialSubsectionDetailsResponse>(
+    `/groups/${group.id}/materials/subsections/${subsectionCreateResult.body.subsection.id}`,
+    {
+      method: 'PATCH',
+      token: owner.accessToken,
+      body: {
+        title: 'Семантическая верстка',
+      },
+    },
+  )
+
+  assert.equal(subsectionUpdateResult.response.status, 200)
+  assert.ok(subsectionUpdateResult.body)
+  assert.equal(subsectionUpdateResult.body.subsection.title, 'Семантическая верстка')
+
+  const memberUpdateResult = await request(
+    `/groups/${group.id}/materials/sections/${sectionCreateResult.body.id}`,
+    {
+      method: 'PATCH',
+      token: member.accessToken,
+      body: {
+        title: 'Member update',
+      },
+    },
+  )
+
+  assert.equal(memberUpdateResult.response.status, 403)
+
+  const listResult = await request<MaterialSectionResponse[]>(`/groups/${group.id}/materials`, {
+    method: 'GET',
+    token: member.accessToken,
+  })
+
+  assert.equal(listResult.response.status, 200)
+  assert.ok(listResult.body)
+  assert.equal(listResult.body[0].title, 'Основы HTML')
+  assert.equal(listResult.body[0].subsections[0].title, 'Семантическая верстка')
+})
 
 test('lessons endpoints create, list, get and update lessons inside one group', async () => {
   const owner = await registerUser('owner')

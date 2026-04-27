@@ -246,6 +246,10 @@ export type CreateMaterialSubsectionPayload = {
   sortOrder?: number
 }
 
+export type UpdateMaterialSectionPayload = Partial<CreateMaterialSectionPayload>
+
+export type UpdateMaterialSubsectionPayload = Partial<CreateMaterialSubsectionPayload>
+
 export type ListLessonsQuery = {
   materialSubsectionId?: string
 }
@@ -380,6 +384,19 @@ export function createMaterialSection(
   })
 }
 
+export function updateMaterialSection(
+  groupId: string,
+  sectionId: string,
+  payload: UpdateMaterialSectionPayload,
+  token?: string | null
+) {
+  return apiRequest<MaterialSection>(`/groups/${groupId}/materials/sections/${sectionId}`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(payload)
+  })
+}
+
 export function createMaterialSubsection(
   groupId: string,
   sectionId: string,
@@ -388,6 +405,19 @@ export function createMaterialSubsection(
 ) {
   return apiRequest<MaterialSubsectionDetails>(`/groups/${groupId}/materials/sections/${sectionId}/subsections`, {
     method: 'POST',
+    token,
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updateMaterialSubsection(
+  groupId: string,
+  subsectionId: string,
+  payload: UpdateMaterialSubsectionPayload,
+  token?: string | null
+) {
+  return apiRequest<MaterialSubsectionDetails>(`/groups/${groupId}/materials/subsections/${subsectionId}`, {
+    method: 'PATCH',
     token,
     body: JSON.stringify(payload)
   })

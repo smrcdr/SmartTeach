@@ -7,6 +7,7 @@ import {
   Inject,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common'
@@ -29,6 +30,8 @@ import { CreateMaterialSectionRequestDto } from './dto/create-material-section-r
 import { CreateMaterialSubsectionRequestDto } from './dto/create-material-subsection-request.dto'
 import { MaterialSectionDto } from './dto/material-section.dto'
 import { MaterialSubsectionDetailsDto } from './dto/material-subsection-details.dto'
+import { UpdateMaterialSectionRequestDto } from './dto/update-material-section-request.dto'
+import { UpdateMaterialSubsectionRequestDto } from './dto/update-material-subsection-request.dto'
 import { MaterialsService } from './materials.service'
 
 @ApiTags('Materials')
@@ -94,6 +97,35 @@ export class MaterialsController {
     return this.materialsService.createSection(groupId, auth.userId, payload)
   }
 
+  @Patch(':groupId/materials/sections/:sectionId')
+  @ApiOperation({
+    summary: 'Обновить раздел материалов',
+    description: 'Доступно владельцу и администраторам группы, если lessons_enabled включен.',
+  })
+  @ApiOkResponse({
+    type: MaterialSectionDto,
+  })
+  @ApiBadRequestResponse({
+    type: ErrorResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    type: ErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDto,
+  })
+  updateSection(
+    @CurrentAuth() auth: AuthContext,
+    @Param('groupId', new ParseUUIDPipe({ version: '4' })) groupId: string,
+    @Param('sectionId', new ParseUUIDPipe({ version: '4' })) sectionId: string,
+    @Body() payload: UpdateMaterialSectionRequestDto,
+  ) {
+    return this.materialsService.updateSection(groupId, sectionId, auth.userId, payload)
+  }
+
   @Post(':groupId/materials/sections/:sectionId/subsections')
   @ApiOperation({
     summary: 'Создать подраздел материалов',
@@ -121,6 +153,35 @@ export class MaterialsController {
     @Body() payload: CreateMaterialSubsectionRequestDto,
   ) {
     return this.materialsService.createSubsection(groupId, sectionId, auth.userId, payload)
+  }
+
+  @Patch(':groupId/materials/subsections/:subsectionId')
+  @ApiOperation({
+    summary: 'Обновить подраздел материалов',
+    description: 'Доступно владельцу и администраторам группы, если lessons_enabled включен.',
+  })
+  @ApiOkResponse({
+    type: MaterialSubsectionDetailsDto,
+  })
+  @ApiBadRequestResponse({
+    type: ErrorResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    type: ErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDto,
+  })
+  updateSubsection(
+    @CurrentAuth() auth: AuthContext,
+    @Param('groupId', new ParseUUIDPipe({ version: '4' })) groupId: string,
+    @Param('subsectionId', new ParseUUIDPipe({ version: '4' })) subsectionId: string,
+    @Body() payload: UpdateMaterialSubsectionRequestDto,
+  ) {
+    return this.materialsService.updateSubsection(groupId, subsectionId, auth.userId, payload)
   }
 
   @Get(':groupId/materials/subsections/:subsectionId')

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Plus } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { getMaterialSubsection, type MaterialSubsectionDetails } from '@/features/groups/api/groups.api'
 import { useGroup } from '@/features/groups/composables/useGroup'
@@ -13,6 +13,7 @@ import EmptyState from '@/shared/ui/EmptyState.vue'
 import StatusPill from '@/shared/ui/StatusPill.vue'
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const { group } = useGroup()
 const groupId = computed(() => String(route.params.groupId ?? ''))
@@ -23,6 +24,15 @@ const isLoading = ref(false)
 const canManage = computed(() => canManageGroup(group.value))
 const sectionNumber = computed(() => details.value?.section.sortOrder ?? 1)
 const subsectionNumber = computed(() => details.value?.subsection.sortOrder ?? 1)
+const lessonContextMenu = ref<{
+  lessonId: string
+  left: number
+  top: number
+} | null>(null)
+const lessonContextMenuStyle = computed(() => ({
+  left: `${lessonContextMenu.value?.left ?? 12}px`,
+  top: `${lessonContextMenu.value?.top ?? 12}px`
+}))
 
 async function refresh() {
   if (!groupId.value || !subsectionId.value || !auth.accessToken) {
@@ -42,10 +52,51 @@ async function refresh() {
 }
 
 watch([groupId, subsectionId, () => auth.accessToken], () => void refresh(), { immediate: true })
+
+function getLessonContextMenuPosition(event: MouseEvent) {
+  const viewportPadding = 12
+  const menuWidth = 248
+  const menuHeight = 56
+  const maxLeft = Math.max(viewportPadding, window.innerWidth - menuWidth - viewportPadding)
+  const maxTop = Math.max(viewportPadding, window.innerHeight - menuHeight - viewportPadding)
+
+  return {
+    left: Math.min(Math.max(event.clientX, viewportPadding), maxLeft),
+    top: Math.min(Math.max(event.clientY + 8, viewportPadding), maxTop)
+  }
+}
+
+function openLessonContextMenu(lessonId: string, event: MouseEvent) {
+  if (!canManage.value) {
+    return
+  }
+
+  event.preventDefault()
+  event.stopPropagation()
+  lessonContextMenu.value = {
+    lessonId,
+    ...getLessonContextMenuPosition(event)
+  }
+}
+
+function closeLessonContextMenu() {
+  lessonContextMenu.value = null
+}
+
+async function openLessonEditFromContextMenu() {
+  if (!lessonContextMenu.value) {
+    return
+  }
+
+  const lessonId = lessonContextMenu.value.lessonId
+
+  closeLessonContextMenu()
+  await router.push({ name: 'group-lesson-edit', params: { groupId: groupId.value, lessonId } })
+}
 </script>
 
 <template>
-  <main v-if="details" class="page">
+  <main v-if="details" class="page" @click="closeLessonContextMenu">
     <AppPageHeader
       eyebrow="Материалы"
       :title="details.subsection.title"
@@ -84,10 +135,12 @@ watch([groupId, subsectionId, () => auth.accessToken], () => void refresh(), { i
             :key="lesson.id"
             class="lesson-row"
             :to="{ name: 'group-lesson-details', params: { groupId, lessonId: lesson.id } }"
+            @contextmenu="openLessonContextMenu(lesson.id, $event)"
           >
             <span class="lesson-row__number">{{ sectionNumber }}.{{ subsectionNumber }}.{{ lessonIndex + 1 }}</span>
             <span class="lesson-row__title">{{ lesson.title }}</span>
             <StatusPill
+              v-if="canManage"
               :label="getLessonStatusLabel(lesson.status)"
               :tone="lesson.status === 'PUBLISHED' ? 'success' : 'muted'"
             />
@@ -100,6 +153,19 @@ watch([groupId, subsectionId, () => auth.accessToken], () => void refresh(), { i
           description="Администратор может добавить урок в этот подраздел."
         />
       </article>
+    </section>
+
+    <section
+      v-if="lessonContextMenu"
+      class="lesson-context-menu"
+      role="menu"
+      :style="lessonContextMenuStyle"
+      @click.stop
+    >
+      <button type="button" role="menuitem" @click="openLessonEditFromContextMenu">
+        <span class="lesson-context-menu__icon" data-icon-id="edit" aria-hidden="true">edit</span>
+        Редактировать
+      </button>
     </section>
   </main>
 
@@ -168,6 +234,52 @@ watch([groupId, subsectionId, () => auth.accessToken], () => void refresh(), { i
 .lesson-list {
   display: grid;
   gap: 10px;
+}
+
+.lesson-context-menu {
+  background: var(--color-menu-surface);
+  border: 1px solid var(--color-menu-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-menu);
+  display: grid;
+  gap: 4px;
+  min-width: 236px;
+  padding: 10px;
+  position: fixed;
+  width: min(248px, calc(100vw - 24px));
+  z-index: 40;
+}
+
+.lesson-context-menu button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 650;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 14px;
+  text-align: left;
+}
+
+.lesson-context-menu button:hover,
+.lesson-context-menu button:focus-visible {
+  background: var(--color-menu-hover);
+  color: var(--color-primary);
+  outline: none;
+}
+
+.lesson-context-menu__icon {
+  font-family: 'Material Symbols Outlined';
+  font-size: 19px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1;
 }
 
 .lesson-row {

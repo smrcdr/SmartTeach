@@ -7,7 +7,10 @@ import {
   createMaterialSection,
   createMaterialSubsection,
   listMaterials,
-  type MaterialSection
+  updateMaterialSection,
+  updateMaterialSubsection,
+  type MaterialSection,
+  type MaterialSubsection
 } from '@/features/groups/api/groups.api'
 import { useGroup } from '@/features/groups/composables/useGroup'
 import { canManageGroup } from '@/features/groups/lib/group-permissions'
@@ -30,9 +33,29 @@ const error = ref<string | null>(null)
 const isDialogOpen = ref(false)
 const isSubmitting = ref(false)
 const dialogMode = ref<'section' | 'subsection'>('section')
+const dialogAction = ref<'create' | 'edit'>('create')
 const dialogSection = ref<MaterialSection | null>(null)
+const dialogSubsection = ref<MaterialSubsection | null>(null)
+const contextMenu = ref<{
+  type: 'section' | 'subsection'
+  section: MaterialSection
+  subsection?: MaterialSubsection
+  left: number
+  top: number
+} | null>(null)
 const form = reactive({
   title: ''
+})
+const contextMenuStyle = computed(() => ({
+  left: `${contextMenu.value?.left ?? 12}px`,
+  top: `${contextMenu.value?.top ?? 12}px`
+}))
+const materialDialogTitle = computed(() => {
+  if (dialogAction.value === 'edit') {
+    return dialogMode.value === 'section' ? 'Редактировать раздел' : 'Редактировать подраздел'
+  }
+
+  return dialogMode.value === 'section' ? 'Новый раздел' : `Подраздел в «${dialogSection.value?.title ?? ''}»`
 })
 
 async function refresh() {
@@ -86,16 +109,73 @@ function toggleSection(sectionId: string) {
 
 function openSectionDialog() {
   dialogMode.value = 'section'
+  dialogAction.value = 'create'
   dialogSection.value = null
+  dialogSubsection.value = null
   form.title = ''
   isDialogOpen.value = true
 }
 
 function openSubsectionDialog(section: MaterialSection) {
   dialogMode.value = 'subsection'
+  dialogAction.value = 'create'
   dialogSection.value = section
+  dialogSubsection.value = null
   form.title = ''
   isDialogOpen.value = true
+}
+
+function getContextMenuPosition(event: MouseEvent) {
+  const viewportPadding = 12
+  const menuWidth = 248
+  const menuHeight = 56
+  const maxLeft = Math.max(viewportPadding, window.innerWidth - menuWidth - viewportPadding)
+  const maxTop = Math.max(viewportPadding, window.innerHeight - menuHeight - viewportPadding)
+
+  return {
+    left: Math.min(Math.max(event.clientX, viewportPadding), maxLeft),
+    top: Math.min(Math.max(event.clientY + 8, viewportPadding), maxTop)
+  }
+}
+
+function openMaterialContextMenu(
+  type: 'section' | 'subsection',
+  section: MaterialSection,
+  event: MouseEvent,
+  subsection?: MaterialSubsection
+) {
+  if (!canManage.value) {
+    return
+  }
+
+  event.preventDefault()
+  event.stopPropagation()
+  contextMenu.value = {
+    type,
+    section,
+    subsection,
+    ...getContextMenuPosition(event)
+  }
+}
+
+function closeContextMenu() {
+  contextMenu.value = null
+}
+
+function openEditDialogFromContextMenu() {
+  if (!contextMenu.value) {
+    return
+  }
+
+  dialogMode.value = contextMenu.value.type
+  dialogAction.value = 'edit'
+  dialogSection.value = contextMenu.value.section
+  dialogSubsection.value = contextMenu.value.subsection ?? null
+  form.title = contextMenu.value.type === 'section'
+    ? contextMenu.value.section.title
+    : contextMenu.value.subsection?.title ?? ''
+  isDialogOpen.value = true
+  closeContextMenu()
 }
 
 function closeDialog() {
@@ -106,6 +186,7 @@ function closeDialog() {
   isDialogOpen.value = false
   form.title = ''
   dialogSection.value = null
+  dialogSubsection.value = null
 }
 
 async function submitDialog() {
@@ -123,7 +204,13 @@ async function submitDialog() {
   isSubmitting.value = true
 
   try {
-    if (dialogMode.value === 'section') {
+    if (dialogAction.value === 'edit' && dialogMode.value === 'section' && dialogSection.value) {
+      await updateMaterialSection(groupId.value, dialogSection.value.id, { title }, auth.accessToken)
+      notifications.success('Раздел обновлен')
+    } else if (dialogAction.value === 'edit' && dialogMode.value === 'subsection' && dialogSubsection.value) {
+      await updateMaterialSubsection(groupId.value, dialogSubsection.value.id, { title }, auth.accessToken)
+      notifications.success('Подраздел обновлен')
+    } else if (dialogMode.value === 'section') {
       const section = await createMaterialSection(groupId.value, { title }, auth.accessToken)
       expandedSectionIds.value = new Set([...expandedSectionIds.value, section.id])
       notifications.success('Раздел создан')
@@ -144,7 +231,7 @@ async function submitDialog() {
 </script>
 
 <template>
-  <main class="page">
+  <main class="page" @click="closeContextMenu">
     <AppPageHeader
       eyebrow="Учебная структура"
       title="Материалы"
@@ -167,7 +254,12 @@ async function submitDialog() {
           :id="`section-${section.id}`"
           class="material-section"
         >
-          <button class="material-section__header" type="button" @click="toggleSection(section.id)">
+          <button
+            class="material-section__header"
+            type="button"
+            @click="toggleSection(section.id)"
+            @contextmenu="openMaterialContextMenu('section', section, $event)"
+          >
             <span class="material-section__number">{{ sectionIndex + 1 }}</span>
             <span class="material-section__title">{{ section.title }}</span>
             <span class="material-section__meta">{{ section.subsections.length }} подразделов</span>
@@ -184,6 +276,7 @@ async function submitDialog() {
               :key="subsection.id"
               class="material-subsection"
               :to="{ name: 'group-material-subsection', params: { groupId, subsectionId: subsection.id } }"
+              @contextmenu="openMaterialContextMenu('subsection', section, $event, subsection)"
             >
               <span class="material-subsection__number">{{ sectionIndex + 1 }}.{{ subsectionIndex + 1 }}</span>
               <span class="material-subsection__title">{{ subsection.title }}</span>
@@ -217,6 +310,19 @@ async function submitDialog() {
       <EmptyState v-if="error" title="Не удалось загрузить материалы" :description="error" />
     </section>
 
+    <section
+      v-if="contextMenu"
+      class="material-context-menu"
+      role="menu"
+      :style="contextMenuStyle"
+      @click.stop
+    >
+      <button type="button" role="menuitem" @click="openEditDialogFromContextMenu">
+        <span class="material-context-menu__icon" data-icon-id="edit" aria-hidden="true">edit</span>
+        Редактировать
+      </button>
+    </section>
+
     <div v-if="isDialogOpen" class="material-dialog" @click.self="closeDialog">
       <form
         class="material-dialog__panel"
@@ -228,9 +334,7 @@ async function submitDialog() {
         <header class="material-dialog__header">
           <div>
             <span class="eyebrow">{{ dialogMode === 'section' ? 'Раздел' : 'Подраздел' }}</span>
-            <h2 id="material-dialog-title">
-              {{ dialogMode === 'section' ? 'Новый раздел' : `Подраздел в «${dialogSection?.title ?? ''}»` }}
-            </h2>
+            <h2 id="material-dialog-title">{{ materialDialogTitle }}</h2>
           </div>
           <button class="material-dialog__close" type="button" aria-label="Закрыть" @click="closeDialog">
             <X :size="18" />
@@ -261,6 +365,52 @@ async function submitDialog() {
 .materials-list {
   display: grid;
   gap: 14px;
+}
+
+.material-context-menu {
+  background: var(--color-menu-surface);
+  border: 1px solid var(--color-menu-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-menu);
+  display: grid;
+  gap: 4px;
+  min-width: 236px;
+  padding: 10px;
+  position: fixed;
+  width: min(248px, calc(100vw - 24px));
+  z-index: 40;
+}
+
+.material-context-menu button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 650;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 14px;
+  text-align: left;
+}
+
+.material-context-menu button:hover,
+.material-context-menu button:focus-visible {
+  background: var(--color-menu-hover);
+  color: var(--color-primary);
+  outline: none;
+}
+
+.material-context-menu__icon {
+  font-family: 'Material Symbols Outlined';
+  font-size: 19px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1;
 }
 
 .material-section {

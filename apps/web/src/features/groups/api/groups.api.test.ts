@@ -16,7 +16,9 @@ import {
   getGroupByCode,
   updateGroup,
   updateGroupSettings,
-  updateLesson
+  updateLesson,
+  updateMaterialSection,
+  updateMaterialSubsection
 } from './groups.api'
 
 describe('groups api', () => {
@@ -165,6 +167,8 @@ describe('groups api', () => {
 
     await createMaterialSection('group-id', sectionPayload, 'access-token')
     await createMaterialSubsection('group-id', 'section-id', subsectionPayload, 'access-token')
+    await updateMaterialSection('group-id', 'section-id', sectionPayload, 'access-token')
+    await updateMaterialSubsection('group-id', 'subsection-id', subsectionPayload, 'access-token')
     await listMaterials('group-id', 'access-token')
     await createLesson('group-id', lessonPayload, 'access-token')
     await createAssignment('group-id', assignmentPayload, 'access-token')
@@ -181,30 +185,38 @@ describe('groups api', () => {
       method: 'POST',
       body: JSON.stringify(subsectionPayload)
     }))
-    expect(fetchMock).toHaveBeenNthCalledWith(3, '/api/v1/groups/group-id/materials', expect.objectContaining({
+    expect(fetchMock).toHaveBeenNthCalledWith(3, '/api/v1/groups/group-id/materials/sections/section-id', expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify(sectionPayload)
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(4, '/api/v1/groups/group-id/materials/subsections/subsection-id', expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify(subsectionPayload)
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(5, '/api/v1/groups/group-id/materials', expect.objectContaining({
       credentials: 'include'
     }))
-    expect(fetchMock).toHaveBeenNthCalledWith(4, '/api/v1/groups/group-id/lessons', expect.objectContaining({
+    expect(fetchMock).toHaveBeenNthCalledWith(6, '/api/v1/groups/group-id/lessons', expect.objectContaining({
       method: 'POST',
       body: JSON.stringify(lessonPayload)
     }))
-    expect(fetchMock).toHaveBeenNthCalledWith(5, '/api/v1/groups/group-id/assignments', expect.objectContaining({
+    expect(fetchMock).toHaveBeenNthCalledWith(7, '/api/v1/groups/group-id/assignments', expect.objectContaining({
       method: 'POST',
       body: JSON.stringify(assignmentPayload)
     }))
-    expect(fetchMock).toHaveBeenNthCalledWith(6, '/api/v1/groups/group-id/assignments/assignment-id/submissions', expect.objectContaining({
+    expect(fetchMock).toHaveBeenNthCalledWith(8, '/api/v1/groups/group-id/assignments/assignment-id/submissions', expect.objectContaining({
       method: 'POST',
       body: JSON.stringify(submissionPayload)
     }))
-    expect(fetchMock).toHaveBeenNthCalledWith(7, '/api/v1/groups/group-id/schedule/events', expect.objectContaining({
+    expect(fetchMock).toHaveBeenNthCalledWith(9, '/api/v1/groups/group-id/schedule/events', expect.objectContaining({
       method: 'POST',
       body: JSON.stringify(eventPayload)
     }))
-    expect(fetchMock).toHaveBeenNthCalledWith(8, '/api/v1/groups/group-id/useful-links', expect.objectContaining({
+    expect(fetchMock).toHaveBeenNthCalledWith(10, '/api/v1/groups/group-id/useful-links', expect.objectContaining({
       method: 'POST',
       body: JSON.stringify(usefulLinkPayload)
     }))
-    expect(fetchMock).toHaveBeenNthCalledWith(9, '/api/v1/groups/group-id/useful-links', expect.objectContaining({
+    expect(fetchMock).toHaveBeenNthCalledWith(11, '/api/v1/groups/group-id/useful-links', expect.objectContaining({
       credentials: 'include'
     }))
   })

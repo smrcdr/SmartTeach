@@ -6,6 +6,8 @@ import { CreateMaterialSectionRequestDto } from './dto/create-material-section-r
 import { CreateMaterialSubsectionRequestDto } from './dto/create-material-subsection-request.dto'
 import { MaterialSectionDto } from './dto/material-section.dto'
 import { MaterialSubsectionDetailsDto } from './dto/material-subsection-details.dto'
+import { UpdateMaterialSectionRequestDto } from './dto/update-material-section-request.dto'
+import { UpdateMaterialSubsectionRequestDto } from './dto/update-material-subsection-request.dto'
 import {
   MaterialSectionRecord,
   MaterialSubsectionDetailsRecord,
@@ -112,6 +114,70 @@ export class MaterialsService {
     return mapMaterialSubsectionDetailsToDto(subsection)
   }
 
+  async updateSection(
+    groupId: string,
+    sectionId: string,
+    userId: string,
+    payload: UpdateMaterialSectionRequestDto,
+  ): Promise<MaterialSectionDto> {
+    await this.assertGroupAccess(groupId, userId, {
+      requireManage: true,
+      requireWritable: true,
+    })
+    await this.assertSectionBelongsToGroup(this.prismaService, groupId, sectionId)
+
+    const section = await this.prismaService.$transaction(async (tx) => {
+      await tx.materialSection.update({
+        where: {
+          id: sectionId,
+        },
+        data: {
+          title: payload.title,
+          sortOrder: payload.sortOrder,
+        },
+        select: {
+          id: true,
+        },
+      })
+
+      return this.getSectionRecordOrThrow(tx, groupId, sectionId)
+    })
+
+    return mapMaterialSectionToDto(section)
+  }
+
+  async updateSubsection(
+    groupId: string,
+    subsectionId: string,
+    userId: string,
+    payload: UpdateMaterialSubsectionRequestDto,
+  ): Promise<MaterialSubsectionDetailsDto> {
+    await this.assertGroupAccess(groupId, userId, {
+      requireManage: true,
+      requireWritable: true,
+    })
+    await this.assertSubsectionBelongsToGroup(this.prismaService, groupId, subsectionId)
+
+    const subsection = await this.prismaService.$transaction(async (tx) => {
+      await tx.materialSubsection.update({
+        where: {
+          id: subsectionId,
+        },
+        data: {
+          title: payload.title,
+          sortOrder: payload.sortOrder,
+        },
+        select: {
+          id: true,
+        },
+      })
+
+      return this.getSubsectionDetailsRecordOrThrow(tx, groupId, subsectionId)
+    })
+
+    return mapMaterialSubsectionDetailsToDto(subsection)
+  }
+
   async getSubsection(
     groupId: string,
     subsectionId: string,
@@ -162,6 +228,26 @@ export class MaterialsService {
 
     if (!section) {
       throw new NotFoundException('Material section not found')
+    }
+  }
+
+  private async assertSubsectionBelongsToGroup(
+    executor: PrismaExecutor,
+    groupId: string,
+    subsectionId: string,
+  ) {
+    const subsection = await executor.materialSubsection.findFirst({
+      where: {
+        id: subsectionId,
+        groupId,
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    if (!subsection) {
+      throw new NotFoundException('Material subsection not found')
     }
   }
 

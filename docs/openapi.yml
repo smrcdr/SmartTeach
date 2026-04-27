@@ -1982,6 +1982,63 @@ paths:
       summary: Создать раздел материалов
       tags:
         - Materials
+  /groups/{groupId}/materials/sections/{sectionId}:
+    patch:
+      description: Доступно владельцу и администраторам группы, если lessons_enabled включен.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: sectionId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMaterialSectionRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialSection'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Обновить раздел материалов
+      tags:
+        - Materials
   /groups/{groupId}/materials/sections/{sectionId}/subsections:
     post:
       description: Доступно владельцу и администраторам группы, если lessons_enabled включен.
@@ -2081,6 +2138,62 @@ paths:
       security:
         - bearerAuth: []
       summary: Получить подраздел материалов с уроками
+      tags:
+        - Materials
+    patch:
+      description: Доступно владельцу и администраторам группы, если lessons_enabled включен.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: subsectionId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMaterialSubsectionRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialSubsectionDetails'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Обновить подраздел материалов
       tags:
         - Materials
   /groups/{groupId}/members:
@@ -4398,6 +4511,30 @@ components:
           type: array
           items:
             type: string
+    UpdateMaterialSectionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: HTML и структура страницы
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 1
+    UpdateMaterialSubsectionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Семантическая верстка
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 1
     UpdateMyProfileRequest:
       type: object
       properties:
