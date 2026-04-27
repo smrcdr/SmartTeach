@@ -82,7 +82,7 @@ describe('group admin actions', () => {
   it('hides lesson creation from regular members', async () => {
     const wrapper = await mountPage(GroupLessonsPage, 'USER')
 
-    expect(wrapper.text()).not.toContain('Новый урок')
+    expect(wrapper.text()).not.toContain('Добавить раздел')
   })
 
   it('hides assignment creation from regular members', async () => {
@@ -98,7 +98,7 @@ describe('group admin actions', () => {
   })
 
   it('keeps creation actions available to admins', async () => {
-    expect((await mountPage(GroupLessonsPage, 'ADMIN')).text()).toContain('Новый урок')
+    expect((await mountPage(GroupLessonsPage, 'ADMIN')).text()).toContain('Добавить раздел')
     expect((await mountPage(GroupAssignmentsPage, 'ADMIN')).text()).toContain('Новое задание')
     expect((await mountPage(GroupSchedulePage, 'ADMIN')).text()).toContain('Событие')
   })

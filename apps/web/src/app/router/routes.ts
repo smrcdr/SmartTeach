@@ -14,11 +14,17 @@ export const groupWorkspaceNav = [
   { key: 'overview', label: 'Обзор', icon: Home, toName: 'group-workspace', activeNames: ['group-workspace'] },
   {
     key: 'lessons',
-    label: 'Уроки',
+    label: 'Материалы',
     icon: BookOpen,
     toName: 'group-lessons',
     settingKey: 'lessonsEnabled',
-    activeNames: ['group-lessons', 'group-lesson-create', 'group-lesson-details', 'group-lesson-edit']
+    activeNames: [
+      'group-lessons',
+      'group-material-subsection',
+      'group-lesson-create',
+      'group-lesson-details',
+      'group-lesson-edit'
+    ]
   },
   {
     key: 'assignments',
@@ -31,6 +37,7 @@ export const groupWorkspaceNav = [
       'group-assignment-create',
       'group-assignment-details',
       'group-assignment-edit',
+      'group-assignment-submit',
       'group-assignment-submissions',
       'group-assignment-submission-details'
     ]
@@ -106,6 +113,7 @@ export const routes: RouteRecordRaw[] = [
     children: [
       { path: '', name: 'group-workspace', component: () => import('@/pages/groups/GroupOverviewPage.vue') },
       { path: 'lessons', name: 'group-lessons', component: () => import('@/pages/groups/GroupLessonsPage.vue') },
+      { path: 'lessons/subsections/:subsectionId', name: 'group-material-subsection', component: () => import('@/pages/groups/GroupMaterialSubsectionPage.vue') },
       { path: 'lessons/new', name: 'group-lesson-create', component: () => import('@/pages/groups/GroupLessonCreatePage.vue') },
       { path: 'lessons/:lessonId', name: 'group-lesson-details', component: () => import('@/pages/groups/GroupLessonDetailsPage.vue') },
       { path: 'lessons/:lessonId/edit', name: 'group-lesson-edit', component: () => import('@/pages/groups/GroupLessonEditPage.vue') },
@@ -113,6 +121,7 @@ export const routes: RouteRecordRaw[] = [
       { path: 'assignments/new', name: 'group-assignment-create', component: () => import('@/pages/groups/GroupAssignmentCreatePage.vue') },
       { path: 'assignments/:assignmentId', name: 'group-assignment-details', component: () => import('@/pages/groups/GroupAssignmentDetailsPage.vue') },
       { path: 'assignments/:assignmentId/edit', name: 'group-assignment-edit', component: () => import('@/pages/groups/GroupAssignmentEditPage.vue') },
+      { path: 'assignments/:assignmentId/submit', name: 'group-assignment-submit', component: () => import('@/pages/groups/GroupAssignmentSubmitPage.vue') },
       { path: 'assignments/:assignmentId/submissions', name: 'group-assignment-submissions', component: () => import('@/pages/groups/GroupAssignmentSubmissionsPage.vue') },
       { path: 'assignments/:assignmentId/submissions/:submissionId', name: 'group-assignment-submission-details', component: () => import('@/pages/groups/GroupAssignmentSubmissionDetailsPage.vue') },
       { path: 'members', name: 'group-members', component: () => import('@/pages/groups/GroupMembersPage.vue') },

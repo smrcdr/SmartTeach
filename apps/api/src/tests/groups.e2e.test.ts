@@ -159,7 +159,7 @@ test('groups endpoints create, filter, update and soft-delete groups', async () 
     method: 'POST',
     token: owner.accessToken,
     body: {
-      name: 'Frontend Patterns Lab',
+      name: 'API Patterns Lab',
       description: 'Группа для разбора интерфейсных паттернов.',
       accessMode: 'BY_REQUEST',
       settings: {
@@ -175,7 +175,7 @@ test('groups endpoints create, filter, update and soft-delete groups', async () 
   assert.ok(createResult.body)
   const createdGroup = createResult.body
 
-  assert.equal(createdGroup.name, 'Frontend Patterns Lab')
+  assert.equal(createdGroup.name, 'API Patterns Lab')
   assert.equal(createdGroup.ownerId, owner.user.id)
   assert.equal(createdGroup.accessMode, 'BY_REQUEST')
   assert.equal(createdGroup.status, 'ACTIVE')
@@ -322,7 +322,7 @@ test('groups endpoints create, filter, update and soft-delete groups', async () 
     method: 'PATCH',
     token: owner.accessToken,
     body: {
-      name: 'Frontend Patterns Archive',
+      name: 'API Patterns Archive',
       description: '',
       accessMode: 'OPEN',
       status: 'ARCHIVED',
@@ -331,7 +331,7 @@ test('groups endpoints create, filter, update and soft-delete groups', async () 
 
   assert.equal(archiveResult.response.status, 200)
   assert.ok(archiveResult.body)
-  assert.equal(archiveResult.body.name, 'Frontend Patterns Archive')
+  assert.equal(archiveResult.body.name, 'API Patterns Archive')
   assert.equal(archiveResult.body.description, null)
   assert.equal(archiveResult.body.accessMode, 'OPEN')
   assert.equal(archiveResult.body.status, 'ARCHIVED')

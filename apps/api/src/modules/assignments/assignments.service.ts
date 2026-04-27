@@ -55,6 +55,16 @@ export class AssignmentsService {
               lessonId: query.lessonId,
             }
           : {}),
+        ...(query.materialSectionId !== undefined
+          ? {
+              materialSectionId: query.materialSectionId,
+            }
+          : {}),
+        ...(query.materialSubsectionId !== undefined
+          ? {
+              materialSubsectionId: query.materialSubsectionId,
+            }
+          : {}),
       },
       select: assignmentSelect,
       orderBy: [
@@ -83,9 +93,11 @@ export class AssignmentsService {
     const status = payload.status ?? AssignmentStatus.DRAFT
     const fileIds = this.normalizeFileIds(payload.fileIds)
 
-    if (payload.lessonId) {
-      await this.assertLessonBelongsToGroup(groupId, payload.lessonId)
-    }
+    await this.assertAssignmentTargetBelongsToGroup(groupId, {
+      lessonId: payload.lessonId ?? null,
+      materialSectionId: payload.materialSectionId ?? null,
+      materialSubsectionId: payload.materialSubsectionId ?? null,
+    })
 
     await this.assertAttachableFiles(fileIds, groupId)
 
@@ -94,6 +106,8 @@ export class AssignmentsService {
         data: {
           groupId,
           lessonId: payload.lessonId ?? null,
+          materialSectionId: payload.materialSectionId ?? null,
+          materialSubsectionId: payload.materialSubsectionId ?? null,
           title: payload.title,
           content: this.normalizeNullableText(payload.content),
           status,
@@ -146,9 +160,9 @@ export class AssignmentsService {
     )
     const fileIds = payload.fileIds !== undefined ? this.normalizeFileIds(payload.fileIds) : undefined
 
-    if (payload.lessonId !== undefined && payload.lessonId !== null) {
-      await this.assertLessonBelongsToGroup(groupId, payload.lessonId)
-    }
+    const nextTarget = this.resolveNextAssignmentTarget(existingAssignment, payload)
+
+    await this.assertAssignmentTargetBelongsToGroup(groupId, nextTarget)
 
     if (fileIds !== undefined) {
       await this.assertAttachableFiles(fileIds, groupId, assignmentId)
@@ -161,19 +175,20 @@ export class AssignmentsService {
       existingAssignment.archivedAt,
       nextStatus,
     )
-    const data: Prisma.AssignmentUpdateInput = {
-      ...(payload.lessonId !== undefined
+    const data: Prisma.AssignmentUncheckedUpdateInput = {
+      ...(nextTarget.lessonId !== existingAssignment.lessonId
         ? {
-            lesson:
-              payload.lessonId === null
-                ? {
-                    disconnect: true,
-                  }
-                : {
-                    connect: {
-                      id: payload.lessonId,
-                    },
-                  },
+            lessonId: nextTarget.lessonId,
+          }
+        : {}),
+      ...(nextTarget.materialSectionId !== existingAssignment.materialSectionId
+        ? {
+            materialSectionId: nextTarget.materialSectionId,
+          }
+        : {}),
+      ...(nextTarget.materialSubsectionId !== existingAssignment.materialSubsectionId
+        ? {
+            materialSubsectionId: nextTarget.materialSubsectionId,
           }
         : {}),
       ...(payload.title !== undefined
@@ -381,7 +396,6 @@ export class AssignmentsService {
     await this.assertAssignmentBelongsToGroup(this.prismaService, groupId, assignmentId)
 
     const submission = await this.getSubmissionRecordOrThrow(this.prismaService, assignmentId, submissionId)
-    const isAuthor = submission.authorId === userId
     const canReview = ASSIGNMENT_MANAGE_ROLES.has(membership.role)
     const contentPatchRequested =
       payload.text !== undefined ||
@@ -521,22 +535,6 @@ export class AssignmentsService {
     return context.membership!
   }
 
-  private async assertLessonBelongsToGroup(groupId: string, lessonId: string) {
-    const lesson = await this.prismaService.lesson.findFirst({
-      where: {
-        id: lessonId,
-        groupId,
-      },
-      select: {
-        id: true,
-      },
-    })
-
-    if (!lesson) {
-      throw new NotFoundException('Lesson not found')
-    }
-  }
-
   private async assertAssignmentBelongsToGroup(
     executor: PrismaExecutor,
     groupId: string,
@@ -595,6 +593,134 @@ export class AssignmentsService {
     }
 
     return submission
+  }
+
+  private resolveNextAssignmentTarget(
+    existingAssignment: Pick<
+      AssignmentRecord,
+      'lessonId' | 'materialSectionId' | 'materialSubsectionId'
+    >,
+    payload: UpdateAssignmentRequestDto,
+  ) {
+    const explicitNonNullTargets = [
+      payload.lessonId !== undefined && payload.lessonId !== null ? 'lessonId' : null,
+      payload.materialSectionId !== undefined && payload.materialSectionId !== null
+        ? 'materialSectionId'
+        : null,
+      payload.materialSubsectionId !== undefined && payload.materialSubsectionId !== null
+        ? 'materialSubsectionId'
+        : null,
+    ].filter(Boolean)
+
+    if (explicitNonNullTargets.length > 1) {
+      throw new BadRequestException({
+        message: 'Validation failed',
+        errors: ['target: choose only one lesson, section or subsection'],
+      })
+    }
+
+    if (explicitNonNullTargets.length === 1) {
+      return {
+        lessonId: payload.lessonId ?? null,
+        materialSectionId: payload.materialSectionId ?? null,
+        materialSubsectionId: payload.materialSubsectionId ?? null,
+      }
+    }
+
+    const nextTarget = {
+      lessonId:
+        payload.lessonId !== undefined ? payload.lessonId : existingAssignment.lessonId,
+      materialSectionId:
+        payload.materialSectionId !== undefined
+          ? payload.materialSectionId
+          : existingAssignment.materialSectionId,
+      materialSubsectionId:
+        payload.materialSubsectionId !== undefined
+          ? payload.materialSubsectionId
+          : existingAssignment.materialSubsectionId,
+    }
+
+    this.assertSingleAssignmentTarget(nextTarget)
+
+    return nextTarget
+  }
+
+  private async assertAssignmentTargetBelongsToGroup(
+    groupId: string,
+    target: {
+      lessonId?: string | null
+      materialSectionId?: string | null
+      materialSubsectionId?: string | null
+    },
+  ) {
+    this.assertSingleAssignmentTarget(target)
+
+    if (target.lessonId) {
+      const lesson = await this.prismaService.lesson.findFirst({
+        where: {
+          id: target.lessonId,
+          groupId,
+        },
+        select: {
+          id: true,
+        },
+      })
+
+      if (!lesson) {
+        throw new NotFoundException('Lesson not found')
+      }
+    }
+
+    if (target.materialSectionId) {
+      const section = await this.prismaService.materialSection.findFirst({
+        where: {
+          id: target.materialSectionId,
+          groupId,
+        },
+        select: {
+          id: true,
+        },
+      })
+
+      if (!section) {
+        throw new NotFoundException('Material section not found')
+      }
+    }
+
+    if (target.materialSubsectionId) {
+      const subsection = await this.prismaService.materialSubsection.findFirst({
+        where: {
+          id: target.materialSubsectionId,
+          groupId,
+        },
+        select: {
+          id: true,
+        },
+      })
+
+      if (!subsection) {
+        throw new NotFoundException('Material subsection not found')
+      }
+    }
+  }
+
+  private assertSingleAssignmentTarget(target: {
+    lessonId?: string | null
+    materialSectionId?: string | null
+    materialSubsectionId?: string | null
+  }) {
+    const count = [
+      target.lessonId,
+      target.materialSectionId,
+      target.materialSubsectionId,
+    ].filter(Boolean).length
+
+    if (count > 1) {
+      throw new BadRequestException({
+        message: 'Validation failed',
+        errors: ['target: choose only one lesson, section or subsection'],
+      })
+    }
   }
 
   private normalizeNullableText(value?: string) {

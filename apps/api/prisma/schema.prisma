@@ -75,6 +75,8 @@ model User {
   joinRequests    GroupJoinRequest[] @relation("JoinRequestAuthor")
   reviewedJoinRequests GroupJoinRequest[] @relation("JoinRequestReviewer")
   createdLessons  Lesson[] @relation("LessonCreator")
+  createdMaterialSections MaterialSection[] @relation("MaterialSectionCreator")
+  createdMaterialSubsections MaterialSubsection[] @relation("MaterialSubsectionCreator")
   createdAssignments Assignment[] @relation("AssignmentCreator")
   submissions     Submission[] @relation("SubmissionAuthor")
   reviewedSubmissions Submission[] @relation("SubmissionReviewer")
@@ -147,6 +149,8 @@ model Group {
   scheduleEvents ScheduleEvent[]
   chats       Chat[]
   usefulLinks GroupUsefulLink[]
+  materialSections MaterialSection[]
+  materialSubsections MaterialSubsection[]
 
   @@index([ownerId])
   @@index([status])
@@ -225,6 +229,7 @@ model GroupUsefulLink {
 model Lesson {
   id              String       @id @default(uuid()) @db.Uuid
   groupId         String       @map("group_id") @db.Uuid
+  materialSubsectionId String? @map("material_subsection_id") @db.Uuid
   title           String       @db.VarChar(200)
   content         String?      @db.Text
   status          LessonStatus @default(DRAFT)
@@ -237,15 +242,57 @@ model Lesson {
   createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   group           Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  materialSubsection MaterialSubsection? @relation(fields: [materialSubsectionId], references: [id], onDelete: SetNull)
   createdByUser   User         @relation("LessonCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
   files           LessonFile[]
   assignments     Assignment[]
 
   @@index([groupId])
+  @@index([materialSubsectionId])
   @@index([createdByUserId])
   @@index([groupId, status])
   @@index([groupId, startsAt])
+  @@index([groupId, materialSubsectionId, sortOrder])
   @@map("lessons")
+}
+
+model MaterialSection {
+  id              String   @id @default(uuid()) @db.Uuid
+  groupId         String   @map("group_id") @db.Uuid
+  title           String   @db.VarChar(200)
+  sortOrder       Int      @map("sort_order")
+  createdByUserId String   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  group           Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdByUser   User     @relation("MaterialSectionCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  subsections     MaterialSubsection[]
+  assignments     Assignment[]
+
+  @@index([groupId, sortOrder])
+  @@index([createdByUserId])
+  @@map("material_sections")
+}
+
+model MaterialSubsection {
+  id              String   @id @default(uuid()) @db.Uuid
+  groupId         String   @map("group_id") @db.Uuid
+  sectionId       String   @map("section_id") @db.Uuid
+  title           String   @db.VarChar(200)
+  sortOrder       Int      @map("sort_order")
+  createdByUserId String   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  group           Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  section         MaterialSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  createdByUser   User     @relation("MaterialSubsectionCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  lessons         Lesson[]
+  assignments     Assignment[]
+
+  @@index([groupId, sortOrder])
+  @@index([sectionId, sortOrder])
+  @@index([createdByUserId])
+  @@map("material_subsections")
 }
 
 model LessonFile {
@@ -265,6 +312,8 @@ model Assignment {
   id              String           @id @default(uuid()) @db.Uuid
   groupId         String           @map("group_id") @db.Uuid
   lessonId        String?          @map("lesson_id") @db.Uuid
+  materialSectionId String?        @map("material_section_id") @db.Uuid
+  materialSubsectionId String?     @map("material_subsection_id") @db.Uuid
   title           String           @db.VarChar(200)
   content         String?          @db.Text
   status          AssignmentStatus @default(DRAFT)
@@ -277,12 +326,16 @@ model Assignment {
   updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
   group           Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
   lesson          Lesson?          @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  materialSection MaterialSection? @relation(fields: [materialSectionId], references: [id], onDelete: SetNull)
+  materialSubsection MaterialSubsection? @relation(fields: [materialSubsectionId], references: [id], onDelete: SetNull)
   createdByUser   User             @relation("AssignmentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
   files           AssignmentFile[]
   submissions     Submission[]
 
   @@index([groupId])
   @@index([lessonId])
+  @@index([materialSectionId])
+  @@index([materialSubsectionId])
   @@index([createdByUserId])
   @@index([groupId, status])
   @@index([groupId, dueAt])

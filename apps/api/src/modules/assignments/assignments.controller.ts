@@ -62,6 +62,18 @@ export class AssignmentsController {
     type: String,
     format: 'uuid',
   })
+  @ApiQuery({
+    name: 'materialSectionId',
+    required: false,
+    type: String,
+    format: 'uuid',
+  })
+  @ApiQuery({
+    name: 'materialSubsectionId',
+    required: false,
+    type: String,
+    format: 'uuid',
+  })
   @ApiOperation({
     summary: 'Получить список заданий группы',
   })

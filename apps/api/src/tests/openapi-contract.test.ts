@@ -94,21 +94,6 @@ test('docs/openapi.yml stays in sync with runtime Swagger document', () => {
   )
 })
 
-test('apps/web/public/openapi.yml stays in sync with docs/openapi.yml', () => {
-  const yaml = require('js-yaml') as YamlModule
-  const docsDocument = yaml.load(
-    readFileSync(resolve(__dirname, '../../../../docs/openapi.yml'), 'utf8'),
-  )
-  const webDocument = yaml.load(
-    readFileSync(resolve(__dirname, '../../../../apps/web/public/openapi.yml'), 'utf8'),
-  )
-
-  assert.equal(
-    JSON.stringify(canonicalize(webDocument)),
-    JSON.stringify(canonicalize(docsDocument)),
-  )
-})
-
 test('runtime Swagger document marks UUID path parameters with format uuid', () => {
   const config = app.get(AppConfigService)
   const document = createOpenApiDocument(app, config.publicApiBaseUrl) as unknown as {

@@ -63,7 +63,7 @@ describe('CreateGroupPage', () => {
     expect(wrapper.text()).toContain('По заявке')
     expect(wrapper.text()).toContain('Закрытая')
     expect(wrapper.text()).toContain('Чат')
-    expect(wrapper.text()).toContain('Уроки')
+    expect(wrapper.text()).toContain('Материалы')
     expect(wrapper.text()).toContain('Задания')
     expect(wrapper.text()).toContain('Расписание')
     expect(wrapper.text()).toContain('Полезные ссылки')

@@ -39,6 +39,7 @@ export type Group = {
 export type Lesson = {
   id: string
   groupId: string
+  materialSubsectionId: string | null
   title: string
   content: string | null
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
@@ -48,7 +49,7 @@ export type Lesson = {
   publishedAt: string | null
   archivedAt: string | null
   createdByUserId: string
-  files: unknown[]
+  files: FileObject[]
   createdAt: string
   updatedAt: string
 }
@@ -57,6 +58,8 @@ export type Assignment = {
   id: string
   groupId: string
   lessonId: string | null
+  materialSectionId: string | null
+  materialSubsectionId: string | null
   title: string
   content: string | null
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
@@ -65,7 +68,7 @@ export type Assignment = {
   publishedAt: string | null
   archivedAt: string | null
   createdByUserId: string
-  files: unknown[]
+  files: FileObject[]
   createdAt: string
   updatedAt: string
 }
@@ -77,7 +80,7 @@ export type Submission = {
   attemptNumber: number
   text: string | null
   status: 'DRAFT' | 'SUBMITTED' | 'REVIEWED'
-  files: unknown[]
+  files: FileObject[]
   score: number | null
   feedback: string | null
   submittedAt: string | null
@@ -87,6 +90,50 @@ export type Submission = {
   updatedAt: string
   author: PublicUser
   reviewer: PublicUser | null
+}
+
+export type MaterialLesson = {
+  id: string
+  groupId: string
+  materialSubsectionId: string | null
+  title: string
+  status: Lesson['status']
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type MaterialSubsection = {
+  id: string
+  groupId: string
+  sectionId: string
+  title: string
+  sortOrder: number
+  lessonsCount: number
+  createdByUserId: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type MaterialSection = {
+  id: string
+  groupId: string
+  title: string
+  sortOrder: number
+  createdByUserId: string
+  subsections: MaterialSubsection[]
+  createdAt: string
+  updatedAt: string
+}
+
+export type MaterialSubsectionDetails = {
+  section: {
+    id: string
+    title: string
+    sortOrder: number
+  }
+  subsection: MaterialSubsection
+  lessons: MaterialLesson[]
 }
 
 export type ScheduleEvent = {
@@ -160,6 +207,7 @@ export type UpdateGroupSettingsPayload = Partial<GroupSettings>
 
 export type CreateLessonPayload = {
   title: string
+  materialSubsectionId?: string | null
   content?: string
   status?: Lesson['status']
   sortOrder?: number
@@ -169,13 +217,49 @@ export type CreateLessonPayload = {
 }
 
 export type CreateAssignmentPayload = {
-  lessonId?: string
+  lessonId?: string | null
+  materialSectionId?: string | null
+  materialSubsectionId?: string | null
   title: string
   content?: string
   status?: Assignment['status']
   dueAt?: string
   maxScore?: number
   fileIds?: string[]
+}
+
+export type CreateMaterialSectionPayload = {
+  title: string
+  sortOrder?: number
+}
+
+export type CreateMaterialSubsectionPayload = {
+  title: string
+  sortOrder?: number
+}
+
+export type ListLessonsQuery = {
+  materialSubsectionId?: string
+}
+
+export type ListAssignmentsQuery = {
+  lessonId?: string
+  materialSectionId?: string
+  materialSubsectionId?: string
+}
+
+export type CreateSubmissionPayload = {
+  text?: string
+  fileIds?: string[]
+  status?: Submission['status']
+}
+
+export type UpdateSubmissionPayload = {
+  text?: string
+  fileIds?: string[]
+  status?: Submission['status']
+  score?: number
+  feedback?: string
 }
 
 export type CreateScheduleEventPayload = {
@@ -258,8 +342,55 @@ export function createJoinRequest(groupId: string, token?: string | null) {
   })
 }
 
-export function listLessons(groupId: string, token?: string | null) {
-  return apiRequest<Lesson[]>(`/groups/${groupId}/lessons`, { token })
+function buildQuery(params: Record<string, string | undefined> = {}) {
+  const search = new URLSearchParams()
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) {
+      search.set(key, value)
+    }
+  })
+
+  const query = search.toString()
+
+  return query ? `?${query}` : ''
+}
+
+export function listMaterials(groupId: string, token?: string | null) {
+  return apiRequest<MaterialSection[]>(`/groups/${groupId}/materials`, { token })
+}
+
+export function createMaterialSection(
+  groupId: string,
+  payload: CreateMaterialSectionPayload,
+  token?: string | null
+) {
+  return apiRequest<MaterialSection>(`/groups/${groupId}/materials/sections`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload)
+  })
+}
+
+export function createMaterialSubsection(
+  groupId: string,
+  sectionId: string,
+  payload: CreateMaterialSubsectionPayload,
+  token?: string | null
+) {
+  return apiRequest<MaterialSubsectionDetails>(`/groups/${groupId}/materials/sections/${sectionId}/subsections`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload)
+  })
+}
+
+export function getMaterialSubsection(groupId: string, subsectionId: string, token?: string | null) {
+  return apiRequest<MaterialSubsectionDetails>(`/groups/${groupId}/materials/subsections/${subsectionId}`, { token })
+}
+
+export function listLessons(groupId: string, token?: string | null, query: ListLessonsQuery = {}) {
+  return apiRequest<Lesson[]>(`/groups/${groupId}/lessons${buildQuery(query)}`, { token })
 }
 
 export function getLesson(groupId: string, lessonId: string, token?: string | null) {
@@ -274,8 +405,8 @@ export function createLesson(groupId: string, payload: CreateLessonPayload, toke
   })
 }
 
-export function listAssignments(groupId: string, token?: string | null) {
-  return apiRequest<Assignment[]>(`/groups/${groupId}/assignments`, { token })
+export function listAssignments(groupId: string, token?: string | null, query: ListAssignmentsQuery = {}) {
+  return apiRequest<Assignment[]>(`/groups/${groupId}/assignments${buildQuery(query)}`, { token })
 }
 
 export function getAssignment(groupId: string, assignmentId: string, token?: string | null) {
@@ -290,12 +421,49 @@ export function createAssignment(groupId: string, payload: CreateAssignmentPaylo
   })
 }
 
-export function listSubmissions(groupId: string, assignmentId: string, token?: string | null) {
-  return apiRequest<Submission[]>(`/groups/${groupId}/assignments/${assignmentId}/submissions`, { token })
+export function listSubmissions(
+  groupId: string,
+  assignmentId: string,
+  token?: string | null,
+  query: { mineOnly?: boolean } = {}
+) {
+  return apiRequest<Submission[]>(
+    `/groups/${groupId}/assignments/${assignmentId}/submissions${buildQuery({
+      mineOnly: query.mineOnly === undefined ? undefined : String(query.mineOnly)
+    })}`,
+    { token }
+  )
 }
 
 export function getSubmission(groupId: string, assignmentId: string, submissionId: string, token?: string | null) {
   return apiRequest<Submission>(`/groups/${groupId}/assignments/${assignmentId}/submissions/${submissionId}`, { token })
+}
+
+export function createSubmission(
+  groupId: string,
+  assignmentId: string,
+  payload: CreateSubmissionPayload,
+  token?: string | null
+) {
+  return apiRequest<Submission>(`/groups/${groupId}/assignments/${assignmentId}/submissions`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updateSubmission(
+  groupId: string,
+  assignmentId: string,
+  submissionId: string,
+  payload: UpdateSubmissionPayload,
+  token?: string | null
+) {
+  return apiRequest<Submission>(`/groups/${groupId}/assignments/${assignmentId}/submissions/${submissionId}`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(payload)
+  })
 }
 
 export function listScheduleEvents(groupId: string, token?: string | null) {

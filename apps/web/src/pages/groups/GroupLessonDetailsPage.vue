@@ -10,13 +10,24 @@ const { item: lesson, error } = useGroupRouteItem('lessonId', getLesson)
 
 <template>
   <main v-if="lesson" class="page narrow-page">
-    <AppPageHeader eyebrow="Урок" :title="lesson.title" :description="lesson.content ?? undefined" align="split">
+    <AppPageHeader eyebrow="Материал" :title="lesson.title" :description="lesson.content ?? undefined" align="split">
       <template #actions>
         <StatusPill :label="lesson.status" :tone="lesson.status === 'PUBLISHED' ? 'success' : 'muted'" />
       </template>
     </AppPageHeader>
     <section class="reading-panel surface-panel">
       <p>{{ lesson.content ?? 'Материал урока пока не заполнен.' }}</p>
+      <div v-if="lesson.files.length > 0" class="reading-panel__files">
+        <a
+          v-for="file in lesson.files"
+          :key="file.id"
+          :href="file.url"
+          target="_blank"
+          rel="noreferrer"
+        >
+          {{ file.originalName }}
+        </a>
+      </div>
     </section>
   </main>
   <main v-else class="page narrow-page">
@@ -36,5 +47,21 @@ const { item: lesson, error } = useGroupRouteItem('lessonId', getLesson)
 
 .reading-panel p {
   margin: 0;
+}
+
+.reading-panel__files {
+  border-top: 1px solid var(--color-divider);
+  display: grid;
+  gap: 10px;
+  padding-top: 18px;
+}
+
+.reading-panel__files a {
+  color: var(--color-primary);
+  font-weight: 780;
+}
+
+.reading-panel__files a:hover {
+  text-decoration: underline;
 }
 </style>

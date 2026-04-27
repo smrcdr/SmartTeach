@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import {
   createAssignment,
+  listMaterials,
   listLessons,
   type CreateAssignmentPayload
 } from '@/features/groups/api/groups.api'
@@ -21,14 +22,42 @@ const route = useRoute()
 const router = useRouter()
 const groupId = computed(() => String(route.params.groupId ?? ''))
 const { items: lessons } = useGroupRouteList(listLessons)
+const { items: materials } = useGroupRouteList(listMaterials)
 const isSubmitting = ref(false)
 const form = reactive({
   title: '',
   content: '',
   status: 'DRAFT' as CreateAssignmentPayload['status'],
-  lessonId: '',
+  targetType: 'none' as 'none' | 'section' | 'subsection' | 'lesson',
+  targetId: '',
   dueAt: '',
   maxScore: ''
+})
+const targetOptions = computed(() => {
+  if (form.targetType === 'section') {
+    return materials.value.map((section, index) => ({
+      id: section.id,
+      label: `${index + 1} ${section.title}`
+    }))
+  }
+
+  if (form.targetType === 'subsection') {
+    return materials.value.flatMap((section, sectionIndex) =>
+      section.subsections.map((subsection, subsectionIndex) => ({
+        id: subsection.id,
+        label: `${sectionIndex + 1}.${subsectionIndex + 1} ${subsection.title}`
+      }))
+    )
+  }
+
+  if (form.targetType === 'lesson') {
+    return lessons.value.map((lesson) => ({
+      id: lesson.id,
+      label: lesson.title
+    }))
+  }
+
+  return []
 })
 
 function toIsoDateTime(value: string) {
@@ -46,6 +75,11 @@ function validateForm() {
     return false
   }
 
+  if (form.targetType !== 'none' && !form.targetId) {
+    notifications.error('Выберите раздел, подраздел или урок для привязки')
+    return false
+  }
+
   return true
 }
 
@@ -56,7 +90,9 @@ function buildPayload(): CreateAssignmentPayload {
     title: form.title.trim(),
     ...(content ? { content } : {}),
     status: form.status,
-    ...(form.lessonId ? { lessonId: form.lessonId } : {}),
+    ...(form.targetType === 'section' ? { materialSectionId: form.targetId } : {}),
+    ...(form.targetType === 'subsection' ? { materialSubsectionId: form.targetId } : {}),
+    ...(form.targetType === 'lesson' ? { lessonId: form.targetId } : {}),
     ...(form.dueAt ? { dueAt: toIsoDateTime(form.dueAt) } : {}),
     ...(form.maxScore ? { maxScore: Number(form.maxScore) } : {})
   }
@@ -99,10 +135,19 @@ async function submit() {
             </select>
           </label>
           <label class="resource-field">
-            <span>Урок</span>
-            <select v-model="form.lessonId" name="lessonId">
-              <option value="">Без привязки</option>
-              <option v-for="lesson in lessons" :key="lesson.id" :value="lesson.id">{{ lesson.title }}</option>
+            <span>Привязка</span>
+            <select v-model="form.targetType" name="targetType" @change="form.targetId = ''">
+              <option value="none">Без привязки</option>
+              <option value="section">К разделу</option>
+              <option value="subsection">К подразделу</option>
+              <option value="lesson">К уроку</option>
+            </select>
+          </label>
+          <label v-if="form.targetType !== 'none'" class="resource-field resource-field--wide">
+            <span>Материал</span>
+            <select v-model="form.targetId" name="targetId">
+              <option value="" disabled>Выберите материал</option>
+              <option v-for="target in targetOptions" :key="target.id" :value="target.id">{{ target.label }}</option>
             </select>
           </label>
           <AppTextField v-model="form.dueAt" name="dueAt" label="Дедлайн" type="datetime-local" />
@@ -134,6 +179,10 @@ async function submit() {
 .resource-field {
   display: grid;
   gap: 8px;
+}
+
+.resource-field--wide {
+  grid-column: 1 / -1;
 }
 
 .resource-field span {

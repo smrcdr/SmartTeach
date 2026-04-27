@@ -14,6 +14,7 @@ import { GroupMembersModule } from './modules/group-members/group-members.module
 import { GroupsModule } from './modules/groups/groups.module'
 import { JoinRequestsModule } from './modules/join-requests/join-requests.module'
 import { LessonsModule } from './modules/lessons/lessons.module'
+import { MaterialsModule } from './modules/materials/materials.module'
 import { ScheduleModule } from './modules/schedule/schedule.module'
 import { SecurityModule } from './security/security.module'
 import { UsersModule } from './modules/users/users.module'
@@ -40,6 +41,7 @@ import { SystemModule } from './modules/system/system.module'
     GroupMembersModule,
     JoinRequestsModule,
     LessonsModule,
+    MaterialsModule,
     ScheduleModule,
   ],
 })

@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
-import { createLesson, type CreateLessonPayload } from '@/features/groups/api/groups.api'
+import {
+  createLesson,
+  listMaterials,
+  type CreateLessonPayload
+} from '@/features/groups/api/groups.api'
 import GroupAdminOnly from '@/features/groups/components/GroupAdminOnly.vue'
+import { useGroupRouteList } from '@/features/groups/composables/useGroupRouteResource'
 import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
 import AppButton from '@/shared/ui/AppButton.vue'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
@@ -15,14 +20,44 @@ const notifications = useNotificationStore()
 const route = useRoute()
 const router = useRouter()
 const groupId = computed(() => String(route.params.groupId ?? ''))
+const { items: materials } = useGroupRouteList(listMaterials)
 const isSubmitting = ref(false)
 const form = reactive({
   title: '',
+  materialSubsectionId: '',
   content: '',
   status: 'DRAFT' as CreateLessonPayload['status'],
   startsAt: '',
   endsAt: ''
 })
+const subsectionOptions = computed(() =>
+  materials.value.flatMap((section, sectionIndex) =>
+    section.subsections.map((subsection, subsectionIndex) => ({
+      id: subsection.id,
+      label: `${sectionIndex + 1}.${subsectionIndex + 1} ${section.title} / ${subsection.title}`
+    }))
+  )
+)
+
+watch(
+  [subsectionOptions, () => route.query.materialSubsectionId],
+  () => {
+    const querySubsectionId = String(route.query.materialSubsectionId ?? '')
+
+    if (
+      querySubsectionId &&
+      subsectionOptions.value.some((subsection) => subsection.id === querySubsectionId)
+    ) {
+      form.materialSubsectionId = querySubsectionId
+      return
+    }
+
+    if (!form.materialSubsectionId && subsectionOptions.value.length > 0) {
+      form.materialSubsectionId = subsectionOptions.value[0].id
+    }
+  },
+  { immediate: true }
+)
 
 function toIsoDateTime(value: string) {
   return value ? new Date(value).toISOString() : undefined
@@ -31,6 +66,11 @@ function toIsoDateTime(value: string) {
 function validateForm() {
   if (form.title.trim().length < 2) {
     notifications.error('Название урока должно быть не короче 2 символов')
+    return false
+  }
+
+  if (!form.materialSubsectionId) {
+    notifications.error('Выберите подраздел для урока')
     return false
   }
 
@@ -52,6 +92,7 @@ function buildPayload(): CreateLessonPayload {
 
   return {
     title: form.title.trim(),
+    materialSubsectionId: form.materialSubsectionId,
     ...(content ? { content } : {}),
     status: form.status,
     ...(form.startsAt ? { startsAt: toIsoDateTime(form.startsAt) } : {}),
@@ -67,9 +108,15 @@ async function submit() {
   isSubmitting.value = true
 
   try {
-    await createLesson(groupId.value, buildPayload(), auth.accessToken)
+    const lesson = await createLesson(groupId.value, buildPayload(), auth.accessToken)
     notifications.success('Урок создан')
-    await router.push({ name: 'group-lessons', params: { groupId: groupId.value } })
+    await router.push({
+      name: 'group-material-subsection',
+      params: {
+        groupId: groupId.value,
+        subsectionId: lesson.materialSubsectionId ?? form.materialSubsectionId
+      }
+    })
   } catch (caught) {
     notifications.error(caught instanceof Error ? caught.message : 'Не удалось создать урок')
   } finally {
@@ -81,13 +128,26 @@ async function submit() {
 <template>
   <GroupAdminOnly>
     <main class="page narrow-page">
-      <AppPageHeader eyebrow="Урок" title="Новый урок" description="Создайте материал, который сразу сохранится в API." />
+      <AppPageHeader eyebrow="Материалы" title="Новый урок" description="Создайте урок внутри выбранного подраздела." />
 
       <form class="resource-form surface-panel" novalidate @submit.prevent="submit">
         <AppTextField v-model="form.title" name="title" label="Тема урока" placeholder="Введите тему" />
         <AppTextarea v-model="form.content" name="content" label="Материал" placeholder="Добавьте содержание урока" />
 
         <div class="resource-form__grid">
+          <label class="resource-field resource-field--wide">
+            <span>Подраздел</span>
+            <select v-model="form.materialSubsectionId" name="materialSubsectionId">
+              <option value="" disabled>Выберите подраздел</option>
+              <option
+                v-for="subsection in subsectionOptions"
+                :key="subsection.id"
+                :value="subsection.id"
+              >
+                {{ subsection.label }}
+              </option>
+            </select>
+          </label>
           <label class="resource-field">
             <span>Статус</span>
             <select v-model="form.status" name="status">
@@ -119,6 +179,10 @@ async function submit() {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.resource-field--wide {
+  grid-column: 1 / -1;
 }
 
 .resource-field {

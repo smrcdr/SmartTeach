@@ -42,10 +42,16 @@ const canManage = computed(() => canManageGroup(group.value))
         :meta="assignment.dueAt ? `Дедлайн ${formatShortDate(assignment.dueAt)}` : undefined"
       >
         <template #aside>
+          <RouterLink :to="{ name: 'group-assignment-details', params: { groupId, assignmentId: assignment.id } }">
+            <AppButton variant="secondary" size="sm">Открыть</AppButton>
+          </RouterLink>
           <RouterLink v-if="canManage" :to="{ name: 'group-assignment-submissions', params: { groupId, assignmentId: assignment.id } }">
             <AppButton variant="secondary" size="sm">Проверить</AppButton>
           </RouterLink>
-          <StatusPill label="Published" tone="success" />
+          <StatusPill
+            :label="assignment.status === 'PUBLISHED' ? 'Опубликовано' : 'Черновик'"
+            :tone="assignment.status === 'PUBLISHED' ? 'success' : 'muted'"
+          />
         </template>
       </WorkspaceItem>
       <EmptyState v-if="assignments.length === 0" title="Заданий пока нет" />

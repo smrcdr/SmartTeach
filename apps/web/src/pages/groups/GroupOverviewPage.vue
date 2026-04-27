@@ -166,7 +166,7 @@ async function submitUsefulLink() {
     </AppPageHeader>
 
     <section v-if="hasMetrics" class="workspace-page__metrics">
-      <MetricTile v-if="group.settings.lessonsEnabled" label="Уроков" :value="lessons.length" detail="Опубликованные и черновики" :icon="BookOpen" />
+      <MetricTile v-if="group.settings.lessonsEnabled" label="Материалов" :value="lessons.length" detail="Опубликованные и черновики" :icon="BookOpen" />
       <MetricTile v-if="group.settings.assignmentsEnabled" label="Заданий" :value="assignments.length" detail="Активные проверки" :icon="ClipboardList" />
       <MetricTile v-if="group.settings.scheduleEnabled" label="Событий" :value="schedule.length" detail="Ближайшие встречи" :icon="CalendarDays" />
       <MetricTile v-if="group.settings.chatEnabled" label="Чатов" :value="chats.length" detail="Коммуникация группы" :icon="MessageCircle" />

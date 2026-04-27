@@ -37,17 +37,22 @@ watch([groupId, assignmentId], () => void refresh(), { immediate: true })
   <main class="page">
     <AppPageHeader eyebrow="Проверка" title="Проверка решений" description="Очередь отправленных работ, статусы ревью и оценки." />
     <ContentList title="Очередь проверки">
-      <WorkspaceItem
+      <RouterLink
         v-for="submission in submissions"
         :key="submission.id"
-        :title="submission.author.displayName"
-        :description="submission.text ?? 'Решение без текстового комментария'"
-        :meta="submission.submittedAt ? formatDateTime(submission.submittedAt) : `Попытка ${submission.attemptNumber}`"
+        class="submission-link"
+        :to="{ name: 'group-assignment-submission-details', params: { groupId, assignmentId, submissionId: submission.id } }"
       >
-        <template #aside>
-          <StatusPill :label="submission.status" :tone="submission.status === 'REVIEWED' ? 'success' : 'warning'" />
-        </template>
-      </WorkspaceItem>
+        <WorkspaceItem
+          :title="submission.author.displayName"
+          :description="submission.text ?? 'Решение без текстового комментария'"
+          :meta="submission.submittedAt ? formatDateTime(submission.submittedAt) : `Попытка ${submission.attemptNumber}`"
+        >
+          <template #aside>
+            <StatusPill :label="submission.status" :tone="submission.status === 'REVIEWED' ? 'success' : 'warning'" />
+          </template>
+        </WorkspaceItem>
+      </RouterLink>
       <EmptyState
         v-if="submissions.length === 0 && !error"
         title="Решений пока нет"
@@ -57,3 +62,9 @@ watch([groupId, assignmentId], () => void refresh(), { immediate: true })
     </ContentList>
   </main>
 </template>
+
+<style scoped>
+.submission-link {
+  display: block;
+}
+</style>

@@ -20,6 +20,7 @@ export class UpdateLessonRequestDto {
   static schema = z
     .object({
       title: z.string().trim().min(2).max(200).optional(),
+      materialSubsectionId: z.string().uuid().nullable().optional(),
       content: z.string().optional(),
       status: lessonStatusSchema.optional(),
       sortOrder: z.number().int().min(1).optional(),
@@ -53,6 +54,13 @@ export class UpdateLessonRequestDto {
     example: 'Updated lesson title',
   })
   title?: string
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    example: '99999999-9999-4999-8999-999999999999',
+  })
+  materialSubsectionId?: string | null
 
   @ApiPropertyOptional({
     example: 'Обновленный конспект урока.',

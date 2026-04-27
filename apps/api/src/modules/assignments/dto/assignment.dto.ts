@@ -22,6 +22,20 @@ export class AssignmentDto {
   })
   lessonId!: string | null
 
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    example: '88888888-8888-4888-8888-888888888888',
+  })
+  materialSectionId!: string | null
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    example: '99999999-9999-4999-8999-999999999999',
+  })
+  materialSubsectionId!: string | null
+
   @ApiProperty({
     minLength: 2,
     maxLength: 200,

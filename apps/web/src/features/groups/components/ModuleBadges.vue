@@ -11,7 +11,7 @@ const props = defineProps<{
 type GroupModule = 'lessons' | 'assignments' | 'schedule' | 'chats' | 'usefulLinks' | 'members'
 
 const moduleMap: Record<GroupModule, { label: string, icon: Component }> = {
-  lessons: { label: 'Уроки', icon: BookOpen },
+  lessons: { label: 'Материалы', icon: BookOpen },
   assignments: { label: 'Задания', icon: ClipboardList },
   schedule: { label: 'Расписание', icon: CalendarDays },
   chats: { label: 'Чаты', icon: MessageCircle },

@@ -5,6 +5,7 @@ import { LessonDto } from './dto/lesson.dto'
 export const lessonSelect = {
   id: true,
   groupId: true,
+  materialSubsectionId: true,
   title: true,
   content: true,
   status: true,
@@ -41,6 +42,7 @@ export function mapLessonToDto(lesson: LessonRecord, fileUrlsById: Map<string, s
   return {
     id: lesson.id,
     groupId: lesson.groupId,
+    materialSubsectionId: lesson.materialSubsectionId,
     title: lesson.title,
     content: lesson.content,
     status: lesson.status,

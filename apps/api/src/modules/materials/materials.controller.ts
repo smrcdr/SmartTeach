@@ -7,9 +7,7 @@ import {
   Inject,
   Param,
   ParseUUIDPipe,
-  Patch,
   Post,
-  Query,
   UseGuards,
 } from '@nestjs/common'
 import {
@@ -20,7 +18,6 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
-  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger'
@@ -28,41 +25,29 @@ import { ErrorResponseDto } from '../../common/dto/error-response.dto'
 import { CurrentAuth } from '../../security/current-auth.decorator'
 import type { AuthContext } from '../../security/auth.types'
 import { AccessTokenAuthGuard } from '../../security/access-token-auth.guard'
-import { CreateLessonRequestDto } from './dto/create-lesson-request.dto'
-import { LessonDto } from './dto/lesson.dto'
-import { ListLessonsQueryDto } from './dto/list-lessons-query.dto'
-import { UpdateLessonRequestDto } from './dto/update-lesson-request.dto'
-import { LessonsService } from './lessons.service'
-import { lessonStatusValues } from './lessons.schemas'
+import { CreateMaterialSectionRequestDto } from './dto/create-material-section-request.dto'
+import { CreateMaterialSubsectionRequestDto } from './dto/create-material-subsection-request.dto'
+import { MaterialSectionDto } from './dto/material-section.dto'
+import { MaterialSubsectionDetailsDto } from './dto/material-subsection-details.dto'
+import { MaterialsService } from './materials.service'
 
-@ApiTags('Lessons')
+@ApiTags('Materials')
 @ApiBearerAuth('bearerAuth')
 @UseGuards(AccessTokenAuthGuard)
 @Controller({
   path: 'groups',
   version: '1',
 })
-export class LessonsController {
-  constructor(@Inject(LessonsService) private readonly lessonsService: LessonsService) {}
+export class MaterialsController {
+  constructor(@Inject(MaterialsService) private readonly materialsService: MaterialsService) {}
 
-  @Get(':groupId/lessons')
+  @Get(':groupId/materials')
   @HttpCode(HttpStatus.OK)
-  @ApiQuery({
-    name: 'status',
-    required: false,
-    enum: lessonStatusValues,
-  })
-  @ApiQuery({
-    name: 'materialSubsectionId',
-    required: false,
-    type: String,
-    format: 'uuid',
-  })
   @ApiOperation({
-    summary: 'Получить список уроков группы',
+    summary: 'Получить структуру материалов группы',
   })
   @ApiOkResponse({
-    type: LessonDto,
+    type: MaterialSectionDto,
     isArray: true,
   })
   @ApiUnauthorizedResponse({
@@ -74,21 +59,20 @@ export class LessonsController {
   @ApiNotFoundResponse({
     type: ErrorResponseDto,
   })
-  listLessons(
+  listMaterials(
     @CurrentAuth() auth: AuthContext,
     @Param('groupId', new ParseUUIDPipe({ version: '4' })) groupId: string,
-    @Query() query: ListLessonsQueryDto,
   ) {
-    return this.lessonsService.listLessons(groupId, auth.userId, query)
+    return this.materialsService.listMaterials(groupId, auth.userId)
   }
 
-  @Post(':groupId/lessons')
+  @Post(':groupId/materials/sections')
   @ApiOperation({
-    summary: 'Создать урок',
+    summary: 'Создать раздел материалов',
     description: 'Доступно владельцу и администраторам группы, если lessons_enabled включен.',
   })
   @ApiCreatedResponse({
-    type: LessonDto,
+    type: MaterialSectionDto,
   })
   @ApiBadRequestResponse({
     type: ErrorResponseDto,
@@ -102,47 +86,21 @@ export class LessonsController {
   @ApiNotFoundResponse({
     type: ErrorResponseDto,
   })
-  createLesson(
+  createSection(
     @CurrentAuth() auth: AuthContext,
     @Param('groupId', new ParseUUIDPipe({ version: '4' })) groupId: string,
-    @Body() payload: CreateLessonRequestDto,
+    @Body() payload: CreateMaterialSectionRequestDto,
   ) {
-    return this.lessonsService.createLesson(groupId, auth.userId, payload)
+    return this.materialsService.createSection(groupId, auth.userId, payload)
   }
 
-  @Get(':groupId/lessons/:lessonId')
-  @HttpCode(HttpStatus.OK)
+  @Post(':groupId/materials/sections/:sectionId/subsections')
   @ApiOperation({
-    summary: 'Получить урок',
+    summary: 'Создать подраздел материалов',
+    description: 'Доступно владельцу и администраторам группы, если lessons_enabled включен.',
   })
-  @ApiOkResponse({
-    type: LessonDto,
-  })
-  @ApiUnauthorizedResponse({
-    type: ErrorResponseDto,
-  })
-  @ApiForbiddenResponse({
-    type: ErrorResponseDto,
-  })
-  @ApiNotFoundResponse({
-    type: ErrorResponseDto,
-  })
-  getLesson(
-    @CurrentAuth() auth: AuthContext,
-    @Param('groupId', new ParseUUIDPipe({ version: '4' })) groupId: string,
-    @Param('lessonId', new ParseUUIDPipe({ version: '4' })) lessonId: string,
-  ) {
-    return this.lessonsService.getLesson(groupId, lessonId, auth.userId)
-  }
-
-  @Patch(':groupId/lessons/:lessonId')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Обновить урок',
-    description: 'Позволяет менять статус, порядок и набор привязанных файлов урока.',
-  })
-  @ApiOkResponse({
-    type: LessonDto,
+  @ApiCreatedResponse({
+    type: MaterialSubsectionDetailsDto,
   })
   @ApiBadRequestResponse({
     type: ErrorResponseDto,
@@ -156,12 +114,37 @@ export class LessonsController {
   @ApiNotFoundResponse({
     type: ErrorResponseDto,
   })
-  updateLesson(
+  createSubsection(
     @CurrentAuth() auth: AuthContext,
     @Param('groupId', new ParseUUIDPipe({ version: '4' })) groupId: string,
-    @Param('lessonId', new ParseUUIDPipe({ version: '4' })) lessonId: string,
-    @Body() payload: UpdateLessonRequestDto,
+    @Param('sectionId', new ParseUUIDPipe({ version: '4' })) sectionId: string,
+    @Body() payload: CreateMaterialSubsectionRequestDto,
   ) {
-    return this.lessonsService.updateLesson(groupId, lessonId, auth.userId, payload)
+    return this.materialsService.createSubsection(groupId, sectionId, auth.userId, payload)
+  }
+
+  @Get(':groupId/materials/subsections/:subsectionId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Получить подраздел материалов с уроками',
+  })
+  @ApiOkResponse({
+    type: MaterialSubsectionDetailsDto,
+  })
+  @ApiUnauthorizedResponse({
+    type: ErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDto,
+  })
+  getSubsection(
+    @CurrentAuth() auth: AuthContext,
+    @Param('groupId', new ParseUUIDPipe({ version: '4' })) groupId: string,
+    @Param('subsectionId', new ParseUUIDPipe({ version: '4' })) subsectionId: string,
+  ) {
+    return this.materialsService.getSubsection(groupId, subsectionId, auth.userId)
   }
 }

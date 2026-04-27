@@ -16,6 +16,7 @@ export class CreateLessonRequestDto {
   static schema = z
     .object({
       title: z.string().trim().min(2).max(200),
+      materialSubsectionId: z.string().uuid().optional(),
       content: z.string().optional(),
       status: lessonStatusSchema.optional(),
       sortOrder: z.number().int().min(1).optional(),
@@ -41,6 +42,12 @@ export class CreateLessonRequestDto {
     example: 'Intro to REST contracts',
   })
   title!: string
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    example: '99999999-9999-4999-8999-999999999999',
+  })
+  materialSubsectionId?: string
 
   @ApiPropertyOptional({
     example: 'Разбираем базовые REST-паттерны и итоговый контракт lesson module.',

@@ -124,7 +124,7 @@ describe('GroupWorkspaceLayout', () => {
     const labels = navLabels(wrapper)
 
     expect(labels).not.toContain('Чаты')
-    expect(labels).not.toContain('Уроки')
+    expect(labels).not.toContain('Материалы')
     expect(labels).not.toContain('Расписание')
     expect(labels).toContain('Задания')
     expect(labels).toContain('Участники')
@@ -135,7 +135,7 @@ describe('GroupWorkspaceLayout', () => {
     const wrapper = await mountAt('/groups/group-id/workspace/lessons', 'ADMIN')
     const items = wrapper.findAll('.workspace-nav__item')
     const overview = items.find((item) => item.text() === 'Обзор')
-    const lessons = items.find((item) => item.text() === 'Уроки')
+    const lessons = items.find((item) => item.text() === 'Материалы')
 
     expect(overview?.classes()).not.toContain('workspace-nav__item--active')
     expect(lessons?.classes()).toContain('workspace-nav__item--active')

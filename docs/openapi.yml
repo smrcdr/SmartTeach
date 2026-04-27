@@ -607,7 +607,7 @@ paths:
           name: search
           required: false
           schema:
-            example: frontend
+            example: patterns
             type: string
         - in: query
           name: code
@@ -830,6 +830,20 @@ paths:
           schema:
             format: uuid
             example: 77777777-7777-4777-8777-777777777777
+            type: string
+        - in: query
+          name: materialSectionId
+          required: false
+          schema:
+            format: uuid
+            example: 88888888-8888-4888-8888-888888888888
+            type: string
+        - in: query
+          name: materialSubsectionId
+          required: false
+          schema:
+            format: uuid
+            example: 99999999-9999-4999-8999-999999999999
             type: string
       responses:
         '200':
@@ -1683,6 +1697,13 @@ paths:
               - PUBLISHED
               - ARCHIVED
             type: string
+        - in: query
+          name: materialSubsectionId
+          required: false
+          schema:
+            format: uuid
+            example: 99999999-9999-4999-8999-999999999999
+            type: string
       responses:
         '200':
           description: ''
@@ -1868,6 +1889,200 @@ paths:
       summary: Обновить урок
       tags:
         - Lessons
+  /groups/{groupId}/materials:
+    get:
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MaterialSection'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить структуру материалов группы
+      tags:
+        - Materials
+  /groups/{groupId}/materials/sections:
+    post:
+      description: Доступно владельцу и администраторам группы, если lessons_enabled включен.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMaterialSectionRequest'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialSection'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Создать раздел материалов
+      tags:
+        - Materials
+  /groups/{groupId}/materials/sections/{sectionId}/subsections:
+    post:
+      description: Доступно владельцу и администраторам группы, если lessons_enabled включен.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: sectionId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMaterialSubsectionRequest'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialSubsectionDetails'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Создать подраздел материалов
+      tags:
+        - Materials
+  /groups/{groupId}/materials/subsections/{subsectionId}:
+    get:
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: subsectionId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialSubsectionDetails'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить подраздел материалов с уроками
+      tags:
+        - Materials
   /groups/{groupId}/members:
     get:
       parameters:
@@ -2692,6 +2907,16 @@ components:
           format: uuid
           nullable: true
           example: 77777777-7777-4777-8777-777777777777
+        materialSectionId:
+          type: object
+          format: uuid
+          nullable: true
+          example: 88888888-8888-4888-8888-888888888888
+        materialSubsectionId:
+          type: object
+          format: uuid
+          nullable: true
+          example: 99999999-9999-4999-8999-999999999999
         title:
           type: string
           minLength: 2
@@ -2852,6 +3077,14 @@ components:
           type: string
           format: uuid
           example: 77777777-7777-4777-8777-777777777777
+        materialSectionId:
+          type: string
+          format: uuid
+          example: 88888888-8888-4888-8888-888888888888
+        materialSubsectionId:
+          type: string
+          format: uuid
+          example: 99999999-9999-4999-8999-999999999999
         title:
           type: string
           minLength: 2
@@ -2915,7 +3148,7 @@ components:
           type: string
           minLength: 2
           maxLength: 150
-          example: Frontend Patterns Lab
+          example: API Patterns Lab
         description:
           type: string
           example: Группа для разбора компонентного мышления и интерфейсных паттернов.
@@ -2965,6 +3198,10 @@ components:
           minLength: 2
           maxLength: 200
           example: Intro to REST contracts
+        materialSubsectionId:
+          type: string
+          format: uuid
+          example: 99999999-9999-4999-8999-999999999999
         content:
           type: string
           example: Разбираем базовые REST-паттерны и итоговый контракт lesson module.
@@ -2993,6 +3230,34 @@ components:
           type: array
           items:
             type: string
+      required:
+        - title
+    CreateMaterialSectionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: HTML и структура страницы
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 1
+      required:
+        - title
+    CreateMaterialSubsectionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Семантическая верстка
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 1
       required:
         - title
     CreateScheduleEventRequest:
@@ -3388,6 +3653,11 @@ components:
           type: string
           format: uuid
           example: 66666666-6666-4666-8666-666666666666
+        materialSubsectionId:
+          type: object
+          format: uuid
+          nullable: true
+          example: 99999999-9999-4999-8999-999999999999
         title:
           type: string
           minLength: 2
@@ -3461,6 +3731,176 @@ components:
       required:
         - email
         - password
+    MaterialLesson:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 77777777-7777-4777-8777-777777777777
+        groupId:
+          type: string
+          format: uuid
+          example: 66666666-6666-4666-8666-666666666666
+        materialSubsectionId:
+          type: object
+          format: uuid
+          nullable: true
+          example: 99999999-9999-4999-8999-999999999999
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Введение в структуру страницы
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - ARCHIVED
+          example: PUBLISHED
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - groupId
+        - title
+        - status
+        - sortOrder
+        - createdAt
+        - updatedAt
+    MaterialSection:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 88888888-8888-4888-8888-888888888888
+        groupId:
+          type: string
+          format: uuid
+          example: 66666666-6666-4666-8666-666666666666
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: HTML и структура страницы
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 1
+        createdByUserId:
+          type: string
+          format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        subsections:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialSubsection'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - groupId
+        - title
+        - sortOrder
+        - createdByUserId
+        - subsections
+        - createdAt
+        - updatedAt
+    MaterialSectionSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 88888888-8888-4888-8888-888888888888
+        title:
+          type: string
+          example: HTML и структура страницы
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 1
+      required:
+        - id
+        - title
+        - sortOrder
+    MaterialSubsection:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 99999999-9999-4999-8999-999999999999
+        groupId:
+          type: string
+          format: uuid
+          example: 66666666-6666-4666-8666-666666666666
+        sectionId:
+          type: string
+          format: uuid
+          example: 88888888-8888-4888-8888-888888888888
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Семантическая верстка
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 1
+        lessonsCount:
+          type: number
+          minimum: 0
+          example: 3
+        createdByUserId:
+          type: string
+          format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - groupId
+        - sectionId
+        - title
+        - sortOrder
+        - lessonsCount
+        - createdByUserId
+        - createdAt
+        - updatedAt
+    MaterialSubsectionDetails:
+      type: object
+      properties:
+        section:
+          $ref: '#/components/schemas/MaterialSectionSummary'
+        subsection:
+          $ref: '#/components/schemas/MaterialSubsection'
+        lessons:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialLesson'
+      required:
+        - section
+        - subsection
+        - lessons
     Message:
       type: object
       properties:
@@ -3815,6 +4255,16 @@ components:
           format: uuid
           nullable: true
           example: 77777777-7777-4777-8777-777777777777
+        materialSectionId:
+          type: object
+          format: uuid
+          nullable: true
+          example: 88888888-8888-4888-8888-888888888888
+        materialSubsectionId:
+          type: object
+          format: uuid
+          nullable: true
+          example: 99999999-9999-4999-8999-999999999999
         title:
           type: string
           minLength: 2
@@ -3863,7 +4313,7 @@ components:
           type: string
           minLength: 2
           maxLength: 150
-          example: Frontend Patterns Lab
+          example: API Patterns Lab
         description:
           type: string
           example: Обновленное описание учебной группы.
@@ -3906,6 +4356,11 @@ components:
           minLength: 2
           maxLength: 200
           example: Updated lesson title
+        materialSubsectionId:
+          type: object
+          format: uuid
+          nullable: true
+          example: 99999999-9999-4999-8999-999999999999
         content:
           type: string
           example: Обновленный конспект урока.

@@ -59,6 +59,18 @@ const ids = {
     mathWorkshop: 'bbbbbbb3-bbbb-4bbb-8bbb-bbbbbbbbbbb3',
     archivedLesson: 'bbbbbbb4-bbbb-4bbb-8bbb-bbbbbbbbbbb4',
   },
+  materialSections: {
+    webBasics: 'abababa1-abab-4aba-8aba-abababababa1',
+    webResponsive: 'abababa2-abab-4aba-8aba-abababababa2',
+    mathProblems: 'abababa3-abab-4aba-8aba-abababababa3',
+    archivedDesign: 'abababa4-abab-4aba-8aba-abababababa4',
+  },
+  materialSubsections: {
+    webSemantics: 'bcbcbcb1-bcbc-4bcb-8bcb-bcbcbcbcbcb1',
+    webLayouts: 'bcbcbcb2-bcbc-4bcb-8bcb-bcbcbcbcbcb2',
+    mathCombinatorics: 'bcbcbcb3-bcbc-4bcb-8bcb-bcbcbcbcbcb3',
+    archivedTokens: 'bcbcbcb4-bcbc-4bcb-8bcb-bcbcbcbcbcb4',
+  },
   assignments: {
     webHomework: 'ccccccc1-cccc-4ccc-8ccc-ccccccccccc1',
     webCapstone: 'ccccccc2-cccc-4ccc-8ccc-ccccccccccc2',
@@ -107,6 +119,8 @@ async function resetDatabase() {
     prisma.assignment.deleteMany(),
     prisma.lessonFile.deleteMany(),
     prisma.lesson.deleteMany(),
+    prisma.materialSubsection.deleteMany(),
+    prisma.materialSection.deleteMany(),
     prisma.scheduleEvent.deleteMany(),
     prisma.groupJoinRequest.deleteMany(),
     prisma.groupMember.deleteMany(),
@@ -394,10 +408,93 @@ async function seedGroups() {
 }
 
 async function seedLearningContent() {
+  const materialSections = [
+    {
+      id: ids.materialSections.webBasics,
+      groupId: ids.groups.webBasics,
+      title: 'Основы веб-страницы',
+      sortOrder: 1,
+      createdByUserId: ids.users.alex,
+      createdAt: at('2026-03-15T13:45:00.000Z'),
+      updatedAt: at('2026-03-15T13:45:00.000Z'),
+    },
+    {
+      id: ids.materialSections.webResponsive,
+      groupId: ids.groups.webBasics,
+      title: 'Адаптивная верстка',
+      sortOrder: 2,
+      createdByUserId: ids.users.alex,
+      createdAt: at('2026-03-18T11:45:00.000Z'),
+      updatedAt: at('2026-03-18T11:45:00.000Z'),
+    },
+    {
+      id: ids.materialSections.mathProblems,
+      groupId: ids.groups.mathLab,
+      title: 'Олимпиадные задачи',
+      sortOrder: 1,
+      createdByUserId: ids.users.maria,
+      createdAt: at('2026-03-19T10:45:00.000Z'),
+      updatedAt: at('2026-03-19T10:45:00.000Z'),
+    },
+    {
+      id: ids.materialSections.archivedDesign,
+      groupId: ids.groups.archivedClub,
+      title: 'Дизайн-система',
+      sortOrder: 1,
+      createdByUserId: ids.users.alex,
+      createdAt: at('2026-02-19T15:45:00.000Z'),
+      updatedAt: at('2026-02-19T15:45:00.000Z'),
+    },
+  ] satisfies Prisma.MaterialSectionCreateManyInput[]
+
+  const materialSubsections = [
+    {
+      id: ids.materialSubsections.webSemantics,
+      groupId: ids.groups.webBasics,
+      sectionId: ids.materialSections.webBasics,
+      title: 'Семантическая структура',
+      sortOrder: 1,
+      createdByUserId: ids.users.alex,
+      createdAt: at('2026-03-15T13:50:00.000Z'),
+      updatedAt: at('2026-03-15T13:50:00.000Z'),
+    },
+    {
+      id: ids.materialSubsections.webLayouts,
+      groupId: ids.groups.webBasics,
+      sectionId: ids.materialSections.webResponsive,
+      title: 'Гибкие блоки',
+      sortOrder: 1,
+      createdByUserId: ids.users.alex,
+      createdAt: at('2026-03-18T11:50:00.000Z'),
+      updatedAt: at('2026-03-18T11:50:00.000Z'),
+    },
+    {
+      id: ids.materialSubsections.mathCombinatorics,
+      groupId: ids.groups.mathLab,
+      sectionId: ids.materialSections.mathProblems,
+      title: 'Комбинаторика и логика',
+      sortOrder: 1,
+      createdByUserId: ids.users.maria,
+      createdAt: at('2026-03-19T10:50:00.000Z'),
+      updatedAt: at('2026-03-19T10:50:00.000Z'),
+    },
+    {
+      id: ids.materialSubsections.archivedTokens,
+      groupId: ids.groups.archivedClub,
+      sectionId: ids.materialSections.archivedDesign,
+      title: 'Токены интерфейса',
+      sortOrder: 1,
+      createdByUserId: ids.users.alex,
+      createdAt: at('2026-02-19T15:50:00.000Z'),
+      updatedAt: at('2026-02-19T15:50:00.000Z'),
+    },
+  ] satisfies Prisma.MaterialSubsectionCreateManyInput[]
+
   const lessons = [
     {
       id: ids.lessons.webIntro,
       groupId: ids.groups.webBasics,
+      materialSubsectionId: ids.materialSubsections.webSemantics,
       title: 'Введение в структуру страницы',
       content: 'Разбираем семантическую верстку, сетки и подготовку к первой странице курса.',
       status: LessonStatus.PUBLISHED,
@@ -412,6 +509,7 @@ async function seedLearningContent() {
     {
       id: ids.lessons.webPractice,
       groupId: ids.groups.webBasics,
+      materialSubsectionId: ids.materialSubsections.webLayouts,
       title: 'Практика: адаптивные блоки',
       content: 'Черновик практического урока с фокусом на layout и responsive-поведение.',
       status: LessonStatus.DRAFT,
@@ -423,6 +521,7 @@ async function seedLearningContent() {
     {
       id: ids.lessons.mathWorkshop,
       groupId: ids.groups.mathLab,
+      materialSubsectionId: ids.materialSubsections.mathCombinatorics,
       title: 'Разбор олимпиадных задач',
       content: 'Очная лаборатория с серией задач на комбинаторику и логику.',
       status: LessonStatus.PUBLISHED,
@@ -437,6 +536,7 @@ async function seedLearningContent() {
     {
       id: ids.lessons.archivedLesson,
       groupId: ids.groups.archivedClub,
+      materialSubsectionId: ids.materialSubsections.archivedTokens,
       title: 'Архив: дизайн-система клуба',
       content: 'Исторический урок из закрытого клуба, нужен для проверки архивных записей.',
       status: LessonStatus.ARCHIVED,
@@ -476,6 +576,7 @@ async function seedLearningContent() {
     {
       id: ids.assignments.webCapstone,
       groupId: ids.groups.webBasics,
+      materialSubsectionId: ids.materialSubsections.webLayouts,
       title: 'Черновик итогового проекта',
       content: 'Заготовка финального проекта по адаптивной верстке.',
       status: AssignmentStatus.DRAFT,
@@ -601,6 +702,8 @@ async function seedLearningContent() {
     },
   ] satisfies Prisma.ScheduleEventCreateManyInput[]
 
+  await prisma.materialSection.createMany({ data: materialSections })
+  await prisma.materialSubsection.createMany({ data: materialSubsections })
   await prisma.lesson.createMany({ data: lessons })
   await prisma.lessonFile.createMany({ data: lessonFiles })
   await prisma.assignment.createMany({ data: assignments })
