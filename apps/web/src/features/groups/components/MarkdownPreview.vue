@@ -1,17 +1,44 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { renderMarkdown } from '@/features/groups/lib/markdown'
+import { renderLessonContent } from '@/features/groups/lib/markdown'
 
 const props = defineProps<{
   content?: string | null
   emptyText?: string
+  handleLessonLinks?: boolean
 }>()
 
-const html = computed(() => renderMarkdown(props.content))
+const emit = defineEmits<{
+  'lesson-link': [lessonId: string]
+}>()
+
+const html = computed(() => renderLessonContent(props.content))
+
+function handleClick(event: MouseEvent) {
+  if (!props.handleLessonLinks) {
+    return
+  }
+
+  const target = event.target
+
+  if (!(target instanceof Element)) {
+    return
+  }
+
+  const anchor = target.closest('a[data-lesson-id]')
+  const lessonId = anchor?.getAttribute('data-lesson-id')
+
+  if (!lessonId) {
+    return
+  }
+
+  event.preventDefault()
+  emit('lesson-link', lessonId)
+}
 </script>
 
 <template>
-  <div v-if="html" class="markdown-preview" v-html="html" />
+  <div v-if="html" class="markdown-preview" @click="handleClick" v-html="html" />
   <p v-else class="markdown-preview markdown-preview--empty">{{ emptyText ?? 'Материал пока не заполнен.' }}</p>
 </template>
 

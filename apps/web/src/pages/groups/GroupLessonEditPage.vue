@@ -134,6 +134,8 @@ async function submit() {
           v-model="form.content"
           name="content"
           label="Материал"
+          :group-id="groupId"
+          :token="auth.accessToken"
           placeholder="Обновите конспект, ссылки, списки или блоки кода."
         />
 
@@ -152,7 +154,7 @@ async function submit() {
 
 <style scoped>
 .lesson-edit-page {
-  max-width: 1180px;
+  max-width: 1440px;
 }
 
 .lesson-edit-form {

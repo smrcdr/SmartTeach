@@ -10,11 +10,108 @@ function escapeHtml(value: string) {
 function sanitizeHref(value: string) {
   const trimmed = value.trim()
 
-  if (/^(https?:\/\/|mailto:)/i.test(trimmed)) {
+  if (/^(https?:\/\/|mailto:|\/|#)/i.test(trimmed)) {
     return escapeHtml(trimmed)
   }
 
   return '#'
+}
+
+function sanitizeDataAttribute(value: string | null) {
+  if (!value || !/^[a-zA-Z0-9_-]+$/.test(value)) {
+    return ''
+  }
+
+  return escapeHtml(value)
+}
+
+function renderChildren(element: Element) {
+  return Array.from(element.childNodes).map(sanitizeRichNode).join('')
+}
+
+function sanitizeRichNode(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return escapeHtml(node.textContent ?? '')
+  }
+
+  if (!(node instanceof Element)) {
+    return ''
+  }
+
+  const tag = node.tagName.toLowerCase()
+  const children = renderChildren(node)
+
+  switch (tag) {
+    case 'br':
+      return '<br>'
+    case 'b':
+    case 'strong':
+      return `<strong>${children}</strong>`
+    case 'i':
+    case 'em':
+      return `<em>${children}</em>`
+    case 'u':
+      return `<u>${children}</u>`
+    case 's':
+    case 'strike':
+      return `<s>${children}</s>`
+    case 'h1':
+    case 'h2':
+      return `<h2>${children}</h2>`
+    case 'h3':
+      return `<h3>${children}</h3>`
+    case 'h4':
+    case 'h5':
+    case 'h6':
+      return `<h4>${children}</h4>`
+    case 'p':
+    case 'div':
+      return `<p>${children}</p>`
+    case 'ul':
+    case 'ol':
+    case 'li':
+    case 'blockquote':
+      return `<${tag}>${children}</${tag}>`
+    case 'pre':
+      return `<pre>${children}</pre>`
+    case 'code':
+      return `<code>${children}</code>`
+    case 'a': {
+      const href = sanitizeHref(node.getAttribute('href') ?? '#')
+      const lessonId = sanitizeDataAttribute(node.getAttribute('data-lesson-id'))
+      const groupId = sanitizeDataAttribute(node.getAttribute('data-group-id'))
+      const lessonAttributes = lessonId
+        ? ` data-lesson-id="${lessonId}"${groupId ? ` data-group-id="${groupId}"` : ''}`
+        : ''
+      const externalAttributes = lessonId || href.startsWith('/') || href.startsWith('#')
+        ? ''
+        : ' target="_blank" rel="noreferrer"'
+
+      return `<a href="${href}"${lessonAttributes}${externalAttributes}>${children || href}</a>`
+    }
+    default:
+      return children
+  }
+}
+
+function looksLikeHtml(value: string) {
+  return /<\/?[a-z][\s\S]*>/i.test(value)
+}
+
+export function sanitizeRichHtml(value: string | null | undefined) {
+  const source = (value ?? '').replace(/\r\n/g, '\n').trim()
+
+  if (!source) {
+    return ''
+  }
+
+  if (typeof DOMParser === 'undefined') {
+    return escapeHtml(source)
+  }
+
+  const document = new DOMParser().parseFromString(source, 'text/html')
+
+  return Array.from(document.body.childNodes).map(sanitizeRichNode).join('').trim()
 }
 
 function renderInline(value: string) {
@@ -138,4 +235,14 @@ export function renderMarkdown(value: string | null | undefined) {
   flushList(list, output, isOrderedList)
 
   return output.join('')
+}
+
+export function renderLessonContent(value: string | null | undefined) {
+  const source = (value ?? '').replace(/\r\n/g, '\n').trim()
+
+  if (!source) {
+    return ''
+  }
+
+  return looksLikeHtml(source) ? sanitizeRichHtml(source) : renderMarkdown(source)
 }

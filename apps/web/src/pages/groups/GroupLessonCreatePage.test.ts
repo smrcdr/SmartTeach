@@ -118,7 +118,7 @@ describe('GroupLessonCreatePage', () => {
           groupId: 'group-id',
           materialSubsectionId: 'subsection-id',
           title: 'Введение',
-          content: '## План',
+          content: '<h2>План</h2>',
           status: 'DRAFT',
           files: []
         }, 201)
@@ -129,15 +129,17 @@ describe('GroupLessonCreatePage', () => {
 
     const { router, wrapper } = await mountPage()
 
-    expect(wrapper.find('textarea[name="content"]').exists()).toBe(false)
+    expect(wrapper.find('.rich-editor__surface').exists()).toBe(false)
 
     await wrapper.find('input[name="title"]').setValue('Введение')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
-    expect(wrapper.find('textarea[name="content"]').exists()).toBe(true)
+    expect(wrapper.find('.rich-editor__surface').exists()).toBe(true)
 
-    await wrapper.find('textarea[name="content"]').setValue('## План\n\n- Первое занятие')
+    const editor = wrapper.find('.rich-editor__surface')
+    editor.element.innerHTML = '<h2>План</h2><ul><li>Первое занятие</li></ul>'
+    await editor.trigger('input')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
@@ -147,7 +149,7 @@ describe('GroupLessonCreatePage', () => {
     expect(JSON.parse(String(request.body))).toEqual({
       title: 'Введение',
       materialSubsectionId: 'subsection-id',
-      content: '## План\n\n- Первое занятие',
+      content: '<h2>План</h2><ul><li>Первое занятие</li></ul>',
       status: 'DRAFT'
     })
     expect(router.currentRoute.value.name).toBe('group-material-subsection')

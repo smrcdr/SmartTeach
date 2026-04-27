@@ -99,7 +99,8 @@ async function mountPage() {
     history: createMemoryHistory(),
     routes: [
       { path: '/groups/:groupId/workspace/members', name: 'group-members', component: GroupMembersPage },
-      { path: '/chats', name: 'chats', component: { template: '<span />' } }
+      { path: '/chats', name: 'chats', component: { template: '<span />' } },
+      { path: '/users/:userId', name: 'public-profile', component: { template: '<span />' } }
     ]
   })
 
@@ -173,13 +174,26 @@ describe('GroupMembersPage', () => {
     const { router, wrapper } = await mountPage()
 
     await wrapper.find('.member-row').trigger('click')
-    expect(wrapper.find('.member-dialog').exists()).toBe(true)
+    expect(wrapper.find('.member-menu').exists()).toBe(true)
 
-    await wrapper.find('.member-dialog .app-button--primary').trigger('click')
+    await wrapper.findAll('.member-menu button').find((button) => button.text().includes('Написать'))?.trigger('click')
     await flushPromises()
 
     expect(chatsApi.createDirectChat).toHaveBeenCalledWith('member-id', 'access-token')
     expect(router.currentRoute.value.name).toBe('chats')
     expect(router.currentRoute.value.query.chatId).toBe('chat-id')
+  })
+
+  it('opens public profile from the selected member menu', async () => {
+    mockGroup.value = buildGroup()
+    mockMembers.value = [buildMember()]
+    const { router, wrapper } = await mountPage()
+
+    await wrapper.find('.member-row').trigger('click')
+    await wrapper.findAll('.member-menu button').find((button) => button.text().includes('Открыть профиль'))?.trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('public-profile')
+    expect(router.currentRoute.value.params.userId).toBe('member-id')
   })
 })

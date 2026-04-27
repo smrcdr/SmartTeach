@@ -122,7 +122,7 @@ async function submit() {
       <AppPageHeader
         eyebrow="Материалы"
         title="Новый урок"
-        :description="step === 1 ? 'Сначала заполните основные параметры.' : 'Добавьте содержимое урока в markdown-редакторе.'"
+        :description="step === 1 ? 'Сначала заполните основные параметры.' : 'Добавьте содержимое урока в редакторе.'"
       />
 
       <form class="lesson-create-form" novalidate @submit.prevent="step === 1 ? goToContentStep() : submit()">
@@ -177,6 +177,8 @@ async function submit() {
             v-model="form.content"
             name="content"
             label="Материал"
+            :group-id="groupId"
+            :token="auth.accessToken"
             placeholder="Напишите конспект, добавьте списки, ссылки, цитаты или код."
           />
         </section>
@@ -194,7 +196,7 @@ async function submit() {
 
 <style scoped>
 .lesson-create-page {
-  max-width: 1180px;
+  max-width: 1440px;
 }
 
 .lesson-create-form {

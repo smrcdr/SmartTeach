@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { Edit } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { getLesson } from '@/features/groups/api/groups.api'
+import LessonReferenceDialog from '@/features/groups/components/LessonReferenceDialog.vue'
 import MarkdownPreview from '@/features/groups/components/MarkdownPreview.vue'
 import { useGroup } from '@/features/groups/composables/useGroup'
 import { useGroupRouteItem } from '@/features/groups/composables/useGroupRouteResource'
@@ -11,9 +13,11 @@ import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 import StatusPill from '@/shared/ui/StatusPill.vue'
 
+const auth = useAuthStore()
 const { group } = useGroup()
 const { item: lesson, groupId, itemId: lessonId, error } = useGroupRouteItem('lessonId', getLesson)
 const canManage = computed(() => canManageGroup(group.value))
+const previewLessonId = ref<string | null>(null)
 </script>
 
 <template>
@@ -30,7 +34,11 @@ const canManage = computed(() => canManageGroup(group.value))
       </template>
     </AppPageHeader>
     <section class="reading-panel surface-panel">
-      <MarkdownPreview :content="lesson.content" />
+      <MarkdownPreview
+        :content="lesson.content"
+        handle-lesson-links
+        @lesson-link="previewLessonId = $event"
+      />
       <div v-if="lesson.files.length > 0" class="reading-panel__files">
         <a
           v-for="file in lesson.files"
@@ -43,6 +51,13 @@ const canManage = computed(() => canManageGroup(group.value))
         </a>
       </div>
     </section>
+    <LessonReferenceDialog
+      v-if="previewLessonId"
+      :group-id="groupId"
+      :lesson-id="previewLessonId"
+      :token="auth.accessToken"
+      @close="previewLessonId = null"
+    />
   </main>
   <main v-else class="page narrow-page">
     <EmptyState title="Урок не загружен" :description="error ?? 'Данные урока ожидаются от API.'" />

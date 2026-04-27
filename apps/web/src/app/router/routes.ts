@@ -103,7 +103,7 @@ export const routes: RouteRecordRaw[] = [
       { path: 'chats', name: 'chats', meta: { requiresAuth: true }, component: () => import('@/pages/chats/ChatsPage.vue') },
       { path: 'profile', name: 'profile', meta: { requiresAuth: true }, component: () => import('@/pages/profile/ProfilePage.vue') },
       { path: 'profile/edit', name: 'profile-edit', meta: { requiresAuth: true }, component: () => import('@/pages/profile/ProfileEditPage.vue') },
-      { path: 'users/:userId', name: 'public-profile', component: () => import('@/pages/profile/PublicUserPage.vue') }
+      { path: 'users/:userId', name: 'public-profile', meta: { requiresAuth: true }, component: () => import('@/pages/profile/PublicUserPage.vue') }
     ]
   },
   {

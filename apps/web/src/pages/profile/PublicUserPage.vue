@@ -19,14 +19,17 @@ async function refresh() {
     return
   }
 
+  error.value = null
+
   try {
     user.value = await getUser(userId.value, auth.accessToken)
   } catch (caught) {
+    user.value = null
     error.value = caught instanceof Error ? caught.message : 'Не удалось загрузить пользователя'
   }
 }
 
-watch(userId, () => void refresh(), { immediate: true })
+watch([userId, () => auth.accessToken], () => void refresh(), { immediate: true })
 </script>
 
 <template>

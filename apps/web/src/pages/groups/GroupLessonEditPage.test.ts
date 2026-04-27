@@ -114,7 +114,7 @@ describe('GroupLessonEditPage', () => {
     localStorage.clear()
   })
 
-  it('loads lesson data and saves markdown content through PATCH', async () => {
+  it('loads lesson data and saves rich content through PATCH', async () => {
     vi.stubGlobal('fetch', fetchMock)
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
@@ -135,7 +135,7 @@ describe('GroupLessonEditPage', () => {
         return jsonResponse({
           ...lesson,
           title: 'Новый урок',
-          content: '## Новый текст',
+          content: '<h2>Новый текст</h2>',
           status: 'PUBLISHED'
         })
       }
@@ -148,7 +148,9 @@ describe('GroupLessonEditPage', () => {
     expect((wrapper.find('input[name="title"]').element as HTMLInputElement).value).toBe('Старый урок')
 
     await wrapper.find('input[name="title"]').setValue('Новый урок')
-    await wrapper.find('textarea[name="content"]').setValue('## Новый текст')
+    const editor = wrapper.find('.rich-editor__surface')
+    editor.element.innerHTML = '<h2>Новый текст</h2>'
+    await editor.trigger('input')
     await wrapper.find('select[name="status"]').setValue('PUBLISHED')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
@@ -161,7 +163,7 @@ describe('GroupLessonEditPage', () => {
     expect(JSON.parse(String(request.body))).toEqual({
       title: 'Новый урок',
       materialSubsectionId: 'subsection-id',
-      content: '## Новый текст',
+      content: '<h2>Новый текст</h2>',
       status: 'PUBLISHED'
     })
     expect(router.currentRoute.value.name).toBe('group-lesson-details')

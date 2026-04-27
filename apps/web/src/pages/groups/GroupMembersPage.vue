@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Clipboard, MessageCircle, UserPlus } from 'lucide-vue-next'
+import { Clipboard, MessageCircle, UserPlus, UserRound } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
@@ -23,6 +23,10 @@ const canManage = computed(() => canManageGroup(group.value))
 const isInviteDialogOpen = ref(false)
 const selectedMember = ref<GroupMember | null>(null)
 const isOpeningChat = ref(false)
+
+function toggleMemberMenu(member: GroupMember) {
+  selectedMember.value = selectedMember.value?.userId === member.userId ? null : member
+}
 
 async function copyGroupCode() {
   if (!group.value?.code) {
@@ -58,10 +62,21 @@ async function openDirectChat() {
     isOpeningChat.value = false
   }
 }
+
+async function openPublicProfile() {
+  if (!selectedMember.value) {
+    return
+  }
+
+  const userId = selectedMember.value.userId
+
+  selectedMember.value = null
+  await router.push({ name: 'public-profile', params: { userId } })
+}
 </script>
 
 <template>
-  <main class="page">
+  <main class="page" @click="selectedMember = null">
     <AppPageHeader
       eyebrow="Команда"
       title="Участники"
@@ -74,21 +89,47 @@ async function openDirectChat() {
     </AppPageHeader>
 
     <ContentList title="Список участников">
-      <button
+      <div
         v-for="member in members"
         :key="member.userId"
-        class="member-row"
-        type="button"
-        @click="selectedMember = member"
+        class="member-row-shell"
       >
-        <img v-if="member.user.avatarUrl" :src="member.user.avatarUrl" :alt="member.user.displayName" />
-        <span v-else class="member-row__initials">{{ member.user.displayName.slice(0, 1) }}</span>
-        <div>
-          <h3>{{ member.user.displayName }}</h3>
-          <p>{{ member.user.bio }}</p>
-        </div>
-        <strong>{{ member.role }}</strong>
-      </button>
+        <button
+          class="member-row"
+          type="button"
+          :aria-expanded="selectedMember?.userId === member.userId"
+          @click.stop="toggleMemberMenu(member)"
+        >
+          <img v-if="member.user.avatarUrl" :src="member.user.avatarUrl" :alt="member.user.displayName" />
+          <span v-else class="member-row__initials">{{ member.user.displayName.slice(0, 1) }}</span>
+          <div>
+            <h3>{{ member.user.displayName }}</h3>
+            <p>{{ member.user.bio }}</p>
+          </div>
+          <strong>{{ member.role }}</strong>
+        </button>
+
+        <section
+          v-if="selectedMember?.userId === member.userId"
+          class="member-menu"
+          role="menu"
+          @click.stop
+        >
+          <button
+            type="button"
+            role="menuitem"
+            :disabled="isOpeningChat || member.userId === auth.user?.id"
+            @click="openDirectChat"
+          >
+            <MessageCircle :size="18" />
+            {{ isOpeningChat ? 'Открываем...' : 'Написать' }}
+          </button>
+          <button type="button" role="menuitem" @click="openPublicProfile">
+            <UserRound :size="18" />
+            Открыть профиль
+          </button>
+        </section>
+      </div>
       <EmptyState v-if="members.length === 0" title="Участников пока нет" />
     </ContentList>
 
@@ -120,48 +161,14 @@ async function openDirectChat() {
         <AppButton type="button" variant="secondary" @click="isInviteDialogOpen = false">Закрыть</AppButton>
       </section>
     </div>
-
-    <div
-      v-if="selectedMember"
-      class="member-dialog"
-      role="presentation"
-      @click.self="selectedMember = null"
-    >
-      <section
-        class="member-dialog__panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="member-dialog-title"
-      >
-        <div class="member-dialog__identity">
-          <img
-            v-if="selectedMember.user.avatarUrl"
-            :src="selectedMember.user.avatarUrl"
-            :alt="selectedMember.user.displayName"
-          />
-          <span v-else class="member-row__initials">{{ selectedMember.user.displayName.slice(0, 1) }}</span>
-          <div>
-            <span class="invite-dialog__eyebrow">{{ selectedMember.role }}</span>
-            <h2 id="member-dialog-title">{{ selectedMember.user.displayName }}</h2>
-            <p>{{ selectedMember.user.bio ?? 'Участник группы' }}</p>
-          </div>
-        </div>
-        <div class="member-dialog__actions">
-          <AppButton
-            type="button"
-            :disabled="isOpeningChat || selectedMember.userId === auth.user?.id"
-            @click="openDirectChat"
-          >
-            <MessageCircle :size="18" /> {{ isOpeningChat ? 'Открываем...' : 'Написать' }}
-          </AppButton>
-          <AppButton type="button" variant="secondary" @click="selectedMember = null">Закрыть</AppButton>
-        </div>
-      </section>
-    </div>
   </main>
 </template>
 
 <style scoped>
+.member-row-shell {
+  position: relative;
+}
+
 .member-row {
   align-items: center;
   background: var(--color-surface-lowest);
@@ -176,6 +183,7 @@ async function openDirectChat() {
   padding: 18px 20px;
   text-align: left;
   transition: background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  width: 100%;
 }
 
 .member-row:hover {
@@ -225,8 +233,51 @@ async function openDirectChat() {
   font-size: 0.85rem;
 }
 
-.invite-dialog,
-.member-dialog {
+.member-menu {
+  background: var(--color-menu-surface);
+  border: 1px solid var(--color-menu-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-menu);
+  display: grid;
+  gap: 4px;
+  min-width: 248px;
+  padding: 10px;
+  position: absolute;
+  right: 16px;
+  top: calc(100% + 8px);
+  z-index: 20;
+}
+
+.member-menu button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 650;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 14px;
+  text-align: left;
+}
+
+.member-menu button:hover:not(:disabled),
+.member-menu button:focus-visible:not(:disabled) {
+  background: var(--color-menu-hover);
+  color: var(--color-primary);
+  outline: none;
+}
+
+.member-menu button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.invite-dialog {
   align-items: center;
   background: rgb(0 0 0 / 34%);
   bottom: 0;
@@ -240,8 +291,7 @@ async function openDirectChat() {
   z-index: 90;
 }
 
-.invite-dialog__panel,
-.member-dialog__panel {
+.invite-dialog__panel {
   background: var(--color-menu-surface);
   border: 1px solid var(--color-menu-border);
   border-radius: var(--radius-lg);
@@ -297,48 +347,12 @@ async function openDirectChat() {
   font: inherit;
 }
 
-.member-dialog__panel {
-  max-width: 460px;
-  width: min(100%, 460px);
-}
-
-.member-dialog__identity {
-  align-items: center;
-  display: grid;
-  gap: 16px;
-  grid-template-columns: 64px minmax(0, 1fr);
-}
-
-.member-dialog__identity img,
-.member-dialog__identity .member-row__initials {
-  height: 64px;
-  width: 64px;
-}
-
-.member-dialog h2,
-.member-dialog p {
-  margin: 0;
-}
-
-.member-dialog h2 {
-  color: var(--color-primary);
-  font-size: 1.35rem;
-  margin-top: 4px;
-}
-
-.member-dialog p {
-  color: var(--color-text-muted);
-  line-height: 1.45;
-  margin-top: 6px;
-}
-
-.member-dialog__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
 @media (max-width: 620px) {
+  .member-menu {
+    left: 12px;
+    right: 12px;
+  }
+
   .member-row {
     align-items: start;
     grid-template-columns: 44px minmax(0, 1fr);

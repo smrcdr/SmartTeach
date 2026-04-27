@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { renderMarkdown } from './markdown'
+import { renderLessonContent, renderMarkdown } from './markdown'
 
 describe('renderMarkdown', () => {
   it('renders basic markdown blocks and inline formatting', () => {
@@ -15,5 +15,15 @@ describe('renderMarkdown', () => {
     expect(html).toContain('&lt;script&gt;')
     expect(html).not.toContain('<script>')
     expect(html).toContain('href="#"')
+  })
+
+  it('sanitizes rich lesson content and keeps internal lesson links', () => {
+    const html = renderLessonContent(
+      '<h2>Тема</h2><script>alert(1)</script><a href="/groups/group-id/workspace/lessons/lesson-id" data-lesson-id="lesson-id">Урок</a>'
+    )
+
+    expect(html).toContain('<h2>Тема</h2>')
+    expect(html).toContain('data-lesson-id="lesson-id"')
+    expect(html).not.toContain('<script>')
   })
 })
