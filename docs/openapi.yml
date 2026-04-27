@@ -974,7 +974,7 @@ paths:
       tags:
         - Assignments
     patch:
-      description: Позволяет менять статус, дедлайн, lessonId и набор привязанных файлов задания.
+      description: Позволяет менять статус, дедлайн, связанные материалы и набор привязанных файлов задания.
       parameters:
         - in: path
           name: groupId
@@ -2902,21 +2902,8 @@ components:
           type: string
           format: uuid
           example: 66666666-6666-4666-8666-666666666666
-        lessonId:
-          type: object
-          format: uuid
-          nullable: true
-          example: 77777777-7777-4777-8777-777777777777
-        materialSectionId:
-          type: object
-          format: uuid
-          nullable: true
-          example: 88888888-8888-4888-8888-888888888888
-        materialSubsectionId:
-          type: object
-          format: uuid
-          nullable: true
-          example: 99999999-9999-4999-8999-999999999999
+        targets:
+          $ref: '#/components/schemas/AssignmentTargets'
         title:
           type: string
           minLength: 2
@@ -2967,12 +2954,50 @@ components:
       required:
         - id
         - groupId
+        - targets
         - title
         - status
         - createdByUserId
         - files
         - createdAt
         - updatedAt
+    AssignmentMaterialReference:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 77777777-7777-4777-8777-777777777777
+        title:
+          type: string
+          example: Intro to API Contracts
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 1
+      required:
+        - id
+        - title
+        - sortOrder
+    AssignmentTargets:
+      type: object
+      properties:
+        lessons:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssignmentMaterialReference'
+        materialSections:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssignmentMaterialReference'
+        materialSubsections:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssignmentMaterialReference'
+      required:
+        - lessons
+        - materialSections
+        - materialSubsections
     AuthSession:
       type: object
       properties:
@@ -3073,18 +3098,24 @@ components:
     CreateAssignmentRequest:
       type: object
       properties:
-        lessonId:
-          type: string
-          format: uuid
-          example: 77777777-7777-4777-8777-777777777777
-        materialSectionId:
-          type: string
-          format: uuid
-          example: 88888888-8888-4888-8888-888888888888
-        materialSubsectionId:
-          type: string
-          format: uuid
-          example: 99999999-9999-4999-8999-999999999999
+        lessonIds:
+          example:
+            - 77777777-7777-4777-8777-777777777777
+          type: array
+          items:
+            type: string
+        materialSectionIds:
+          example:
+            - 88888888-8888-4888-8888-888888888888
+          type: array
+          items:
+            type: string
+        materialSubsectionIds:
+          example:
+            - 99999999-9999-4999-8999-999999999999
+          type: array
+          items:
+            type: string
         title:
           type: string
           minLength: 2
@@ -4233,21 +4264,24 @@ components:
     UpdateAssignmentRequest:
       type: object
       properties:
-        lessonId:
-          type: object
-          format: uuid
-          nullable: true
-          example: 77777777-7777-4777-8777-777777777777
-        materialSectionId:
-          type: object
-          format: uuid
-          nullable: true
-          example: 88888888-8888-4888-8888-888888888888
-        materialSubsectionId:
-          type: object
-          format: uuid
-          nullable: true
-          example: 99999999-9999-4999-8999-999999999999
+        lessonIds:
+          example:
+            - 77777777-7777-4777-8777-777777777777
+          type: array
+          items:
+            type: string
+        materialSectionIds:
+          example:
+            - 88888888-8888-4888-8888-888888888888
+          type: array
+          items:
+            type: string
+        materialSubsectionIds:
+          example:
+            - 99999999-9999-4999-8999-999999999999
+          type: array
+          items:
+            type: string
         title:
           type: string
           minLength: 2

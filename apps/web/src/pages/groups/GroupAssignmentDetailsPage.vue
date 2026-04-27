@@ -18,24 +18,41 @@ const { item: assignment, groupId, itemId: assignmentId, error } = useGroupRoute
 const canManage = computed(() => canManageGroup(group.value))
 const submissions = ref<Submission[]>([])
 const submissionsError = ref<string | null>(null)
-const targetLabel = computed(() => {
+const targetGroups = computed(() => {
   if (!assignment.value) {
-    return null
+    return []
   }
 
-  if (assignment.value.lessonId) {
-    return 'Привязано к уроку'
+  return [
+    {
+      key: 'sections',
+      label: 'Разделы',
+      items: assignment.value.targets.materialSections,
+      routeName: 'group-lessons'
+    },
+    {
+      key: 'subsections',
+      label: 'Подразделы',
+      items: assignment.value.targets.materialSubsections,
+      routeName: 'group-material-subsection'
+    },
+    {
+      key: 'lessons',
+      label: 'Уроки',
+      items: assignment.value.targets.lessons,
+      routeName: 'group-lesson-details'
+    }
+  ].filter((group) => group.items.length > 0)
+})
+const targetCount = computed(() =>
+  targetGroups.value.reduce((total, group) => total + group.items.length, 0)
+)
+const targetLabel = computed(() => {
+  if (targetCount.value === 0) {
+    return 'Без привязки к материалам'
   }
 
-  if (assignment.value.materialSubsectionId) {
-    return 'Привязано к подразделу'
-  }
-
-  if (assignment.value.materialSectionId) {
-    return 'Привязано к разделу'
-  }
-
-  return 'Без привязки к материалам'
+  return `${targetCount.value} связанных материалов`
 })
 
 async function refreshSubmissions() {
@@ -53,6 +70,18 @@ async function refreshSubmissions() {
 }
 
 watch([groupId, assignmentId, () => auth.accessToken], () => void refreshSubmissions(), { immediate: true })
+
+function getTargetRoute(routeName: string, targetId: string) {
+  if (routeName === 'group-lesson-details') {
+    return { name: routeName, params: { groupId: groupId.value, lessonId: targetId } }
+  }
+
+  if (routeName === 'group-material-subsection') {
+    return { name: routeName, params: { groupId: groupId.value, subsectionId: targetId } }
+  }
+
+  return { name: routeName, params: { groupId: groupId.value }, query: { sectionId: targetId } }
+}
 </script>
 
 <template>
@@ -102,6 +131,30 @@ watch([groupId, assignmentId, () => auth.accessToken], () => void refreshSubmiss
         >
           {{ file.originalName }}
         </a>
+      </div>
+    </section>
+
+    <section v-if="targetGroups.length > 0" class="surface-panel related-panel">
+      <header>
+        <h2>Материалы к заданию</h2>
+        <p>Откройте нужный материал перед выполнением.</p>
+      </header>
+
+      <div class="related-panel__groups">
+        <div v-for="group in targetGroups" :key="group.key" class="related-group">
+          <h3>{{ group.label }}</h3>
+          <div class="related-group__items">
+            <RouterLink
+              v-for="target in group.items"
+              :key="target.id"
+              class="related-target"
+              :to="getTargetRoute(group.routeName, target.id)"
+            >
+              <span>{{ target.title }}</span>
+              <small>Открыть</small>
+            </RouterLink>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -184,6 +237,87 @@ watch([groupId, assignmentId, () => auth.accessToken], () => void refreshSubmiss
   text-decoration: underline;
 }
 
+.related-panel {
+  display: grid;
+  gap: 20px;
+  padding: 30px;
+}
+
+.related-panel header {
+  display: grid;
+  gap: 6px;
+}
+
+.related-panel h2,
+.related-panel h3,
+.related-panel p {
+  margin: 0;
+}
+
+.related-panel h2,
+.related-group h3 {
+  color: var(--color-primary);
+}
+
+.related-panel h2 {
+  font-size: 1.25rem;
+}
+
+.related-panel p {
+  color: var(--color-text-muted);
+}
+
+.related-panel__groups {
+  display: grid;
+  gap: 16px;
+}
+
+.related-group {
+  display: grid;
+  gap: 10px;
+}
+
+.related-group h3 {
+  font-size: 0.95rem;
+}
+
+.related-group__items {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.related-target {
+  align-items: center;
+  background: var(--color-surface-low);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 54px;
+  padding: 12px 14px;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.related-target:hover {
+  background: var(--color-surface-highest);
+  border-color: var(--color-focus-border);
+  color: var(--color-primary);
+}
+
+.related-target span {
+  font-weight: 780;
+}
+
+.related-target small {
+  color: var(--color-text-muted);
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .submissions-panel header {
   align-items: center;
   display: flex;
@@ -232,6 +366,10 @@ watch([groupId, assignmentId, () => auth.accessToken], () => void refreshSubmiss
   .submission-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .related-group__items {
+    grid-template-columns: 1fr;
   }
 }
 </style>

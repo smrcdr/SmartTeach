@@ -138,7 +138,8 @@ describe('groups api', () => {
     }
     const assignmentPayload = {
       title: 'Homework',
-      materialSubsectionId: 'subsection-id',
+      lessonIds: ['lesson-id'],
+      materialSubsectionIds: ['subsection-id'],
       dueAt: '2026-04-26T12:00:00.000Z'
     }
     const sectionPayload = {

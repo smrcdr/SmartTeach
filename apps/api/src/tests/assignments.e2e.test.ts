@@ -107,10 +107,20 @@ type GroupResponse = {
   id: string
 }
 
+type AssignmentTargetResponse = {
+  id: string
+  title: string
+  sortOrder: number
+}
+
 type AssignmentResponse = {
   id: string
   groupId: string
-  lessonId: string | null
+  targets: {
+    lessons: AssignmentTargetResponse[]
+    materialSections: AssignmentTargetResponse[]
+    materialSubsections: AssignmentTargetResponse[]
+  }
   title: string
   content: string | null
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
@@ -250,6 +260,39 @@ async function createLesson(groupId: string, userId: string, title: string) {
   return lesson
 }
 
+async function createMaterialTree(groupId: string, userId: string) {
+  const section = await prisma.materialSection.create({
+    data: {
+      groupId,
+      title: `Assignments section ${Date.now()}`,
+      sortOrder: 1,
+      createdByUserId: userId,
+    },
+    select: {
+      id: true,
+      title: true,
+    },
+  })
+  const subsection = await prisma.materialSubsection.create({
+    data: {
+      groupId,
+      sectionId: section.id,
+      title: `Assignments subsection ${Date.now()}`,
+      sortOrder: 1,
+      createdByUserId: userId,
+    },
+    select: {
+      id: true,
+      title: true,
+    },
+  })
+
+  return {
+    section,
+    subsection,
+  }
+}
+
 test('assignment endpoints create, list, get and update assignments inside one group', async () => {
   const owner = await registerUser('owner')
   const member = await registerUser('member')
@@ -258,6 +301,7 @@ test('assignment endpoints create, list, get and update assignments inside one g
   const secondGroup = await createGroup(owner.accessToken)
   const lesson = await createLesson(group.id, owner.user.id, 'Assignment lesson')
   const foreignLesson = await createLesson(secondGroup.id, owner.user.id, 'Foreign lesson')
+  const materialTree = await createMaterialTree(group.id, owner.user.id)
   const firstFile = await createOwnedFile(owner.user.id, 'criteria')
   const secondFile = await createOwnedFile(owner.user.id, 'brief')
 
@@ -275,7 +319,9 @@ test('assignment endpoints create, list, get and update assignments inside one g
       method: 'POST',
       token: owner.accessToken,
       body: {
-        lessonId: lesson.id,
+        lessonIds: [lesson.id],
+        materialSectionIds: [materialTree.section.id],
+        materialSubsectionIds: [materialTree.subsection.id],
         title: 'Contract review report',
         content: 'Сверьте реализацию с OpenAPI.',
         status: 'PUBLISHED',
@@ -288,7 +334,18 @@ test('assignment endpoints create, list, get and update assignments inside one g
 
   assert.equal(firstAssignmentCreateResult.response.status, 201)
   assert.ok(firstAssignmentCreateResult.body)
-  assert.equal(firstAssignmentCreateResult.body.lessonId, lesson.id)
+  assert.deepEqual(
+    firstAssignmentCreateResult.body.targets.lessons.map((target) => target.id),
+    [lesson.id],
+  )
+  assert.deepEqual(
+    firstAssignmentCreateResult.body.targets.materialSections.map((target) => target.id),
+    [materialTree.section.id],
+  )
+  assert.deepEqual(
+    firstAssignmentCreateResult.body.targets.materialSubsections.map((target) => target.id),
+    [materialTree.subsection.id],
+  )
   assert.equal(firstAssignmentCreateResult.body.status, 'PUBLISHED')
   assert.equal(firstAssignmentCreateResult.body.maxScore, 100)
   assert.equal(firstAssignmentCreateResult.body.createdByUserId, owner.user.id)
@@ -313,7 +370,9 @@ test('assignment endpoints create, list, get and update assignments inside one g
 
   assert.equal(secondAssignmentCreateResult.response.status, 201)
   assert.ok(secondAssignmentCreateResult.body)
-  assert.equal(secondAssignmentCreateResult.body.lessonId, null)
+  assert.deepEqual(secondAssignmentCreateResult.body.targets.lessons, [])
+  assert.deepEqual(secondAssignmentCreateResult.body.targets.materialSections, [])
+  assert.deepEqual(secondAssignmentCreateResult.body.targets.materialSubsections, [])
   assert.equal(secondAssignmentCreateResult.body.status, 'DRAFT')
   assert.equal(secondAssignmentCreateResult.body.publishedAt, null)
 
@@ -368,6 +427,9 @@ test('assignment endpoints create, list, get and update assignments inside one g
         title: 'Reviewed contract report',
         status: 'ARCHIVED',
         maxScore: 95,
+        lessonIds: [],
+        materialSectionIds: [materialTree.section.id],
+        materialSubsectionIds: [materialTree.subsection.id],
         fileIds: [secondFile.id],
       },
     },
@@ -379,22 +441,12 @@ test('assignment endpoints create, list, get and update assignments inside one g
   assert.equal(updatedFirstAssignmentResult.body.status, 'ARCHIVED')
   assert.equal(updatedFirstAssignmentResult.body.maxScore, 95)
   assert.ok(updatedFirstAssignmentResult.body.archivedAt)
-  assert.deepEqual(updatedFirstAssignmentResult.body.files.map((file) => file.id), [secondFile.id])
-
-  const clearLessonResult = await request<AssignmentResponse>(
-    `/groups/${group.id}/assignments/${firstAssignmentCreateResult.body.id}`,
-    {
-      method: 'PATCH',
-      token: owner.accessToken,
-      body: {
-        lessonId: null,
-      },
-    },
+  assert.deepEqual(updatedFirstAssignmentResult.body.targets.lessons, [])
+  assert.deepEqual(
+    updatedFirstAssignmentResult.body.targets.materialSections.map((target) => target.id),
+    [materialTree.section.id],
   )
-
-  assert.equal(clearLessonResult.response.status, 200)
-  assert.ok(clearLessonResult.body)
-  assert.equal(clearLessonResult.body.lessonId, null)
+  assert.deepEqual(updatedFirstAssignmentResult.body.files.map((file) => file.id), [secondFile.id])
 
   const getAssignmentResult = await request<AssignmentResponse>(
     `/groups/${group.id}/assignments/${firstAssignmentCreateResult.body.id}`,
@@ -408,14 +460,18 @@ test('assignment endpoints create, list, get and update assignments inside one g
   assert.ok(getAssignmentResult.body)
   assert.equal(getAssignmentResult.body.id, firstAssignmentCreateResult.body.id)
   assert.equal(getAssignmentResult.body.status, 'ARCHIVED')
-  assert.equal(getAssignmentResult.body.lessonId, null)
+  assert.deepEqual(getAssignmentResult.body.targets.lessons, [])
+  assert.deepEqual(
+    getAssignmentResult.body.targets.materialSubsections.map((target) => target.id),
+    [materialTree.subsection.id],
+  )
   assert.deepEqual(getAssignmentResult.body.files.map((file) => file.id), [secondFile.id])
 
   const foreignLessonCreateResult = await request(`/groups/${group.id}/assignments`, {
     method: 'POST',
     token: owner.accessToken,
     body: {
-      lessonId: foreignLesson.id,
+      lessonIds: [foreignLesson.id],
       title: 'Wrong lesson',
     },
   })
@@ -456,10 +512,32 @@ test('assignment endpoints create, list, get and update assignments inside one g
     select: {
       status: true,
       title: true,
-      lessonId: true,
       maxScore: true,
       publishedAt: true,
       archivedAt: true,
+      lessonTargets: {
+        select: {
+          lessonId: true,
+        },
+      },
+      materialSectionTargets: {
+        select: {
+          materialSectionId: true,
+          sortOrder: true,
+        },
+        orderBy: {
+          sortOrder: 'asc',
+        },
+      },
+      materialSubsectionTargets: {
+        select: {
+          materialSubsectionId: true,
+          sortOrder: true,
+        },
+        orderBy: {
+          sortOrder: 'asc',
+        },
+      },
       files: {
         select: {
           fileId: true,
@@ -475,7 +553,19 @@ test('assignment endpoints create, list, get and update assignments inside one g
   assert.ok(storedFirstAssignment)
   assert.equal(storedFirstAssignment.status, 'ARCHIVED')
   assert.equal(storedFirstAssignment.title, 'Reviewed contract report')
-  assert.equal(storedFirstAssignment.lessonId, null)
+  assert.deepEqual(storedFirstAssignment.lessonTargets, [])
+  assert.deepEqual(storedFirstAssignment.materialSectionTargets, [
+    {
+      materialSectionId: materialTree.section.id,
+      sortOrder: 1,
+    },
+  ])
+  assert.deepEqual(storedFirstAssignment.materialSubsectionTargets, [
+    {
+      materialSubsectionId: materialTree.subsection.id,
+      sortOrder: 1,
+    },
+  ])
   assert.equal(storedFirstAssignment.maxScore, 95)
   assert.ok(storedFirstAssignment.publishedAt instanceof Date)
   assert.ok(storedFirstAssignment.archivedAt instanceof Date)

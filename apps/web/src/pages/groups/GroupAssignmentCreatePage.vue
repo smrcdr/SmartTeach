@@ -28,36 +28,21 @@ const form = reactive({
   title: '',
   content: '',
   status: 'DRAFT' as CreateAssignmentPayload['status'],
-  targetType: 'none' as 'none' | 'section' | 'subsection' | 'lesson',
-  targetId: '',
   dueAt: '',
   maxScore: ''
 })
-const targetOptions = computed(() => {
-  if (form.targetType === 'section') {
-    return materials.value.map((section, index) => ({
-      id: section.id,
-      label: `${index + 1} ${section.title}`
+const selectedTargets = reactive({
+  lessonIds: [] as string[],
+  materialSectionIds: [] as string[],
+  materialSubsectionIds: [] as string[]
+})
+const subsectionOptions = computed(() => {
+  return materials.value.flatMap((section, sectionIndex) =>
+    section.subsections.map((subsection, subsectionIndex) => ({
+      id: subsection.id,
+      label: `${sectionIndex + 1}.${subsectionIndex + 1} ${subsection.title}`
     }))
-  }
-
-  if (form.targetType === 'subsection') {
-    return materials.value.flatMap((section, sectionIndex) =>
-      section.subsections.map((subsection, subsectionIndex) => ({
-        id: subsection.id,
-        label: `${sectionIndex + 1}.${subsectionIndex + 1} ${subsection.title}`
-      }))
-    )
-  }
-
-  if (form.targetType === 'lesson') {
-    return lessons.value.map((lesson) => ({
-      id: lesson.id,
-      label: lesson.title
-    }))
-  }
-
-  return []
+  )
 })
 
 function toIsoDateTime(value: string) {
@@ -75,11 +60,6 @@ function validateForm() {
     return false
   }
 
-  if (form.targetType !== 'none' && !form.targetId) {
-    notifications.error('Выберите раздел, подраздел или урок для привязки')
-    return false
-  }
-
   return true
 }
 
@@ -90,9 +70,15 @@ function buildPayload(): CreateAssignmentPayload {
     title: form.title.trim(),
     ...(content ? { content } : {}),
     status: form.status,
-    ...(form.targetType === 'section' ? { materialSectionId: form.targetId } : {}),
-    ...(form.targetType === 'subsection' ? { materialSubsectionId: form.targetId } : {}),
-    ...(form.targetType === 'lesson' ? { lessonId: form.targetId } : {}),
+    ...(selectedTargets.materialSectionIds.length > 0
+      ? { materialSectionIds: [...selectedTargets.materialSectionIds] }
+      : {}),
+    ...(selectedTargets.materialSubsectionIds.length > 0
+      ? { materialSubsectionIds: [...selectedTargets.materialSubsectionIds] }
+      : {}),
+    ...(selectedTargets.lessonIds.length > 0
+      ? { lessonIds: [...selectedTargets.lessonIds] }
+      : {}),
     ...(form.dueAt ? { dueAt: toIsoDateTime(form.dueAt) } : {}),
     ...(form.maxScore ? { maxScore: Number(form.maxScore) } : {})
   }
@@ -134,25 +120,60 @@ async function submit() {
               <option value="PUBLISHED">Опубликовано</option>
             </select>
           </label>
-          <label class="resource-field">
-            <span>Привязка</span>
-            <select v-model="form.targetType" name="targetType" @change="form.targetId = ''">
-              <option value="none">Без привязки</option>
-              <option value="section">К разделу</option>
-              <option value="subsection">К подразделу</option>
-              <option value="lesson">К уроку</option>
-            </select>
-          </label>
-          <label v-if="form.targetType !== 'none'" class="resource-field resource-field--wide">
-            <span>Материал</span>
-            <select v-model="form.targetId" name="targetId">
-              <option value="" disabled>Выберите материал</option>
-              <option v-for="target in targetOptions" :key="target.id" :value="target.id">{{ target.label }}</option>
-            </select>
-          </label>
           <AppTextField v-model="form.dueAt" name="dueAt" label="Дедлайн" type="datetime-local" />
           <AppTextField v-model="form.maxScore" name="maxScore" label="Макс. балл" type="number" />
         </div>
+
+        <section class="target-picker">
+          <header>
+            <span>Связанные материалы</span>
+            <p>Можно выбрать несколько разделов, подразделов и уроков.</p>
+          </header>
+
+          <div class="target-picker__grid">
+            <fieldset class="target-group">
+              <legend>Разделы</legend>
+              <label v-for="(section, index) in materials" :key="section.id" class="target-option">
+                <input
+                  v-model="selectedTargets.materialSectionIds"
+                  type="checkbox"
+                  name="materialSectionIds"
+                  :value="section.id"
+                />
+                <span>{{ index + 1 }}. {{ section.title }}</span>
+              </label>
+              <p v-if="materials.length === 0" class="target-group__empty">Разделов пока нет</p>
+            </fieldset>
+
+            <fieldset class="target-group">
+              <legend>Подразделы</legend>
+              <label v-for="subsection in subsectionOptions" :key="subsection.id" class="target-option">
+                <input
+                  v-model="selectedTargets.materialSubsectionIds"
+                  type="checkbox"
+                  name="materialSubsectionIds"
+                  :value="subsection.id"
+                />
+                <span>{{ subsection.label }}</span>
+              </label>
+              <p v-if="subsectionOptions.length === 0" class="target-group__empty">Подразделов пока нет</p>
+            </fieldset>
+
+            <fieldset class="target-group">
+              <legend>Уроки</legend>
+              <label v-for="lesson in lessons" :key="lesson.id" class="target-option">
+                <input
+                  v-model="selectedTargets.lessonIds"
+                  type="checkbox"
+                  name="lessonIds"
+                  :value="lesson.id"
+                />
+                <span>{{ lesson.title }}</span>
+              </label>
+              <p v-if="lessons.length === 0" class="target-group__empty">Уроков пока нет</p>
+            </fieldset>
+          </div>
+        </section>
 
         <div class="resource-form__actions">
           <AppButton type="submit" :disabled="isSubmitting">{{ isSubmitting ? 'Создаём...' : 'Создать задание' }}</AppButton>
@@ -227,8 +248,76 @@ async function submit() {
   color: var(--color-primary);
 }
 
+.target-picker {
+  border-top: 1px solid var(--color-divider);
+  display: grid;
+  gap: 16px;
+  padding-top: 6px;
+}
+
+.target-picker header {
+  display: grid;
+  gap: 4px;
+}
+
+.target-picker header span,
+.target-group legend {
+  color: var(--color-text-muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.target-picker header p,
+.target-group__empty {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.target-picker__grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.target-group {
+  background: var(--color-surface-low);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  min-width: 0;
+  padding: 16px;
+}
+
+.target-group legend {
+  padding: 0 4px;
+}
+
+.target-option {
+  align-items: flex-start;
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  line-height: 1.35;
+}
+
+.target-option input {
+  accent-color: var(--color-primary);
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
 @media (max-width: 820px) {
   .resource-form__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .target-picker__grid {
     grid-template-columns: 1fr;
   }
 }

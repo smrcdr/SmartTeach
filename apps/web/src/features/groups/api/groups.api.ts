@@ -52,12 +52,22 @@ export type Lesson = {
   updatedAt: string
 }
 
+export type AssignmentMaterialReference = {
+  id: string
+  title: string
+  sortOrder: number
+}
+
+export type AssignmentTargets = {
+  lessons: AssignmentMaterialReference[]
+  materialSections: AssignmentMaterialReference[]
+  materialSubsections: AssignmentMaterialReference[]
+}
+
 export type Assignment = {
   id: string
   groupId: string
-  lessonId: string | null
-  materialSectionId: string | null
-  materialSubsectionId: string | null
+  targets: AssignmentTargets
   title: string
   content: string | null
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
@@ -215,9 +225,9 @@ export type CreateLessonPayload = {
 export type UpdateLessonPayload = Partial<CreateLessonPayload>
 
 export type CreateAssignmentPayload = {
-  lessonId?: string | null
-  materialSectionId?: string | null
-  materialSubsectionId?: string | null
+  lessonIds?: string[]
+  materialSectionIds?: string[]
+  materialSubsectionIds?: string[]
   title: string
   content?: string
   status?: Assignment['status']

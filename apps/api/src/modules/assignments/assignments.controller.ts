@@ -155,7 +155,8 @@ export class AssignmentsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Обновить задание',
-    description: 'Позволяет менять статус, дедлайн, lessonId и набор привязанных файлов задания.',
+    description:
+      'Позволяет менять статус, дедлайн, связанные материалы и набор привязанных файлов задания.',
   })
   @ApiOkResponse({
     type: AssignmentDto,

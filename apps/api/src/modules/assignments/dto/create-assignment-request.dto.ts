@@ -15,9 +15,9 @@ function normalizeOptionalDateTime(value: unknown) {
 export class CreateAssignmentRequestDto {
   static schema = z
     .object({
-      lessonId: z.string().uuid().optional(),
-      materialSectionId: z.string().uuid().optional(),
-      materialSubsectionId: z.string().uuid().optional(),
+      lessonIds: z.array(z.string().uuid()).optional(),
+      materialSectionIds: z.array(z.string().uuid()).optional(),
+      materialSubsectionIds: z.array(z.string().uuid()).optional(),
       title: z.string().trim().min(2).max(200),
       content: z.string().optional(),
       status: assignmentStatusSchema.optional(),
@@ -33,22 +33,22 @@ export class CreateAssignmentRequestDto {
     .strict()
 
   @ApiPropertyOptional({
-    format: 'uuid',
-    example: '77777777-7777-4777-8777-777777777777',
+    type: [String],
+    example: ['77777777-7777-4777-8777-777777777777'],
   })
-  lessonId?: string
+  lessonIds?: string[]
 
   @ApiPropertyOptional({
-    format: 'uuid',
-    example: '88888888-8888-4888-8888-888888888888',
+    type: [String],
+    example: ['88888888-8888-4888-8888-888888888888'],
   })
-  materialSectionId?: string
+  materialSectionIds?: string[]
 
   @ApiPropertyOptional({
-    format: 'uuid',
-    example: '99999999-9999-4999-8999-999999999999',
+    type: [String],
+    example: ['99999999-9999-4999-8999-999999999999'],
   })
-  materialSubsectionId?: string
+  materialSubsectionIds?: string[]
 
   @ApiProperty({
     minLength: 2,

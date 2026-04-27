@@ -116,6 +116,9 @@ async function resetDatabase() {
     prisma.submissionFile.deleteMany(),
     prisma.submission.deleteMany(),
     prisma.assignmentFile.deleteMany(),
+    prisma.assignmentLessonTarget.deleteMany(),
+    prisma.assignmentMaterialSectionTarget.deleteMany(),
+    prisma.assignmentMaterialSubsectionTarget.deleteMany(),
     prisma.assignment.deleteMany(),
     prisma.lessonFile.deleteMany(),
     prisma.lesson.deleteMany(),
@@ -558,7 +561,6 @@ async function seedLearningContent() {
     {
       id: ids.assignments.webHomework,
       groupId: ids.groups.webBasics,
-      lessonId: ids.lessons.webIntro,
       title: 'Собрать лендинг по макету',
       content: 'Сверстать первый экран и блок преимуществ по референсу из урока.',
       status: AssignmentStatus.PUBLISHED,
@@ -572,7 +574,6 @@ async function seedLearningContent() {
     {
       id: ids.assignments.webCapstone,
       groupId: ids.groups.webBasics,
-      materialSubsectionId: ids.materialSubsections.webLayouts,
       title: 'Черновик итогового проекта',
       content: 'Заготовка финального проекта по адаптивной верстке.',
       status: AssignmentStatus.DRAFT,
@@ -584,7 +585,6 @@ async function seedLearningContent() {
     {
       id: ids.assignments.mathReview,
       groupId: ids.groups.mathLab,
-      lessonId: ids.lessons.mathWorkshop,
       title: 'Домашний разбор задач',
       content: 'Подготовить короткое письменное решение трех задач после лаборатории.',
       status: AssignmentStatus.PUBLISHED,
@@ -598,7 +598,6 @@ async function seedLearningContent() {
     {
       id: ids.assignments.archivedBrief,
       groupId: ids.groups.archivedClub,
-      lessonId: ids.lessons.archivedLesson,
       title: 'Архивная проектная заметка',
       content: 'Сохраненное задание из уже закрытого потока.',
       status: AssignmentStatus.ARCHIVED,
@@ -610,6 +609,36 @@ async function seedLearningContent() {
       updatedAt: at('2026-03-01T12:00:00.000Z'),
     },
   ] satisfies Prisma.AssignmentCreateManyInput[]
+
+  const assignmentLessonTargets = [
+    {
+      assignmentId: ids.assignments.webHomework,
+      lessonId: ids.lessons.webIntro,
+      sortOrder: 1,
+      attachedAt: at('2026-03-16T18:15:00.000Z'),
+    },
+    {
+      assignmentId: ids.assignments.mathReview,
+      lessonId: ids.lessons.mathWorkshop,
+      sortOrder: 1,
+      attachedAt: at('2026-03-20T11:10:00.000Z'),
+    },
+    {
+      assignmentId: ids.assignments.archivedBrief,
+      lessonId: ids.lessons.archivedLesson,
+      sortOrder: 1,
+      attachedAt: at('2026-02-20T18:00:00.000Z'),
+    },
+  ] satisfies Prisma.AssignmentLessonTargetCreateManyInput[]
+
+  const assignmentMaterialSubsectionTargets = [
+    {
+      assignmentId: ids.assignments.webCapstone,
+      materialSubsectionId: ids.materialSubsections.webLayouts,
+      sortOrder: 1,
+      attachedAt: at('2026-03-18T15:00:00.000Z'),
+    },
+  ] satisfies Prisma.AssignmentMaterialSubsectionTargetCreateManyInput[]
 
   const assignmentFiles = [
     {
@@ -703,6 +732,8 @@ async function seedLearningContent() {
   await prisma.lesson.createMany({ data: lessons })
   await prisma.lessonFile.createMany({ data: lessonFiles })
   await prisma.assignment.createMany({ data: assignments })
+  await prisma.assignmentLessonTarget.createMany({ data: assignmentLessonTargets })
+  await prisma.assignmentMaterialSubsectionTarget.createMany({ data: assignmentMaterialSubsectionTargets })
   await prisma.assignmentFile.createMany({ data: assignmentFiles })
   await prisma.submission.createMany({ data: submissions })
   await prisma.submissionFile.createMany({ data: submissionFiles })

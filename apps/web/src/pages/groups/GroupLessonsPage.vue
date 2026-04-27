@@ -54,6 +54,20 @@ async function refresh() {
 
 watch([groupId, () => auth.accessToken], () => void refresh(), { immediate: true })
 
+watch(
+  [materials, () => route.query.sectionId],
+  () => {
+    const sectionId = String(route.query.sectionId ?? '')
+
+    if (!sectionId || !materials.value.some((section) => section.id === sectionId)) {
+      return
+    }
+
+    expandedSectionIds.value = new Set([...expandedSectionIds.value, sectionId])
+  },
+  { immediate: true }
+)
+
 function isExpanded(sectionId: string) {
   return expandedSectionIds.value.has(sectionId)
 }
@@ -150,6 +164,7 @@ async function submitDialog() {
         <article
           v-for="(section, sectionIndex) in materials"
           :key="section.id"
+          :id="`section-${section.id}`"
           class="material-section"
         >
           <button class="material-section__header" type="button" @click="toggleSection(section.id)">

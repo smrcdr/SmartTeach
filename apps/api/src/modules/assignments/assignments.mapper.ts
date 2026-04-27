@@ -5,9 +5,66 @@ import { AssignmentDto } from './dto/assignment.dto'
 export const assignmentSelect = {
   id: true,
   groupId: true,
-  lessonId: true,
-  materialSectionId: true,
-  materialSubsectionId: true,
+  lessonTargets: {
+    select: {
+      lessonId: true,
+      sortOrder: true,
+      lesson: {
+        select: {
+          id: true,
+          title: true,
+        },
+      },
+    },
+    orderBy: [
+      {
+        sortOrder: 'asc',
+      },
+      {
+        lessonId: 'asc',
+      },
+    ],
+  },
+  materialSectionTargets: {
+    select: {
+      materialSectionId: true,
+      sortOrder: true,
+      materialSection: {
+        select: {
+          id: true,
+          title: true,
+        },
+      },
+    },
+    orderBy: [
+      {
+        sortOrder: 'asc',
+      },
+      {
+        materialSectionId: 'asc',
+      },
+    ],
+  },
+  materialSubsectionTargets: {
+    select: {
+      materialSubsectionId: true,
+      sortOrder: true,
+      materialSubsection: {
+        select: {
+          id: true,
+          title: true,
+        },
+      },
+    },
+    orderBy: [
+      {
+        sortOrder: 'asc',
+      },
+      {
+        materialSubsectionId: 'asc',
+      },
+    ],
+  },
   title: true,
   content: true,
   status: true,
@@ -46,9 +103,23 @@ export function mapAssignmentToDto(
   return {
     id: assignment.id,
     groupId: assignment.groupId,
-    lessonId: assignment.lessonId,
-    materialSectionId: assignment.materialSectionId,
-    materialSubsectionId: assignment.materialSubsectionId,
+    targets: {
+      lessons: assignment.lessonTargets.map((target) => ({
+        id: target.lesson.id,
+        title: target.lesson.title,
+        sortOrder: target.sortOrder,
+      })),
+      materialSections: assignment.materialSectionTargets.map((target) => ({
+        id: target.materialSection.id,
+        title: target.materialSection.title,
+        sortOrder: target.sortOrder,
+      })),
+      materialSubsections: assignment.materialSubsectionTargets.map((target) => ({
+        id: target.materialSubsection.id,
+        title: target.materialSubsection.title,
+        sortOrder: target.sortOrder,
+      })),
+    },
     title: assignment.title,
     content: assignment.content,
     status: assignment.status,

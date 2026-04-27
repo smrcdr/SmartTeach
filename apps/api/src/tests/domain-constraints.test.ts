@@ -248,16 +248,27 @@ test('rejects groups with more than one OWNER member', async () => {
   )
 })
 
-test('rejects assignments linked to a lesson from another group', async () => {
+test('rejects assignment lesson targets from another group', async () => {
+  const assignmentId = randomUUID()
+
   await expectFailure(
-    prisma.assignment.create({
-      data: {
-        id: randomUUID(),
-        groupId: seededIds.groups.webBasics,
-        lessonId: seededIds.lessons.mathWorkshop,
-        title: 'Cross-group assignment',
-        createdByUserId: seededIds.users.alex,
-      },
+    prisma.$transaction(async (tx) => {
+      await tx.assignment.create({
+        data: {
+          id: assignmentId,
+          groupId: seededIds.groups.webBasics,
+          title: 'Cross-group assignment',
+          createdByUserId: seededIds.users.alex,
+        },
+      })
+
+      await tx.assignmentLessonTarget.create({
+        data: {
+          assignmentId,
+          lessonId: seededIds.lessons.mathWorkshop,
+          sortOrder: 1,
+        },
+      })
     }),
     'must belong to group',
   )
