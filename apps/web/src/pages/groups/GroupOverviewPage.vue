@@ -14,6 +14,7 @@ import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { canManageGroup } from '@/features/groups/lib/group-permissions'
 import { useGroup } from '@/features/groups/composables/useGroup'
 import { useGroupRouteList } from '@/features/groups/composables/useGroupRouteResource'
+import { getGroupStatusLabel } from '@/features/groups/lib/status-labels'
 import { uploadFile } from '@/shared/api/files.api'
 import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
 import AppButton from '@/shared/ui/AppButton.vue'
@@ -161,7 +162,7 @@ async function submitUsefulLink() {
       align="split"
     >
       <template #actions>
-        <StatusPill label="Active" tone="success" />
+        <StatusPill :label="getGroupStatusLabel(group.status)" tone="success" />
       </template>
     </AppPageHeader>
 

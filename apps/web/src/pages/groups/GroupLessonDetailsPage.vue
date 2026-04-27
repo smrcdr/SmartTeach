@@ -8,6 +8,7 @@ import MarkdownPreview from '@/features/groups/components/MarkdownPreview.vue'
 import { useGroup } from '@/features/groups/composables/useGroup'
 import { useGroupRouteItem } from '@/features/groups/composables/useGroupRouteResource'
 import { canManageGroup } from '@/features/groups/lib/group-permissions'
+import { getLessonStatusLabel } from '@/features/groups/lib/status-labels'
 import AppButton from '@/shared/ui/AppButton.vue'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
@@ -30,7 +31,7 @@ const previewLessonId = ref<string | null>(null)
             Редактировать
           </AppButton>
         </RouterLink>
-        <StatusPill :label="lesson.status" :tone="lesson.status === 'PUBLISHED' ? 'success' : 'muted'" />
+        <StatusPill :label="getLessonStatusLabel(lesson.status)" :tone="lesson.status === 'PUBLISHED' ? 'success' : 'muted'" />
       </template>
     </AppPageHeader>
     <section class="reading-panel surface-panel">

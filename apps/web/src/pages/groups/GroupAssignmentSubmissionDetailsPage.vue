@@ -7,6 +7,7 @@ import type { Assignment, Submission } from '@/features/groups/api/groups.api'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { useGroup } from '@/features/groups/composables/useGroup'
 import { canManageGroup } from '@/features/groups/lib/group-permissions'
+import { getSubmissionStatusLabel } from '@/features/groups/lib/status-labels'
 import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
 import AppButton from '@/shared/ui/AppButton.vue'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
@@ -124,7 +125,7 @@ async function submitReview() {
     >
       <template #actions>
         <StatusPill
-          :label="submission.status"
+          :label="getSubmissionStatusLabel(submission.status)"
           :tone="submission.status === 'REVIEWED' ? 'success' : submission.status === 'SUBMITTED' ? 'warning' : 'muted'"
         />
       </template>

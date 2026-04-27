@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { listSubmissions } from '@/features/groups/api/groups.api'
 import type { Submission } from '@/features/groups/api/groups.api'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
+import { getSubmissionStatusLabel } from '@/features/groups/lib/status-labels'
 import ContentList from '@/features/groups/components/ContentList.vue'
 import WorkspaceItem from '@/features/groups/components/WorkspaceItem.vue'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
@@ -49,7 +50,7 @@ watch([groupId, assignmentId], () => void refresh(), { immediate: true })
           :meta="submission.submittedAt ? formatDateTime(submission.submittedAt) : `Попытка ${submission.attemptNumber}`"
         >
           <template #aside>
-            <StatusPill :label="submission.status" :tone="submission.status === 'REVIEWED' ? 'success' : 'warning'" />
+            <StatusPill :label="getSubmissionStatusLabel(submission.status)" :tone="submission.status === 'REVIEWED' ? 'success' : 'warning'" />
           </template>
         </WorkspaceItem>
       </RouterLink>

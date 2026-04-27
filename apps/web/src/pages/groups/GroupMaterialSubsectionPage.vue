@@ -6,6 +6,7 @@ import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { getMaterialSubsection, type MaterialSubsectionDetails } from '@/features/groups/api/groups.api'
 import { useGroup } from '@/features/groups/composables/useGroup'
 import { canManageGroup } from '@/features/groups/lib/group-permissions'
+import { getLessonStatusLabel } from '@/features/groups/lib/status-labels'
 import AppButton from '@/shared/ui/AppButton.vue'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
@@ -87,7 +88,7 @@ watch([groupId, subsectionId, () => auth.accessToken], () => void refresh(), { i
             <span class="lesson-row__number">{{ sectionNumber }}.{{ subsectionNumber }}.{{ lessonIndex + 1 }}</span>
             <span class="lesson-row__title">{{ lesson.title }}</span>
             <StatusPill
-              :label="lesson.status === 'PUBLISHED' ? 'Опубликован' : 'Черновик'"
+              :label="getLessonStatusLabel(lesson.status)"
               :tone="lesson.status === 'PUBLISHED' ? 'success' : 'muted'"
             />
           </RouterLink>

@@ -6,6 +6,7 @@ import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { useGroup } from '@/features/groups/composables/useGroup'
 import { useGroupRouteItem } from '@/features/groups/composables/useGroupRouteResource'
 import { canManageGroup } from '@/features/groups/lib/group-permissions'
+import { getAssignmentStatusLabel, getSubmissionStatusLabel } from '@/features/groups/lib/status-labels'
 import AppButton from '@/shared/ui/AppButton.vue'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
@@ -83,17 +84,6 @@ function getTargetRoute(routeName: string, targetId: string) {
   return { name: routeName, params: { groupId: groupId.value }, query: { sectionId: targetId } }
 }
 
-function getSubmissionStatusLabel(status: Submission['status']) {
-  switch (status) {
-    case 'REVIEWED':
-      return 'Проверено'
-    case 'SUBMITTED':
-      return 'Отправлено'
-    case 'DRAFT':
-      return 'Черновик'
-  }
-}
-
 function getSubmissionScoreLabel(submission: Submission) {
   if (submission.status !== 'REVIEWED' || submission.score === null) {
     return null
@@ -136,7 +126,7 @@ function getSubmissionScoreLabel(submission: Submission) {
         </RouterLink>
         <StatusPill
           v-if="canManage"
-          :label="assignment.status"
+          :label="getAssignmentStatusLabel(assignment.status)"
           :tone="assignment.status === 'PUBLISHED' ? 'success' : 'muted'"
         />
       </template>

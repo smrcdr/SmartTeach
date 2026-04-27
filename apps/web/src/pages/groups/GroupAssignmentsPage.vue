@@ -5,6 +5,7 @@ import { listAssignments } from '@/features/groups/api/groups.api'
 import { useGroup } from '@/features/groups/composables/useGroup'
 import { useGroupRouteList } from '@/features/groups/composables/useGroupRouteResource'
 import { canManageGroup } from '@/features/groups/lib/group-permissions'
+import { getAssignmentStatusLabel } from '@/features/groups/lib/status-labels'
 import ContentList from '@/features/groups/components/ContentList.vue'
 import WorkspaceItem from '@/features/groups/components/WorkspaceItem.vue'
 import AppButton from '@/shared/ui/AppButton.vue'
@@ -50,7 +51,7 @@ const canManage = computed(() => canManageGroup(group.value))
           </RouterLink>
           <StatusPill
             v-if="canManage"
-            :label="assignment.status === 'PUBLISHED' ? 'Опубликовано' : 'Черновик'"
+            :label="getAssignmentStatusLabel(assignment.status)"
             :tone="assignment.status === 'PUBLISHED' ? 'success' : 'muted'"
           />
         </template>

@@ -8,6 +8,7 @@ import { listMembers, type GroupMember } from '@/features/groups/api/groups.api'
 import { useGroup } from '@/features/groups/composables/useGroup'
 import { useGroupRouteList } from '@/features/groups/composables/useGroupRouteResource'
 import { canManageGroup } from '@/features/groups/lib/group-permissions'
+import { getGroupRoleLabel } from '@/features/groups/lib/status-labels'
 import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
 import ContentList from '@/features/groups/components/ContentList.vue'
 import AppButton from '@/shared/ui/AppButton.vue'
@@ -106,7 +107,7 @@ async function openPublicProfile() {
             <h3>{{ member.user.displayName }}</h3>
             <p>{{ member.user.bio }}</p>
           </div>
-          <strong>{{ member.role }}</strong>
+          <strong>{{ getGroupRoleLabel(member.role) }}</strong>
         </button>
 
         <section

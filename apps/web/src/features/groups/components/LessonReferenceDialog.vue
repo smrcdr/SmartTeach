@@ -2,6 +2,7 @@
 import { X } from 'lucide-vue-next'
 import { ref, watch } from 'vue'
 import { getLesson, type Lesson } from '@/features/groups/api/groups.api'
+import { getLessonStatusLabel } from '@/features/groups/lib/status-labels'
 import AppButton from '@/shared/ui/AppButton.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 import StatusPill from '@/shared/ui/StatusPill.vue'
@@ -73,7 +74,7 @@ watch(currentLessonId, () => void refresh(), { immediate: true })
       </header>
 
       <div v-if="lesson" class="lesson-reference-dialog__meta">
-        <StatusPill :label="lesson.status" :tone="lesson.status === 'PUBLISHED' ? 'success' : 'muted'" />
+        <StatusPill :label="getLessonStatusLabel(lesson.status)" :tone="lesson.status === 'PUBLISHED' ? 'success' : 'muted'" />
       </div>
 
       <div class="lesson-reference-dialog__body">

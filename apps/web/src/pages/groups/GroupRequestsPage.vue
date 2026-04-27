@@ -6,6 +6,7 @@ import type { GroupJoinRequest } from '@/features/groups/api/groups.api'
 import { useGroup } from '@/features/groups/composables/useGroup'
 import { useGroupRouteList } from '@/features/groups/composables/useGroupRouteResource'
 import { canManageGroup } from '@/features/groups/lib/group-permissions'
+import { getJoinRequestStatusLabel } from '@/features/groups/lib/status-labels'
 import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
 import ContentList from '@/features/groups/components/ContentList.vue'
 import WorkspaceItem from '@/features/groups/components/WorkspaceItem.vue'
@@ -53,7 +54,7 @@ async function decide(request: GroupJoinRequest, decision: 'APPROVED' | 'REJECTE
         :meta="formatDateTime(request.createdAt)"
       >
         <template #aside>
-          <StatusPill label="Pending" tone="warning" />
+          <StatusPill :label="getJoinRequestStatusLabel(request.status)" tone="warning" />
           <AppButton
             size="sm"
             :disabled="activeRequestId === request.id"

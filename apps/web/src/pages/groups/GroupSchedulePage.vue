@@ -5,6 +5,7 @@ import { listScheduleEvents } from '@/features/groups/api/groups.api'
 import { useGroup } from '@/features/groups/composables/useGroup'
 import { useGroupRouteList } from '@/features/groups/composables/useGroupRouteResource'
 import { canManageGroup } from '@/features/groups/lib/group-permissions'
+import { getScheduleEventStatusLabel } from '@/features/groups/lib/status-labels'
 import ContentList from '@/features/groups/components/ContentList.vue'
 import WorkspaceItem from '@/features/groups/components/WorkspaceItem.vue'
 import AppButton from '@/shared/ui/AppButton.vue'
@@ -42,7 +43,7 @@ const canManage = computed(() => canManageGroup(group.value))
         :meta="formatDateTime(event.startsAt)"
       >
         <template #aside>
-          <StatusPill :label="event.status" :tone="event.status === 'PLANNED' ? 'primary' : 'muted'" />
+          <StatusPill :label="getScheduleEventStatusLabel(event.status)" :tone="event.status === 'PLANNED' ? 'primary' : 'muted'" />
         </template>
       </WorkspaceItem>
       <EmptyState v-if="schedule.length === 0" title="Событий пока нет" />
