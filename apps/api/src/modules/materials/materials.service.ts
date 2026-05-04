@@ -194,6 +194,54 @@ export class MaterialsService {
     return mapMaterialSubsectionDetailsToDto(subsection)
   }
 
+  async deleteSection(groupId: string, sectionId: string, userId: string): Promise<void> {
+    await this.assertGroupAccess(groupId, userId, {
+      requireManage: true,
+      requireWritable: true,
+    })
+    await this.assertSectionBelongsToGroup(this.prismaService, groupId, sectionId)
+
+    await this.prismaService.$transaction(async (tx) => {
+      await tx.lesson.deleteMany({
+        where: {
+          groupId,
+          materialSubsection: {
+            sectionId,
+          },
+        },
+      })
+
+      await tx.materialSection.delete({
+        where: {
+          id: sectionId,
+        },
+      })
+    })
+  }
+
+  async deleteSubsection(groupId: string, subsectionId: string, userId: string): Promise<void> {
+    await this.assertGroupAccess(groupId, userId, {
+      requireManage: true,
+      requireWritable: true,
+    })
+    await this.assertSubsectionBelongsToGroup(this.prismaService, groupId, subsectionId)
+
+    await this.prismaService.$transaction(async (tx) => {
+      await tx.lesson.deleteMany({
+        where: {
+          groupId,
+          materialSubsectionId: subsectionId,
+        },
+      })
+
+      await tx.materialSubsection.delete({
+        where: {
+          id: subsectionId,
+        },
+      })
+    })
+  }
+
   private async assertGroupAccess(
     groupId: string,
     userId: string,

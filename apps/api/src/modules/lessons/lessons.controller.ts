@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -18,6 +19,7 @@ import {
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiQuery,
@@ -163,5 +165,31 @@ export class LessonsController {
     @Body() payload: UpdateLessonRequestDto,
   ) {
     return this.lessonsService.updateLesson(groupId, lessonId, auth.userId, payload)
+  }
+
+  @Delete(':groupId/lessons/:lessonId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Удалить урок',
+    description: 'Доступно владельцу и администраторам группы, если lessons_enabled включен.',
+  })
+  @ApiNoContentResponse({
+    description: 'Урок успешно удален.',
+  })
+  @ApiUnauthorizedResponse({
+    type: ErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDto,
+  })
+  async deleteLesson(
+    @CurrentAuth() auth: AuthContext,
+    @Param('groupId', new ParseUUIDPipe({ version: '4' })) groupId: string,
+    @Param('lessonId', new ParseUUIDPipe({ version: '4' })) lessonId: string,
+  ) {
+    await this.lessonsService.deleteLesson(groupId, lessonId, auth.userId)
   }
 }

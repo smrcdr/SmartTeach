@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -17,6 +18,7 @@ import {
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -126,6 +128,32 @@ export class MaterialsController {
     return this.materialsService.updateSection(groupId, sectionId, auth.userId, payload)
   }
 
+  @Delete(':groupId/materials/sections/:sectionId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Удалить раздел материалов',
+    description: 'Удаляет раздел, его подразделы и уроки внутри них.',
+  })
+  @ApiNoContentResponse({
+    description: 'Раздел успешно удален.',
+  })
+  @ApiUnauthorizedResponse({
+    type: ErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDto,
+  })
+  async deleteSection(
+    @CurrentAuth() auth: AuthContext,
+    @Param('groupId', new ParseUUIDPipe({ version: '4' })) groupId: string,
+    @Param('sectionId', new ParseUUIDPipe({ version: '4' })) sectionId: string,
+  ) {
+    await this.materialsService.deleteSection(groupId, sectionId, auth.userId)
+  }
+
   @Post(':groupId/materials/sections/:sectionId/subsections')
   @ApiOperation({
     summary: 'Создать подраздел материалов',
@@ -182,6 +210,32 @@ export class MaterialsController {
     @Body() payload: UpdateMaterialSubsectionRequestDto,
   ) {
     return this.materialsService.updateSubsection(groupId, subsectionId, auth.userId, payload)
+  }
+
+  @Delete(':groupId/materials/subsections/:subsectionId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Удалить подраздел материалов',
+    description: 'Удаляет подраздел и уроки внутри него.',
+  })
+  @ApiNoContentResponse({
+    description: 'Подраздел успешно удален.',
+  })
+  @ApiUnauthorizedResponse({
+    type: ErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDto,
+  })
+  async deleteSubsection(
+    @CurrentAuth() auth: AuthContext,
+    @Param('groupId', new ParseUUIDPipe({ version: '4' })) groupId: string,
+    @Param('subsectionId', new ParseUUIDPipe({ version: '4' })) subsectionId: string,
+  ) {
+    await this.materialsService.deleteSubsection(groupId, subsectionId, auth.userId)
   }
 
   @Get(':groupId/materials/subsections/:subsectionId')

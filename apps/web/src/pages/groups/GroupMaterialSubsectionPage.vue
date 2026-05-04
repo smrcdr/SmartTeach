@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import {
+  deleteLesson,
   getMaterialSubsection,
   updateLesson,
   type MaterialLesson,
@@ -33,16 +34,34 @@ const sectionNumber = computed(() => details.value?.section.sortOrder ?? 1)
 const subsectionNumber = computed(() => details.value?.subsection.sortOrder ?? 1)
 const lessonContextMenu = ref<{
   lessonId: string
+  lessonTitle: string
   left: number
   top: number
 } | null>(null)
+const deleteDialog = ref<{
+  lessonId: string
+  title: string
+} | null>(null)
+const isDeleting = ref(false)
 const lessonContextMenuStyle = computed(() => ({
   left: `${lessonContextMenu.value?.left ?? 12}px`,
   top: `${lessonContextMenu.value?.top ?? 12}px`
 }))
 const draggedLessonId = ref<string | null>(null)
-const dragOverLessonId = ref<string | null>(null)
+const draggedLessonTitle = ref<string | null>(null)
+const lessonInsertion = ref<{
+  lessonId: string
+  position: 'before' | 'after'
+} | null>(null)
 const isLessonPointerDragging = ref(false)
+const lessonDragPreview = ref({
+  left: 0,
+  top: 0
+})
+const lessonDragPreviewStyle = computed(() => ({
+  left: `${lessonDragPreview.value.left}px`,
+  top: `${lessonDragPreview.value.top}px`
+}))
 
 async function refresh() {
   if (!groupId.value || !subsectionId.value || !auth.accessToken) {
@@ -76,7 +95,7 @@ function getLessonContextMenuPosition(event: MouseEvent) {
   }
 }
 
-function openLessonContextMenu(lessonId: string, event: MouseEvent) {
+function openLessonContextMenu(lesson: MaterialLesson, event: MouseEvent) {
   if (!canManage.value) {
     return
   }
@@ -84,7 +103,8 @@ function openLessonContextMenu(lessonId: string, event: MouseEvent) {
   event.preventDefault()
   event.stopPropagation()
   lessonContextMenu.value = {
-    lessonId,
+    lessonId: lesson.id,
+    lessonTitle: lesson.title,
     ...getLessonContextMenuPosition(event)
   }
 }
@@ -104,11 +124,50 @@ async function openLessonEditFromContextMenu() {
   await router.push({ name: 'group-lesson-edit', params: { groupId: groupId.value, lessonId } })
 }
 
+function openLessonDeleteFromContextMenu() {
+  if (!lessonContextMenu.value) {
+    return
+  }
+
+  deleteDialog.value = {
+    lessonId: lessonContextMenu.value.lessonId,
+    title: lessonContextMenu.value.lessonTitle
+  }
+  closeLessonContextMenu()
+}
+
+function closeDeleteDialog() {
+  if (isDeleting.value) {
+    return
+  }
+
+  deleteDialog.value = null
+}
+
+async function confirmDeleteLesson() {
+  if (!deleteDialog.value || !groupId.value || !auth.accessToken || isDeleting.value) {
+    return
+  }
+
+  isDeleting.value = true
+
+  try {
+    await deleteLesson(groupId.value, deleteDialog.value.lessonId, auth.accessToken)
+    notifications.success('Урок удален')
+    deleteDialog.value = null
+    await refresh()
+  } catch (caught) {
+    notifications.error(caught instanceof Error ? caught.message : 'Не удалось удалить урок')
+  } finally {
+    isDeleting.value = false
+  }
+}
+
 async function openLesson(lessonId: string) {
   await router.push({ name: 'group-lesson-details', params: { groupId: groupId.value, lessonId } })
 }
 
-async function reorderLessons(sourceLessonId: string, targetLessonId: string) {
+async function reorderLessons(sourceLessonId: string, targetLessonId: string, position: 'before' | 'after') {
   if (!details.value || !groupId.value || !auth.accessToken || sourceLessonId === targetLessonId) {
     return
   }
@@ -122,8 +181,13 @@ async function reorderLessons(sourceLessonId: string, targetLessonId: string) {
 
   const orderedLessons = [...details.value.lessons]
   const [movedLesson] = orderedLessons.splice(sourceIndex, 1)
+  const targetIndexAfterRemoval = orderedLessons.findIndex((lesson) => lesson.id === targetLessonId)
 
-  orderedLessons.splice(targetIndex, 0, movedLesson)
+  if (targetIndexAfterRemoval < 0) {
+    return
+  }
+
+  orderedLessons.splice(position === 'after' ? targetIndexAfterRemoval + 1 : targetIndexAfterRemoval, 0, movedLesson)
 
   details.value = {
     ...details.value,
@@ -152,7 +216,12 @@ function getLessonDropTarget(clientX: number, clientY: number) {
     return null
   }
 
-  return element.dataset.lessonId ?? null
+  return {
+    lessonId: element.dataset.lessonId ?? '',
+    position: clientY > element.getBoundingClientRect().top + element.getBoundingClientRect().height / 2
+      ? 'after' as const
+      : 'before' as const
+  }
 }
 
 function moveLessonPointer(event: PointerEvent) {
@@ -160,25 +229,30 @@ function moveLessonPointer(event: PointerEvent) {
     return
   }
 
-  dragOverLessonId.value = getLessonDropTarget(event.clientX, event.clientY)
+  lessonDragPreview.value = {
+    left: event.clientX + 14,
+    top: event.clientY + 14
+  }
+  lessonInsertion.value = getLessonDropTarget(event.clientX, event.clientY)
 }
 
 async function finishLessonPointer(event: PointerEvent) {
   const sourceLessonId = draggedLessonId.value
-  const targetLessonId = getLessonDropTarget(event.clientX, event.clientY)
+  const target = getLessonDropTarget(event.clientX, event.clientY)
 
   window.removeEventListener('pointermove', moveLessonPointer)
   window.removeEventListener('pointerup', finishLessonPointer)
   window.removeEventListener('pointercancel', cancelLessonPointer)
   draggedLessonId.value = null
-  dragOverLessonId.value = null
+  draggedLessonTitle.value = null
+  lessonInsertion.value = null
   isLessonPointerDragging.value = false
 
-  if (!sourceLessonId || !targetLessonId) {
+  if (!sourceLessonId || !target) {
     return
   }
 
-  await reorderLessons(sourceLessonId, targetLessonId)
+  await reorderLessons(sourceLessonId, target.lessonId, target.position)
 }
 
 function cancelLessonPointer() {
@@ -186,7 +260,8 @@ function cancelLessonPointer() {
   window.removeEventListener('pointerup', finishLessonPointer)
   window.removeEventListener('pointercancel', cancelLessonPointer)
   draggedLessonId.value = null
-  dragOverLessonId.value = null
+  draggedLessonTitle.value = null
+  lessonInsertion.value = null
   isLessonPointerDragging.value = false
 }
 
@@ -198,7 +273,15 @@ function startLessonPointer(lesson: MaterialLesson, event: PointerEvent) {
   event.preventDefault()
   event.stopPropagation()
   draggedLessonId.value = lesson.id
-  dragOverLessonId.value = lesson.id
+  draggedLessonTitle.value = lesson.title
+  lessonInsertion.value = {
+    lessonId: lesson.id,
+    position: 'before'
+  }
+  lessonDragPreview.value = {
+    left: event.clientX + 14,
+    top: event.clientY + 14
+  }
   isLessonPointerDragging.value = true
   window.addEventListener('pointermove', moveLessonPointer)
   window.addEventListener('pointerup', finishLessonPointer)
@@ -210,25 +293,30 @@ function enterLessonDropTarget(lesson: MaterialLesson) {
     return
   }
 
-  dragOverLessonId.value = lesson.id
+  lessonInsertion.value = {
+    lessonId: lesson.id,
+    position: 'before'
+  }
 }
 
 async function dropLesson(lesson: MaterialLesson) {
   const sourceLessonId = draggedLessonId.value
 
   draggedLessonId.value = null
-  dragOverLessonId.value = null
+  draggedLessonTitle.value = null
+  lessonInsertion.value = null
 
   if (!sourceLessonId) {
     return
   }
 
-  await reorderLessons(sourceLessonId, lesson.id)
+  await reorderLessons(sourceLessonId, lesson.id, 'before')
 }
 
 function finishLessonDrag() {
   draggedLessonId.value = null
-  dragOverLessonId.value = null
+  draggedLessonTitle.value = null
+  lessonInsertion.value = null
 }
 
 onBeforeUnmount(() => {
@@ -284,12 +372,17 @@ onBeforeUnmount(() => {
             :class="[
               'lesson-row',
               draggedLessonId === lesson.id && 'lesson-row--dragging',
-              dragOverLessonId === lesson.id && 'lesson-row--drag-over'
+              lessonInsertion?.lessonId === lesson.id &&
+                lessonInsertion.position === 'before' &&
+                'lesson-row--insert-before',
+              lessonInsertion?.lessonId === lesson.id &&
+                lessonInsertion.position === 'after' &&
+                'lesson-row--insert-after'
             ]"
             :data-lesson-id="lesson.id"
             role="link"
             tabindex="0"
-            @contextmenu="openLessonContextMenu(lesson.id, $event)"
+            @contextmenu="openLessonContextMenu(lesson, $event)"
             @click="!isLessonPointerDragging && openLesson(lesson.id)"
             @keydown.enter.prevent="openLesson(lesson.id)"
             @keydown.space.prevent="openLesson(lesson.id)"
@@ -336,7 +429,57 @@ onBeforeUnmount(() => {
         <span class="lesson-context-menu__icon" data-icon-id="edit" aria-hidden="true">edit</span>
         Редактировать
       </button>
+      <button
+        class="lesson-context-menu__danger"
+        type="button"
+        role="menuitem"
+        @click="openLessonDeleteFromContextMenu"
+      >
+        <span class="lesson-context-menu__icon" data-icon-id="delete" aria-hidden="true">delete</span>
+        Удалить
+      </button>
     </section>
+
+    <div v-if="deleteDialog" class="lesson-delete-dialog" @click.self="closeDeleteDialog">
+      <section
+        class="lesson-delete-dialog__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-lesson-title"
+      >
+        <header class="lesson-delete-dialog__header">
+          <div>
+            <span class="eyebrow">Удаление</span>
+            <h2 id="delete-lesson-title">Удалить урок?</h2>
+          </div>
+          <button class="lesson-delete-dialog__close" type="button" aria-label="Закрыть" @click="closeDeleteDialog">
+            <span aria-hidden="true">×</span>
+          </button>
+        </header>
+
+        <p class="lesson-delete-dialog__warning">
+          Урок «{{ deleteDialog.title }}» будет полностью удален.
+        </p>
+
+        <div class="lesson-delete-dialog__actions">
+          <AppButton type="button" variant="quiet" :disabled="isDeleting" @click="closeDeleteDialog">
+            Отмена
+          </AppButton>
+          <AppButton type="button" variant="secondary" :disabled="isDeleting" @click="confirmDeleteLesson">
+            {{ isDeleting ? 'Удаляем...' : 'Удалить' }}
+          </AppButton>
+        </div>
+      </section>
+    </div>
+
+    <div
+      v-if="draggedLessonTitle"
+      class="lesson-drag-preview"
+      :style="lessonDragPreviewStyle"
+      aria-hidden="true"
+    >
+      <span>{{ draggedLessonTitle }}</span>
+    </div>
   </main>
 
   <main v-else class="page">
@@ -444,6 +587,16 @@ onBeforeUnmount(() => {
   outline: none;
 }
 
+.lesson-context-menu button.lesson-context-menu__danger {
+  color: var(--color-danger, #b42318);
+}
+
+.lesson-context-menu button.lesson-context-menu__danger:hover,
+.lesson-context-menu button.lesson-context-menu__danger:focus-visible {
+  background: color-mix(in srgb, var(--color-danger, #b42318) 10%, transparent);
+  color: var(--color-danger, #b42318);
+}
+
 .lesson-context-menu__icon {
   font-family: 'Material Symbols Outlined';
   font-size: 19px;
@@ -470,14 +623,35 @@ onBeforeUnmount(() => {
   border-color: var(--color-focus-border);
 }
 
-.lesson-row--drag-over {
-  background: var(--color-surface-high);
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-focus-ring);
-}
-
 .lesson-row--dragging {
   opacity: 0.72;
+}
+
+.lesson-row--insert-before,
+.lesson-row--insert-after {
+  position: relative;
+}
+
+.lesson-row--insert-before::before,
+.lesson-row--insert-after::after {
+  background: var(--color-primary);
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+  content: '';
+  height: 3px;
+  left: 12px;
+  pointer-events: none;
+  position: absolute;
+  right: 12px;
+  z-index: 1;
+}
+
+.lesson-row--insert-before::before {
+  top: -7px;
+}
+
+.lesson-row--insert-after::after {
+  bottom: -7px;
 }
 
 .lesson-row__number {
@@ -501,6 +675,92 @@ onBeforeUnmount(() => {
 .lesson-row__title {
   font-weight: 790;
   min-width: 0;
+}
+
+.lesson-drag-preview {
+  background: var(--color-surface-lowest);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-menu);
+  color: var(--color-primary);
+  font-size: 0.9rem;
+  font-weight: 850;
+  max-width: min(360px, calc(100vw - 32px));
+  overflow: hidden;
+  padding: 12px 16px;
+  pointer-events: none;
+  position: fixed;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  z-index: 120;
+}
+
+.lesson-delete-dialog {
+  align-items: center;
+  background: rgb(0 0 0 / 38%);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 70;
+}
+
+.lesson-delete-dialog__panel {
+  background: var(--color-surface-lowest);
+  border: 1px solid color-mix(in srgb, var(--color-danger, #b42318) 36%, var(--color-menu-border));
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-menu);
+  display: grid;
+  gap: 18px;
+  max-width: 540px;
+  padding: clamp(22px, 4vw, 34px);
+  width: min(100%, 540px);
+}
+
+.lesson-delete-dialog__header,
+.lesson-delete-dialog__actions {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.lesson-delete-dialog__header h2 {
+  color: var(--color-primary);
+  font-size: 1.35rem;
+  margin: 6px 0 0;
+}
+
+.lesson-delete-dialog__close {
+  align-items: center;
+  background: var(--color-surface-low);
+  border: 1px solid var(--color-divider);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 1.4rem;
+  height: 38px;
+  justify-content: center;
+  line-height: 1;
+  width: 38px;
+}
+
+.lesson-delete-dialog__warning {
+  color: var(--color-text-muted);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.lesson-delete-dialog__actions {
+  justify-content: flex-start;
+}
+
+.lesson-delete-dialog__actions .app-button:last-child {
+  background: var(--color-danger, #b42318);
+  color: white;
 }
 
 @media (max-width: 640px) {

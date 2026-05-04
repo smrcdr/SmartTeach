@@ -397,6 +397,13 @@ export function updateMaterialSection(
   })
 }
 
+export function deleteMaterialSection(groupId: string, sectionId: string, token?: string | null) {
+  return apiRequest<void>(`/groups/${groupId}/materials/sections/${sectionId}`, {
+    method: 'DELETE',
+    token
+  })
+}
+
 export function createMaterialSubsection(
   groupId: string,
   sectionId: string,
@@ -420,6 +427,13 @@ export function updateMaterialSubsection(
     method: 'PATCH',
     token,
     body: JSON.stringify(payload)
+  })
+}
+
+export function deleteMaterialSubsection(groupId: string, subsectionId: string, token?: string | null) {
+  return apiRequest<void>(`/groups/${groupId}/materials/subsections/${subsectionId}`, {
+    method: 'DELETE',
+    token
   })
 }
 
@@ -448,6 +462,13 @@ export function updateLesson(groupId: string, lessonId: string, payload: UpdateL
     method: 'PATCH',
     token,
     body: JSON.stringify(payload)
+  })
+}
+
+export function deleteLesson(groupId: string, lessonId: string, token?: string | null) {
+  return apiRequest<void>(`/groups/${groupId}/lessons/${lessonId}`, {
+    method: 'DELETE',
+    token
   })
 }
 

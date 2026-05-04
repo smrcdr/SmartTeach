@@ -203,6 +203,20 @@ export class LessonsService {
     return this.mapLessonRecordToDto(updatedLesson)
   }
 
+  async deleteLesson(groupId: string, lessonId: string, userId: string): Promise<void> {
+    await this.assertGroupAccess(groupId, userId, {
+      requireManage: true,
+      requireWritable: true,
+    })
+    await this.getLessonRecordOrThrow(this.prismaService, groupId, lessonId)
+
+    await this.prismaService.lesson.delete({
+      where: {
+        id: lessonId,
+      },
+    })
+  }
+
   private async assertGroupAccess(
     groupId: string,
     userId: string,

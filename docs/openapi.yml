@@ -1788,6 +1788,47 @@ paths:
       tags:
         - Lessons
   /groups/{groupId}/lessons/{lessonId}:
+    delete:
+      description: Доступно владельцу и администраторам группы, если lessons_enabled включен.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: lessonId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '204':
+          description: Урок успешно удален.
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Удалить урок
+      tags:
+        - Lessons
     get:
       parameters:
         - in: path
@@ -1983,6 +2024,46 @@ paths:
       tags:
         - Materials
   /groups/{groupId}/materials/sections/{sectionId}:
+    delete:
+      description: Удаляет раздел, его подразделы и уроки внутри них.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: sectionId
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Раздел успешно удален.
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Удалить раздел материалов
+      tags:
+        - Materials
     patch:
       description: Доступно владельцу и администраторам группы, если lessons_enabled включен.
       parameters:
@@ -2097,6 +2178,46 @@ paths:
       tags:
         - Materials
   /groups/{groupId}/materials/subsections/{subsectionId}:
+    delete:
+      description: Удаляет подраздел и уроки внутри него.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: subsectionId
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Подраздел успешно удален.
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Удалить подраздел материалов
+      tags:
+        - Materials
     get:
       parameters:
         - in: path
