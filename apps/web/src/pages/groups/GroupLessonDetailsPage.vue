@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Edit } from 'lucide-vue-next'
+import { ArrowLeft, Edit } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { getLesson } from '@/features/groups/api/groups.api'
@@ -19,19 +19,39 @@ const { group } = useGroup()
 const { item: lesson, groupId, itemId: lessonId, error } = useGroupRouteItem('lessonId', getLesson)
 const canManage = computed(() => canManageGroup(group.value))
 const previewLessonId = ref<string | null>(null)
+const lessonBackRoute = computed(() => {
+  if (lesson.value?.materialSubsectionId) {
+    return {
+      name: 'group-material-subsection',
+      params: { groupId: groupId.value, subsectionId: lesson.value.materialSubsectionId }
+    }
+  }
+
+  return { name: 'group-lessons', params: { groupId: groupId.value } }
+})
 </script>
 
 <template>
   <main v-if="lesson" class="page narrow-page">
     <AppPageHeader eyebrow="Материал" :title="lesson.title" align="split">
       <template #actions>
+        <RouterLink :to="lessonBackRoute">
+          <AppButton variant="secondary">
+            <ArrowLeft :size="18" />
+            {{ lesson.materialSubsectionId ? 'К подразделу' : 'К материалам' }}
+          </AppButton>
+        </RouterLink>
         <RouterLink v-if="canManage" :to="{ name: 'group-lesson-edit', params: { groupId, lessonId } }">
           <AppButton variant="secondary">
             <Edit :size="18" />
             Редактировать
           </AppButton>
         </RouterLink>
-        <StatusPill :label="getLessonStatusLabel(lesson.status)" :tone="lesson.status === 'PUBLISHED' ? 'success' : 'muted'" />
+        <StatusPill
+          v-if="canManage"
+          :label="getLessonStatusLabel(lesson.status)"
+          :tone="lesson.status === 'PUBLISHED' ? 'success' : 'muted'"
+        />
       </template>
     </AppPageHeader>
     <section class="reading-panel surface-panel">
@@ -56,6 +76,7 @@ const previewLessonId = ref<string | null>(null)
       v-if="previewLessonId"
       :group-id="groupId"
       :lesson-id="previewLessonId"
+      :show-status="canManage"
       :token="auth.accessToken"
       @close="previewLessonId = null"
     />

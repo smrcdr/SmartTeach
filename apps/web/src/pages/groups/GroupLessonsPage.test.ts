@@ -90,6 +90,25 @@ function buildGroup(role: Group['viewerMembershipRole'] = 'ADMIN'): Group {
 async function mountPage(role: Group['viewerMembershipRole'] = 'ADMIN') {
   mockGroup.value = buildGroup(role)
   vi.mocked(groupsApi.listMaterials).mockResolvedValue(materials)
+  vi.mocked(groupsApi.createMaterialSection).mockResolvedValue({
+    ...materials[0],
+    id: 'created-section-id',
+    title: 'Новый раздел',
+    subsections: []
+  })
+  vi.mocked(groupsApi.createMaterialSubsection).mockResolvedValue({
+    section: {
+      id: 'section-id',
+      title: 'Раздел',
+      sortOrder: 1
+    },
+    subsection: {
+      ...materials[0].subsections[0],
+      id: 'created-subsection-id',
+      title: 'Новый подраздел'
+    },
+    lessons: []
+  })
   vi.mocked(groupsApi.updateMaterialSection).mockResolvedValue(materials[0])
   vi.mocked(groupsApi.updateMaterialSubsection).mockResolvedValue({
     section: {
@@ -136,6 +155,22 @@ async function mountPage(role: Group['viewerMembershipRole'] = 'ADMIN') {
 }
 
 describe('GroupLessonsPage', () => {
+  it('closes section create dialog after saving', async () => {
+    const wrapper = await mountPage()
+
+    await wrapper.find('.app-button').trigger('click')
+    await wrapper.find('input[name="title"]').setValue('Новый раздел')
+    await wrapper.find('.material-dialog__panel').trigger('submit')
+    await flushPromises()
+
+    expect(groupsApi.createMaterialSection).toHaveBeenCalledWith(
+      'group-id',
+      { title: 'Новый раздел' },
+      'access-token'
+    )
+    expect(wrapper.find('.material-dialog').exists()).toBe(false)
+  })
+
   it('opens section edit dialog from the right-click menu and saves changes', async () => {
     const wrapper = await mountPage()
 

@@ -1,12 +1,18 @@
 <script setup lang="ts">
-import { Plus } from 'lucide-vue-next'
-import { computed, ref, watch } from 'vue'
+import { ArrowLeft, Plus } from 'lucide-vue-next'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
-import { getMaterialSubsection, type MaterialSubsectionDetails } from '@/features/groups/api/groups.api'
+import {
+  getMaterialSubsection,
+  updateLesson,
+  type MaterialLesson,
+  type MaterialSubsectionDetails
+} from '@/features/groups/api/groups.api'
 import { useGroup } from '@/features/groups/composables/useGroup'
 import { canManageGroup } from '@/features/groups/lib/group-permissions'
 import { getLessonStatusLabel } from '@/features/groups/lib/status-labels'
+import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
 import AppButton from '@/shared/ui/AppButton.vue'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
@@ -15,6 +21,7 @@ import StatusPill from '@/shared/ui/StatusPill.vue'
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const notifications = useNotificationStore()
 const { group } = useGroup()
 const groupId = computed(() => String(route.params.groupId ?? ''))
 const subsectionId = computed(() => String(route.params.subsectionId ?? ''))
@@ -33,6 +40,9 @@ const lessonContextMenuStyle = computed(() => ({
   left: `${lessonContextMenu.value?.left ?? 12}px`,
   top: `${lessonContextMenu.value?.top ?? 12}px`
 }))
+const draggedLessonId = ref<string | null>(null)
+const dragOverLessonId = ref<string | null>(null)
+const isLessonPointerDragging = ref(false)
 
 async function refresh() {
   if (!groupId.value || !subsectionId.value || !auth.accessToken) {
@@ -93,6 +103,137 @@ async function openLessonEditFromContextMenu() {
   closeLessonContextMenu()
   await router.push({ name: 'group-lesson-edit', params: { groupId: groupId.value, lessonId } })
 }
+
+async function openLesson(lessonId: string) {
+  await router.push({ name: 'group-lesson-details', params: { groupId: groupId.value, lessonId } })
+}
+
+async function reorderLessons(sourceLessonId: string, targetLessonId: string) {
+  if (!details.value || !groupId.value || !auth.accessToken || sourceLessonId === targetLessonId) {
+    return
+  }
+
+  const sourceIndex = details.value.lessons.findIndex((lesson) => lesson.id === sourceLessonId)
+  const targetIndex = details.value.lessons.findIndex((lesson) => lesson.id === targetLessonId)
+
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+    return
+  }
+
+  const orderedLessons = [...details.value.lessons]
+  const [movedLesson] = orderedLessons.splice(sourceIndex, 1)
+
+  orderedLessons.splice(targetIndex, 0, movedLesson)
+
+  details.value = {
+    ...details.value,
+    lessons: orderedLessons.map((lesson, index) => ({
+      ...lesson,
+      sortOrder: index + 1
+    }))
+  }
+
+  try {
+    await Promise.all(
+      orderedLessons.map((lesson, index) =>
+        updateLesson(groupId.value, lesson.id, { sortOrder: index + 1 }, auth.accessToken)
+      )
+    )
+  } catch (caught) {
+    notifications.error(caught instanceof Error ? caught.message : 'Не удалось изменить порядок уроков')
+    await refresh()
+  }
+}
+
+function getLessonDropTarget(clientX: number, clientY: number) {
+  const element = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('[data-lesson-id]')
+
+  if (!element) {
+    return null
+  }
+
+  return element.dataset.lessonId ?? null
+}
+
+function moveLessonPointer(event: PointerEvent) {
+  if (!draggedLessonId.value) {
+    return
+  }
+
+  dragOverLessonId.value = getLessonDropTarget(event.clientX, event.clientY)
+}
+
+async function finishLessonPointer(event: PointerEvent) {
+  const sourceLessonId = draggedLessonId.value
+  const targetLessonId = getLessonDropTarget(event.clientX, event.clientY)
+
+  window.removeEventListener('pointermove', moveLessonPointer)
+  window.removeEventListener('pointerup', finishLessonPointer)
+  window.removeEventListener('pointercancel', cancelLessonPointer)
+  draggedLessonId.value = null
+  dragOverLessonId.value = null
+  isLessonPointerDragging.value = false
+
+  if (!sourceLessonId || !targetLessonId) {
+    return
+  }
+
+  await reorderLessons(sourceLessonId, targetLessonId)
+}
+
+function cancelLessonPointer() {
+  window.removeEventListener('pointermove', moveLessonPointer)
+  window.removeEventListener('pointerup', finishLessonPointer)
+  window.removeEventListener('pointercancel', cancelLessonPointer)
+  draggedLessonId.value = null
+  dragOverLessonId.value = null
+  isLessonPointerDragging.value = false
+}
+
+function startLessonPointer(lesson: MaterialLesson, event: PointerEvent) {
+  if (!canManage.value) {
+    return
+  }
+
+  event.preventDefault()
+  event.stopPropagation()
+  draggedLessonId.value = lesson.id
+  dragOverLessonId.value = lesson.id
+  isLessonPointerDragging.value = true
+  window.addEventListener('pointermove', moveLessonPointer)
+  window.addEventListener('pointerup', finishLessonPointer)
+  window.addEventListener('pointercancel', cancelLessonPointer)
+}
+
+function enterLessonDropTarget(lesson: MaterialLesson) {
+  if (!draggedLessonId.value) {
+    return
+  }
+
+  dragOverLessonId.value = lesson.id
+}
+
+async function dropLesson(lesson: MaterialLesson) {
+  const sourceLessonId = draggedLessonId.value
+
+  draggedLessonId.value = null
+  dragOverLessonId.value = null
+
+  if (!sourceLessonId) {
+    return
+  }
+
+  await reorderLessons(sourceLessonId, lesson.id)
+}
+
+function finishLessonDrag() {
+  draggedLessonId.value = null
+  dragOverLessonId.value = null
+}
+
+onBeforeUnmount(() => {
+  cancelLessonPointer()
+})
 </script>
 
 <template>
@@ -103,8 +244,15 @@ async function openLessonEditFromContextMenu() {
       :description="`${details.section.title} · ${sectionNumber}.${subsectionNumber}`"
       align="split"
     >
-      <template v-if="canManage" #actions>
+      <template #actions>
+        <RouterLink :to="{ name: 'group-lessons', params: { groupId }, query: { sectionId: details.section.id } }">
+          <AppButton variant="secondary">
+            <ArrowLeft :size="18" />
+            К разделам
+          </AppButton>
+        </RouterLink>
         <RouterLink
+          v-if="canManage"
           :to="{
             name: 'group-lesson-create',
             params: { groupId },
@@ -130,21 +278,43 @@ async function openLessonEditFromContextMenu() {
         </div>
 
         <div v-if="details.lessons.length > 0" class="lesson-list">
-          <RouterLink
+          <div
             v-for="(lesson, lessonIndex) in details.lessons"
             :key="lesson.id"
-            class="lesson-row"
-            :to="{ name: 'group-lesson-details', params: { groupId, lessonId: lesson.id } }"
+            :class="[
+              'lesson-row',
+              draggedLessonId === lesson.id && 'lesson-row--dragging',
+              dragOverLessonId === lesson.id && 'lesson-row--drag-over'
+            ]"
+            :data-lesson-id="lesson.id"
+            role="link"
+            tabindex="0"
             @contextmenu="openLessonContextMenu(lesson.id, $event)"
+            @click="!isLessonPointerDragging && openLesson(lesson.id)"
+            @keydown.enter.prevent="openLesson(lesson.id)"
+            @keydown.space.prevent="openLesson(lesson.id)"
+            @dragover.prevent="enterLessonDropTarget(lesson)"
+            @drop.prevent="dropLesson(lesson)"
           >
-            <span class="lesson-row__number">{{ sectionNumber }}.{{ subsectionNumber }}.{{ lessonIndex + 1 }}</span>
+            <span
+              :class="[
+                'lesson-row__number',
+                'lesson-row__drag-handle',
+                canManage && 'lesson-row__drag-handle--enabled'
+              ]"
+              :aria-label="`Перетащить урок ${lesson.title}`"
+              @pointerdown="startLessonPointer(lesson, $event)"
+              @click.stop
+            >
+              {{ sectionNumber }}.{{ subsectionNumber }}.{{ lessonIndex + 1 }}
+            </span>
             <span class="lesson-row__title">{{ lesson.title }}</span>
             <StatusPill
               v-if="canManage"
               :label="getLessonStatusLabel(lesson.status)"
               :tone="lesson.status === 'PUBLISHED' ? 'success' : 'muted'"
             />
-          </RouterLink>
+          </div>
         </div>
 
         <EmptyState
@@ -287,6 +457,7 @@ async function openLessonEditFromContextMenu() {
   background: var(--color-surface-low);
   border: 1px solid var(--color-divider);
   border-radius: var(--radius-md);
+  cursor: pointer;
   display: grid;
   gap: 14px;
   grid-template-columns: 82px minmax(0, 1fr) auto;
@@ -299,9 +470,32 @@ async function openLessonEditFromContextMenu() {
   border-color: var(--color-focus-border);
 }
 
+.lesson-row--drag-over {
+  background: var(--color-surface-high);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.lesson-row--dragging {
+  opacity: 0.72;
+}
+
 .lesson-row__number {
+  align-items: center;
   color: var(--color-primary);
+  display: inline-flex;
   font-weight: 900;
+  min-height: 34px;
+}
+
+.lesson-row__drag-handle--enabled {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.lesson-row__drag-handle--enabled:active {
+  cursor: grabbing;
 }
 
 .lesson-row__title {

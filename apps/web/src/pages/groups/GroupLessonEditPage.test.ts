@@ -146,12 +146,16 @@ describe('GroupLessonEditPage', () => {
     const { router, wrapper } = await mountPage()
 
     expect((wrapper.find('input[name="title"]').element as HTMLInputElement).value).toBe('Старый урок')
+    expect(wrapper.find('.rich-editor__surface').exists()).toBe(false)
 
     await wrapper.find('input[name="title"]').setValue('Новый урок')
+    await wrapper.find('select[name="status"]').setValue('PUBLISHED')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
     const editor = wrapper.find('.rich-editor__surface')
     editor.element.innerHTML = '<h2>Новый текст</h2>'
     await editor.trigger('input')
-    await wrapper.find('select[name="status"]').setValue('PUBLISHED')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ChevronDown, FolderPlus, Plus, X } from 'lucide-vue-next'
-import { computed, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import {
   createMaterialSection,
@@ -21,6 +21,7 @@ import AppTextField from '@/shared/ui/AppTextField.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const notifications = useNotificationStore()
 const { group } = useGroup()
@@ -43,6 +44,12 @@ const contextMenu = ref<{
   left: number
   top: number
 } | null>(null)
+const draggedSubsection = ref<{
+  sectionId: string
+  subsectionId: string
+} | null>(null)
+const dragOverSubsectionId = ref<string | null>(null)
+const isSubsectionPointerDragging = ref(false)
 const form = reactive({
   title: ''
 })
@@ -105,6 +112,10 @@ function toggleSection(sectionId: string) {
   }
 
   expandedSectionIds.value = next
+}
+
+async function openSubsection(subsectionId: string) {
+  await router.push({ name: 'group-material-subsection', params: { groupId: groupId.value, subsectionId } })
 }
 
 function openSectionDialog() {
@@ -178,15 +189,19 @@ function openEditDialogFromContextMenu() {
   closeContextMenu()
 }
 
+function resetDialog() {
+  isDialogOpen.value = false
+  form.title = ''
+  dialogSection.value = null
+  dialogSubsection.value = null
+}
+
 function closeDialog() {
   if (isSubmitting.value) {
     return
   }
 
-  isDialogOpen.value = false
-  form.title = ''
-  dialogSection.value = null
-  dialogSubsection.value = null
+  resetDialog()
 }
 
 async function submitDialog() {
@@ -220,14 +235,166 @@ async function submitDialog() {
       notifications.success('Подраздел создан')
     }
 
+    resetDialog()
     await refresh()
-    closeDialog()
   } catch (caught) {
     notifications.error(caught instanceof Error ? caught.message : 'Не удалось сохранить материалы')
   } finally {
     isSubmitting.value = false
   }
 }
+
+async function reorderSubsections(sectionId: string, sourceSubsectionId: string, targetSubsectionId: string) {
+  if (!groupId.value || !auth.accessToken || sourceSubsectionId === targetSubsectionId) {
+    return
+  }
+
+  const section = materials.value.find((currentSection) => currentSection.id === sectionId)
+
+  if (!section) {
+    return
+  }
+
+  const sourceIndex = section.subsections.findIndex((subsection) => subsection.id === sourceSubsectionId)
+  const targetIndex = section.subsections.findIndex((subsection) => subsection.id === targetSubsectionId)
+
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+    return
+  }
+
+  const orderedSubsections = [...section.subsections]
+  const [movedSubsection] = orderedSubsections.splice(sourceIndex, 1)
+
+  orderedSubsections.splice(targetIndex, 0, movedSubsection)
+
+  materials.value = materials.value.map((currentSection) =>
+    currentSection.id === sectionId
+      ? {
+          ...currentSection,
+          subsections: orderedSubsections.map((subsection, index) => ({
+            ...subsection,
+            sortOrder: index + 1
+          }))
+        }
+      : currentSection
+  )
+
+  try {
+    await Promise.all(
+      orderedSubsections.map((subsection, index) =>
+        updateMaterialSubsection(groupId.value, subsection.id, { sortOrder: index + 1 }, auth.accessToken)
+      )
+    )
+  } catch (caught) {
+    notifications.error(caught instanceof Error ? caught.message : 'Не удалось изменить порядок подразделов')
+    await refresh()
+  }
+}
+
+function getSubsectionDropTarget(clientX: number, clientY: number) {
+  const element = document
+    .elementFromPoint(clientX, clientY)
+    ?.closest<HTMLElement>('[data-section-id][data-subsection-id]')
+
+  if (!element) {
+    return null
+  }
+
+  return {
+    sectionId: element.dataset.sectionId ?? '',
+    subsectionId: element.dataset.subsectionId ?? ''
+  }
+}
+
+function moveSubsectionPointer(event: PointerEvent) {
+  if (!draggedSubsection.value) {
+    return
+  }
+
+  const target = getSubsectionDropTarget(event.clientX, event.clientY)
+
+  if (!target || target.sectionId !== draggedSubsection.value.sectionId) {
+    dragOverSubsectionId.value = null
+    return
+  }
+
+  dragOverSubsectionId.value = target.subsectionId
+}
+
+async function finishSubsectionPointer(event: PointerEvent) {
+  const dragged = draggedSubsection.value
+  const target = getSubsectionDropTarget(event.clientX, event.clientY)
+
+  window.removeEventListener('pointermove', moveSubsectionPointer)
+  window.removeEventListener('pointerup', finishSubsectionPointer)
+  window.removeEventListener('pointercancel', cancelSubsectionPointer)
+  draggedSubsection.value = null
+  dragOverSubsectionId.value = null
+  isSubsectionPointerDragging.value = false
+
+  if (!dragged || !target || dragged.sectionId !== target.sectionId) {
+    return
+  }
+
+  await reorderSubsections(dragged.sectionId, dragged.subsectionId, target.subsectionId)
+}
+
+function cancelSubsectionPointer() {
+  window.removeEventListener('pointermove', moveSubsectionPointer)
+  window.removeEventListener('pointerup', finishSubsectionPointer)
+  window.removeEventListener('pointercancel', cancelSubsectionPointer)
+  draggedSubsection.value = null
+  dragOverSubsectionId.value = null
+  isSubsectionPointerDragging.value = false
+}
+
+function startSubsectionPointer(section: MaterialSection, subsection: MaterialSubsection, event: PointerEvent) {
+  if (!canManage.value) {
+    return
+  }
+
+  event.preventDefault()
+  event.stopPropagation()
+  draggedSubsection.value = {
+    sectionId: section.id,
+    subsectionId: subsection.id
+  }
+  dragOverSubsectionId.value = subsection.id
+  isSubsectionPointerDragging.value = true
+  window.addEventListener('pointermove', moveSubsectionPointer)
+  window.addEventListener('pointerup', finishSubsectionPointer)
+  window.addEventListener('pointercancel', cancelSubsectionPointer)
+}
+
+function enterSubsectionDropTarget(section: MaterialSection, subsection: MaterialSubsection) {
+  if (draggedSubsection.value?.sectionId !== section.id) {
+    return
+  }
+
+  dragOverSubsectionId.value = subsection.id
+}
+
+async function dropSubsection(section: MaterialSection, subsection: MaterialSubsection) {
+  const dragged = draggedSubsection.value
+
+  draggedSubsection.value = null
+  dragOverSubsectionId.value = null
+
+  if (!dragged || dragged.sectionId !== section.id) {
+    return
+  }
+
+  await reorderSubsections(section.id, dragged.subsectionId, subsection.id)
+}
+
+function finishSubsectionDrag() {
+  draggedSubsection.value = null
+  dragOverSubsectionId.value = null
+}
+
+onBeforeUnmount(() => {
+  cancelSubsectionPointer()
+})
 </script>
 
 <template>
@@ -271,17 +438,40 @@ async function submitDialog() {
           </button>
 
           <div v-if="isExpanded(section.id)" class="material-section__body">
-            <RouterLink
+            <div
               v-for="(subsection, subsectionIndex) in section.subsections"
               :key="subsection.id"
-              class="material-subsection"
-              :to="{ name: 'group-material-subsection', params: { groupId, subsectionId: subsection.id } }"
+              :class="[
+                'material-subsection',
+                draggedSubsection?.subsectionId === subsection.id && 'material-subsection--dragging',
+                dragOverSubsectionId === subsection.id && 'material-subsection--drag-over'
+              ]"
+              :data-section-id="section.id"
+              :data-subsection-id="subsection.id"
+              role="link"
+              tabindex="0"
               @contextmenu="openMaterialContextMenu('subsection', section, $event, subsection)"
+              @click="!isSubsectionPointerDragging && openSubsection(subsection.id)"
+              @keydown.enter.prevent="openSubsection(subsection.id)"
+              @keydown.space.prevent="openSubsection(subsection.id)"
+              @dragover.prevent="enterSubsectionDropTarget(section, subsection)"
+              @drop.prevent="dropSubsection(section, subsection)"
             >
-              <span class="material-subsection__number">{{ sectionIndex + 1 }}.{{ subsectionIndex + 1 }}</span>
+              <span
+                :class="[
+                  'material-subsection__number',
+                  'material-subsection__drag-handle',
+                  canManage && 'material-subsection__drag-handle--enabled'
+                ]"
+                :aria-label="`Перетащить подраздел ${subsection.title}`"
+                @pointerdown="startSubsectionPointer(section, subsection, $event)"
+                @click.stop
+              >
+                {{ sectionIndex + 1 }}.{{ subsectionIndex + 1 }}
+              </span>
               <span class="material-subsection__title">{{ subsection.title }}</span>
               <span class="material-subsection__meta">{{ subsection.lessonsCount }} уроков</span>
-            </RouterLink>
+            </div>
 
             <button
               v-if="canManage"
@@ -490,6 +680,7 @@ async function submitDialog() {
   border: 1px solid var(--color-divider);
   border-radius: var(--radius-md);
   color: var(--color-text);
+  cursor: pointer;
   display: grid;
   gap: 14px;
   grid-template-columns: 62px minmax(0, 1fr) auto;
@@ -503,10 +694,33 @@ async function submitDialog() {
   border-color: var(--color-focus-border);
 }
 
+.material-subsection--drag-over {
+  background: var(--color-surface-high);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.material-subsection--dragging {
+  opacity: 0.72;
+}
+
 .material-subsection__number {
+  align-items: center;
   color: var(--color-primary);
+  display: inline-flex;
   font-size: 0.92rem;
   font-weight: 900;
+  min-height: 34px;
+}
+
+.material-subsection__drag-handle--enabled {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.material-subsection__drag-handle--enabled:active {
+  cursor: grabbing;
 }
 
 .material-subsection__title {
