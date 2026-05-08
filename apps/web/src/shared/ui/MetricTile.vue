@@ -20,8 +20,11 @@ defineProps<{
 
 <style scoped>
 .metric {
+  --metric-border: color-mix(in srgb, var(--color-divider) 58%, var(--color-outline) 42%);
   background: var(--color-surface-lowest);
+  border: 1px solid var(--metric-border);
   border-radius: var(--radius-lg);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--metric-border) 28%, transparent);
   display: grid;
   gap: 8px;
   min-height: 132px;

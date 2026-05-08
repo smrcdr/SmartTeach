@@ -115,8 +115,9 @@ describe('AppTopNav', () => {
   it('keeps a visible bottom divider between navbar and page content', () => {
     const source = readFileSync(`${process.cwd()}/src/shared/ui/AppTopNav.vue`, 'utf8')
 
-    expect(source).toContain('border-bottom: 1px solid var(--color-nav-border);')
-    expect(source).toContain('box-shadow: var(--shadow-nav);')
+    expect(source).toContain('--top-nav-divider: color-mix')
+    expect(source).toContain('border-bottom: 1px solid var(--top-nav-divider);')
+    expect(source).toContain('box-shadow: var(--shadow-nav), 0 1px 0')
   })
 
   it('keeps the authenticated profile on the right', async () => {

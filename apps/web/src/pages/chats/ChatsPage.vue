@@ -424,6 +424,10 @@ watch(() => route.query.groupId, () => {
 <style scoped>
 .chats-shell {
   --chat-incoming-border: rgb(119 118 130 / 30%);
+  --chat-layout-divider: color-mix(in srgb, var(--color-nav-border) 64%, var(--color-outline) 36%);
+  --chat-list-active-bg: color-mix(in srgb, var(--color-primary-container) 11%, var(--color-surface-lowest));
+  --chat-list-active-border: color-mix(in srgb, var(--color-primary-container) 42%, var(--color-outline-variant));
+  --chat-list-divider: color-mix(in srgb, var(--color-outline-variant) 72%, var(--color-surface-low));
   --chat-outgoing-bg: #dceeff;
   --chat-outgoing-border: #9cc4e8;
   --chat-outgoing-shadow: rgb(56 112 168 / 34%);
@@ -438,6 +442,9 @@ watch(() => route.query.groupId, () => {
 
 :global(:root[data-theme='dark']) .chats-shell {
   --chat-incoming-border: rgb(92 112 166 / 46%);
+  --chat-list-active-bg: color-mix(in srgb, var(--color-primary-container) 28%, var(--color-surface-lowest));
+  --chat-list-active-border: color-mix(in srgb, var(--color-primary-container) 68%, var(--color-outline-variant));
+  --chat-list-divider: color-mix(in srgb, var(--color-outline-variant) 76%, var(--color-surface-low));
   --chat-outgoing-bg: #1d3f67;
   --chat-outgoing-border: #416d9e;
   --chat-outgoing-shadow: rgb(0 7 26 / 58%);
@@ -446,7 +453,8 @@ watch(() => route.query.groupId, () => {
 
 .chat-list {
   background: var(--color-surface-low);
-  border-right: 1px solid var(--color-divider);
+  border-right: 1px solid var(--chat-layout-divider);
+  box-shadow: 1px 0 0 color-mix(in srgb, var(--chat-layout-divider) 48%, transparent);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -489,21 +497,24 @@ watch(() => route.query.groupId, () => {
 
 .chat-list__scroll {
   display: grid;
-  gap: 6px;
   overflow-y: auto;
-  padding: 0 12px 24px;
+  padding: 0 0 24px;
+  border-top: 1px solid var(--chat-list-divider);
 }
 
 .chat-list__item {
   align-items: center;
-  border-radius: 999px;
+  background: transparent;
+  border-bottom: 1px solid var(--chat-list-divider);
+  border-left: 4px solid transparent;
+  border-radius: 0;
   cursor: pointer;
   display: grid;
   gap: 14px;
   grid-template-columns: 48px minmax(0, 1fr);
   min-width: 0;
-  padding: 14px 16px;
-  transition: background-color 160ms ease, box-shadow 160ms ease;
+  padding: 15px 24px 15px 20px;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .chat-list__item:hover {
@@ -511,8 +522,10 @@ watch(() => route.query.groupId, () => {
 }
 
 .chat-list__item--active {
-  background: var(--color-surface-lowest);
-  box-shadow: 0 8px 26px -20px rgb(21 25 108 / 42%);
+  background: var(--chat-list-active-bg);
+  border-bottom-color: var(--chat-list-active-border);
+  border-left-color: var(--color-primary-container);
+  box-shadow: inset 0 1px 0 var(--chat-list-active-border), inset 0 -1px 0 var(--chat-list-active-border);
 }
 
 .chat-list__avatar-wrap {
@@ -1024,8 +1037,9 @@ watch(() => route.query.groupId, () => {
   }
 
   .chat-list {
-    border-bottom: 1px solid var(--color-divider);
+    border-bottom: 1px solid var(--chat-layout-divider);
     border-right: 0;
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--chat-layout-divider) 48%, transparent);
     max-height: 42vh;
   }
 

@@ -6,7 +6,6 @@
 
 ## Технологический стек
 
-- **Frontend:** `Vue + TypeScript`
 - **Backend:** `NestJS + TypeScript`
 - **Валидация:** `Zod`
 - **ORM / доступ к данным:** `Prisma`

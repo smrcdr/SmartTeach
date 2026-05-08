@@ -36,10 +36,6 @@ const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
 
-type LessonPickerSubsection = MaterialSubsection & {
-  sectionTitle: string
-}
-
 const notifications = useNotificationStore()
 const editor = ref<HTMLElement | null>(null)
 const savedSelection = ref<Range | null>(null)
@@ -56,17 +52,14 @@ const lastAppliedValue = ref('')
 const isEmpty = ref(true)
 
 const sectionOptions = computed(() => materials.value)
-const subsectionOptions = computed<LessonPickerSubsection[]>(() => {
+const subsectionOptions = computed<MaterialSubsection[]>(() => {
   const section = materials.value.find((item) => item.id === selectedSectionId.value)
 
   if (!section) {
     return []
   }
 
-  return section.subsections.map((subsection) => ({
-    ...subsection,
-    sectionTitle: section.title
-  }))
+  return section.subsections
 })
 const lessonOptions = computed(() =>
   lessons.value.filter((lesson) => lesson.materialSubsectionId === selectedSubsectionId.value)
@@ -190,26 +183,6 @@ function insertInlineCode() {
   saveSelection()
 }
 
-function selectDefaults() {
-  if (!selectedSectionId.value && sectionOptions.value.length > 0) {
-    selectedSectionId.value = sectionOptions.value[0].id
-  }
-
-  if (
-    !selectedSubsectionId.value ||
-    !subsectionOptions.value.some((subsection) => subsection.id === selectedSubsectionId.value)
-  ) {
-    selectedSubsectionId.value = subsectionOptions.value[0]?.id ?? ''
-  }
-
-  if (
-    !selectedLessonId.value ||
-    !lessonOptions.value.some((lesson) => lesson.id === selectedLessonId.value)
-  ) {
-    selectedLessonId.value = lessonOptions.value[0]?.id ?? ''
-  }
-}
-
 async function openLessonDialog() {
   if (!props.groupId || !props.token) {
     notifications.error('Сначала откройте редактор внутри группы')
@@ -220,6 +193,9 @@ async function openLessonDialog() {
   isLessonDialogOpen.value = true
   isLessonDialogLoading.value = true
   lessonDialogError.value = null
+  selectedSectionId.value = ''
+  selectedSubsectionId.value = ''
+  selectedLessonId.value = ''
 
   try {
     const [nextMaterials, nextLessons] = await Promise.all([
@@ -229,7 +205,6 @@ async function openLessonDialog() {
 
     materials.value = nextMaterials
     lessons.value = nextLessons
-    selectDefaults()
   } catch (caught) {
     lessonDialogError.value = caught instanceof Error ? caught.message : 'Не удалось загрузить уроки'
   } finally {
@@ -281,7 +256,14 @@ watch(
   { immediate: true }
 )
 
-watch([selectedSectionId, selectedSubsectionId, lessons], selectDefaults)
+watch(selectedSectionId, () => {
+  selectedSubsectionId.value = ''
+  selectedLessonId.value = ''
+})
+
+watch(selectedSubsectionId, () => {
+  selectedLessonId.value = ''
+})
 
 onMounted(() => {
   applyModelValue(props.modelValue)
@@ -373,32 +355,38 @@ onMounted(() => {
 
         <p v-if="lessonDialogError" class="lesson-link-dialog__error">{{ lessonDialogError }}</p>
         <p v-else-if="isLessonDialogLoading" class="lesson-link-dialog__muted">Загружаем структуру материалов.</p>
-        <div v-else class="lesson-link-dialog__grid">
+        <div v-else-if="sectionOptions.length > 0" class="lesson-link-dialog__grid">
           <label>
             <span>Раздел</span>
             <select v-model="selectedSectionId">
+              <option value="" disabled>Выберите раздел</option>
               <option v-for="section in sectionOptions" :key="section.id" :value="section.id">
                 {{ section.title }}
               </option>
             </select>
           </label>
-          <label>
+          <label v-if="selectedSectionId">
             <span>Подраздел</span>
             <select v-model="selectedSubsectionId">
+              <option value="" disabled>Выберите подраздел</option>
               <option v-for="subsection in subsectionOptions" :key="subsection.id" :value="subsection.id">
                 {{ subsection.title }}
               </option>
             </select>
+            <small v-if="subsectionOptions.length === 0">В этом разделе пока нет подразделов.</small>
           </label>
-          <label>
+          <label v-if="selectedSubsectionId">
             <span>Урок</span>
             <select v-model="selectedLessonId">
+              <option value="" disabled>Выберите урок</option>
               <option v-for="lesson in lessonOptions" :key="lesson.id" :value="lesson.id">
                 {{ lesson.title }}
               </option>
             </select>
+            <small v-if="lessonOptions.length === 0">В этом подразделе пока нет уроков.</small>
           </label>
         </div>
+        <p v-else class="lesson-link-dialog__muted">В группе пока нет разделов материалов.</p>
 
         <div class="lesson-link-dialog__actions">
           <AppButton
@@ -631,12 +619,19 @@ onMounted(() => {
 .lesson-link-dialog__grid {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 520px;
 }
 
 .lesson-link-dialog__grid label {
   display: grid;
   gap: 8px;
+}
+
+.lesson-link-dialog__grid small {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
 }
 
 .lesson-link-dialog__grid select {
@@ -680,7 +675,7 @@ onMounted(() => {
   }
 
   .lesson-link-dialog__grid {
-    grid-template-columns: 1fr;
+    max-width: none;
   }
 }
 </style>

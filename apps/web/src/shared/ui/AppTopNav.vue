@@ -168,10 +168,11 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .top-nav {
+  --top-nav-divider: color-mix(in srgb, var(--color-nav-border) 64%, var(--color-outline) 36%);
   background: var(--color-nav-surface);
   backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--color-nav-border);
-  box-shadow: var(--shadow-nav);
+  border-bottom: 1px solid var(--top-nav-divider);
+  box-shadow: var(--shadow-nav), 0 1px 0 color-mix(in srgb, var(--top-nav-divider) 48%, transparent);
   left: 0;
   position: fixed;
   right: 0;

@@ -11,6 +11,7 @@ import MarkdownPreview from './MarkdownPreview.vue'
 const props = defineProps<{
   groupId: string
   lessonId: string
+  showStatus?: boolean
   token?: string | null
 }>()
 
@@ -73,7 +74,7 @@ watch(currentLessonId, () => void refresh(), { immediate: true })
         </button>
       </header>
 
-      <div v-if="lesson" class="lesson-reference-dialog__meta">
+      <div v-if="lesson && showStatus" class="lesson-reference-dialog__meta">
         <StatusPill :label="getLessonStatusLabel(lesson.status)" :tone="lesson.status === 'PUBLISHED' ? 'success' : 'muted'" />
       </div>
 

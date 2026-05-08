@@ -184,6 +184,19 @@ describe('GroupMembersPage', () => {
     expect(router.currentRoute.value.query.chatId).toBe('chat-id')
   })
 
+  it('positions the member action menu under the click point', async () => {
+    mockGroup.value = buildGroup()
+    mockMembers.value = [buildMember()]
+    const { wrapper } = await mountPage()
+
+    await wrapper.find('.member-row').trigger('click', {
+      clientX: 140,
+      clientY: 220
+    })
+
+    expect(wrapper.find('.member-menu').attributes('style')).toContain('left: 140px; top: 228px;')
+  })
+
   it('opens public profile from the selected member menu', async () => {
     mockGroup.value = buildGroup()
     mockMembers.value = [buildMember()]

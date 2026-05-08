@@ -23,10 +23,34 @@ const { items: members } = useGroupRouteList(listMembers)
 const canManage = computed(() => canManageGroup(group.value))
 const isInviteDialogOpen = ref(false)
 const selectedMember = ref<GroupMember | null>(null)
+const memberMenuPosition = ref({ left: 12, top: 12 })
 const isOpeningChat = ref(false)
+const memberMenuStyle = computed(() => ({
+  left: `${memberMenuPosition.value.left}px`,
+  top: `${memberMenuPosition.value.top}px`
+}))
 
-function toggleMemberMenu(member: GroupMember) {
-  selectedMember.value = selectedMember.value?.userId === member.userId ? null : member
+function getMemberMenuPosition(event: MouseEvent) {
+  const viewportPadding = 12
+  const menuWidth = 280
+  const menuHeight = 112
+  const maxLeft = Math.max(viewportPadding, window.innerWidth - menuWidth - viewportPadding)
+  const maxTop = Math.max(viewportPadding, window.innerHeight - menuHeight - viewportPadding)
+
+  return {
+    left: Math.min(Math.max(event.clientX, viewportPadding), maxLeft),
+    top: Math.min(Math.max(event.clientY + 8, viewportPadding), maxTop)
+  }
+}
+
+function toggleMemberMenu(member: GroupMember, event: MouseEvent) {
+  if (selectedMember.value?.userId === member.userId) {
+    selectedMember.value = null
+    return
+  }
+
+  memberMenuPosition.value = getMemberMenuPosition(event)
+  selectedMember.value = member
 }
 
 async function copyGroupCode() {
@@ -99,7 +123,7 @@ async function openPublicProfile() {
           class="member-row"
           type="button"
           :aria-expanded="selectedMember?.userId === member.userId"
-          @click.stop="toggleMemberMenu(member)"
+          @click.stop="toggleMemberMenu(member, $event)"
         >
           <img v-if="member.user.avatarUrl" :src="member.user.avatarUrl" :alt="member.user.displayName" />
           <span v-else class="member-row__initials">{{ member.user.displayName.slice(0, 1) }}</span>
@@ -114,6 +138,7 @@ async function openPublicProfile() {
           v-if="selectedMember?.userId === member.userId"
           class="member-menu"
           role="menu"
+          :style="memberMenuStyle"
           @click.stop
         >
           <button
@@ -243,9 +268,8 @@ async function openPublicProfile() {
   gap: 4px;
   min-width: 248px;
   padding: 10px;
-  position: absolute;
-  right: 16px;
-  top: calc(100% + 8px);
+  position: fixed;
+  width: min(280px, calc(100vw - 24px));
   z-index: 20;
 }
 
@@ -349,11 +373,6 @@ async function openPublicProfile() {
 }
 
 @media (max-width: 620px) {
-  .member-menu {
-    left: 12px;
-    right: 12px;
-  }
-
   .member-row {
     align-items: start;
     grid-template-columns: 44px minmax(0, 1fr);

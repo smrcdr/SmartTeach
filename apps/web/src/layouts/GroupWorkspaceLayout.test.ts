@@ -152,6 +152,8 @@ describe('GroupWorkspaceLayout', () => {
   it('separates group navigation from workspace content with a divider', () => {
     const source = readFileSync(`${process.cwd()}/src/layouts/GroupWorkspaceLayout.vue`, 'utf8')
 
-    expect(source).toContain('border-right: 1px solid var(--color-divider);')
+    expect(source).toContain('--workspace-nav-divider: color-mix')
+    expect(source).toContain('border-right: 1px solid var(--workspace-nav-divider);')
+    expect(source).toContain('border-bottom: 1px solid var(--workspace-nav-divider);')
   })
 })

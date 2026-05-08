@@ -49,7 +49,7 @@ const notifications = useNotificationStore()
   gap: 12px;
   position: fixed;
   right: 28px;
-  width: min(600px, calc(100vw - 32px));
+  width: min(510px, calc(100vw - 32px));
   z-index: 80;
 }
 

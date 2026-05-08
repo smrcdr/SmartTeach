@@ -93,9 +93,11 @@ watch([() => route.name, () => group.value], () => {
 
 <style scoped>
 .workspace-nav {
+  --workspace-nav-divider: color-mix(in srgb, var(--color-divider) 58%, var(--color-outline) 42%);
   background: var(--color-surface-low);
-  border-right: 1px solid var(--color-divider);
+  border-right: 1px solid var(--workspace-nav-divider);
   bottom: 0;
+  box-shadow: 1px 0 0 color-mix(in srgb, var(--workspace-nav-divider) 42%, transparent);
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -190,6 +192,9 @@ watch([() => route.name, () => group.value], () => {
 @media (max-width: 980px) {
   .workspace-nav {
     bottom: auto;
+    border-bottom: 1px solid var(--workspace-nav-divider);
+    border-right: 0;
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--workspace-nav-divider) 42%, transparent);
     flex-direction: row;
     overflow-x: auto;
     padding: 74px 16px 12px;
