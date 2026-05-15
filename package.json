@@ -1,0 +1,25 @@
+{
+  "name": "smarteach",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "npm@11.11.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev:api",
+    "dev:api": "npm run dev -w @smarteach/api",
+    "dev:web": "npm run dev -w @smarteach/web",
+    "build": "npm run build:api",
+    "build:api": "npm run build -w @smarteach/api",
+    "build:web": "npm run build -w @smarteach/web",
+    "test:web": "npm run test -w @smarteach/web",
+    "typecheck:web": "npm run typecheck -w @smarteach/web",
+    "test:api": "npm --prefix apps/api test",
+    "openapi:generate": "npm run openapi:generate -w @smarteach/api",
+    "prisma:generate": "npm run prisma:generate -w @smarteach/api",
+    "db:migrate": "npm run db:migrate -w @smarteach/api",
+    "db:seed": "npm run db:seed -w @smarteach/api"
+  }
+}

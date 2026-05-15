@@ -1,0 +1,476 @@
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common'
+import { GroupRole, LessonStatus, Prisma } from '@prisma/client'
+import { PrismaService } from '../../database/prisma/prisma.service'
+import { AuthorizationService } from '../../security/authorization.service'
+import { MinioService } from '../../storage/minio/minio.service'
+import { CreateLessonRequestDto } from './dto/create-lesson-request.dto'
+import { LessonDto } from './dto/lesson.dto'
+import { ListLessonsQueryDto } from './dto/list-lessons-query.dto'
+import { UpdateLessonRequestDto } from './dto/update-lesson-request.dto'
+import { LessonRecord, lessonSelect, mapLessonToDto } from './lessons.mapper'
+
+const LESSON_MANAGE_ROLES = new Set<GroupRole>([GroupRole.OWNER, GroupRole.ADMIN])
+
+type PrismaExecutor = Prisma.TransactionClient | PrismaService
+
+@Injectable()
+export class LessonsService {
+  constructor(
+    @Inject(PrismaService) private readonly prismaService: PrismaService,
+    @Inject(AuthorizationService)
+    private readonly authorizationService: AuthorizationService,
+    @Inject(MinioService) private readonly minioService: MinioService,
+  ) {}
+
+  async listLessons(
+    groupId: string,
+    userId: string,
+    query: ListLessonsQueryDto,
+  ): Promise<LessonDto[]> {
+    await this.assertGroupAccess(groupId, userId)
+
+    const lessons = await this.prismaService.lesson.findMany({
+      where: {
+        groupId,
+        ...(query.status !== undefined
+          ? {
+              status: query.status,
+            }
+          : {}),
+        ...(query.materialSubsectionId !== undefined
+          ? {
+              materialSubsectionId: query.materialSubsectionId,
+            }
+          : {}),
+      },
+      select: lessonSelect,
+      orderBy: [
+        {
+          sortOrder: 'asc',
+        },
+        {
+          createdAt: 'asc',
+        },
+        {
+          id: 'asc',
+        },
+      ],
+    })
+
+    return Promise.all(lessons.map((lesson) => this.mapLessonRecordToDto(lesson)))
+  }
+
+  async createLesson(
+    groupId: string,
+    userId: string,
+    payload: CreateLessonRequestDto,
+  ): Promise<LessonDto> {
+    await this.assertGroupAccess(groupId, userId, {
+      requireManage: true,
+      requireWritable: true,
+    })
+
+    const status = payload.status ?? LessonStatus.DRAFT
+    const fileIds = this.normalizeFileIds(payload.fileIds)
+
+    if (payload.materialSubsectionId) {
+      await this.assertMaterialSubsectionBelongsToGroup(groupId, payload.materialSubsectionId)
+    }
+
+    await this.assertAttachableFiles(fileIds, groupId)
+
+    const lesson = await this.prismaService.$transaction(async (tx) => {
+      const createdLesson = await tx.lesson.create({
+        data: {
+          groupId,
+          materialSubsectionId: payload.materialSubsectionId ?? null,
+          title: payload.title,
+          content: this.normalizeNullableText(payload.content),
+          status,
+          sortOrder:
+            payload.sortOrder ??
+            (await this.getNextSortOrder(tx, groupId, payload.materialSubsectionId ?? null)),
+          publishedAt: status === LessonStatus.PUBLISHED ? new Date() : null,
+          archivedAt: status === LessonStatus.ARCHIVED ? new Date() : null,
+          createdByUserId: userId,
+        },
+        select: {
+          id: true,
+        },
+      })
+
+      await this.syncLessonFiles(tx, createdLesson.id, fileIds)
+
+      return this.getLessonRecordOrThrow(tx, groupId, createdLesson.id)
+    })
+
+    return this.mapLessonRecordToDto(lesson)
+  }
+
+  async getLesson(groupId: string, lessonId: string, userId: string): Promise<LessonDto> {
+    await this.assertGroupAccess(groupId, userId)
+
+    const lesson = await this.getLessonRecordOrThrow(this.prismaService, groupId, lessonId)
+
+    return this.mapLessonRecordToDto(lesson)
+  }
+
+  async updateLesson(
+    groupId: string,
+    lessonId: string,
+    userId: string,
+    payload: UpdateLessonRequestDto,
+  ): Promise<LessonDto> {
+    await this.assertGroupAccess(groupId, userId, {
+      requireManage: true,
+      requireWritable: true,
+    })
+
+    const existingLesson = await this.getLessonRecordOrThrow(this.prismaService, groupId, lessonId)
+    const fileIds = payload.fileIds !== undefined ? this.normalizeFileIds(payload.fileIds) : undefined
+
+    if (payload.materialSubsectionId !== undefined && payload.materialSubsectionId !== null) {
+      await this.assertMaterialSubsectionBelongsToGroup(groupId, payload.materialSubsectionId)
+    }
+
+    if (fileIds !== undefined) {
+      await this.assertAttachableFiles(fileIds, groupId, lessonId)
+    }
+
+    const nextStatus = payload.status ?? existingLesson.status
+    const statusMetadata = this.resolveStatusMetadata(
+      existingLesson.status,
+      existingLesson.publishedAt,
+      existingLesson.archivedAt,
+      nextStatus,
+    )
+    const data: Prisma.LessonUncheckedUpdateInput = {
+      ...(payload.materialSubsectionId !== undefined
+        ? {
+            materialSubsectionId: payload.materialSubsectionId,
+          }
+        : {}),
+      ...(payload.title !== undefined
+        ? {
+            title: payload.title,
+          }
+        : {}),
+      ...(payload.content !== undefined
+        ? {
+            content: this.normalizeNullableText(payload.content),
+          }
+        : {}),
+      ...(payload.status !== undefined
+        ? {
+            status: payload.status,
+            publishedAt: statusMetadata.publishedAt,
+            archivedAt: statusMetadata.archivedAt,
+          }
+        : {}),
+      ...(payload.sortOrder !== undefined
+        ? {
+            sortOrder: payload.sortOrder,
+          }
+        : {}),
+    }
+
+    if (Object.keys(data).length === 0 && fileIds === undefined) {
+      return this.mapLessonRecordToDto(existingLesson)
+    }
+
+    const updatedLesson = await this.prismaService.$transaction(async (tx) => {
+      if (Object.keys(data).length > 0) {
+        await tx.lesson.update({
+          where: {
+            id: lessonId,
+          },
+          data,
+        })
+      }
+
+      if (fileIds !== undefined) {
+        await this.syncLessonFiles(tx, lessonId, fileIds)
+      }
+
+      return this.getLessonRecordOrThrow(tx, groupId, lessonId)
+    })
+
+    return this.mapLessonRecordToDto(updatedLesson)
+  }
+
+  async deleteLesson(groupId: string, lessonId: string, userId: string): Promise<void> {
+    await this.assertGroupAccess(groupId, userId, {
+      requireManage: true,
+      requireWritable: true,
+    })
+    await this.getLessonRecordOrThrow(this.prismaService, groupId, lessonId)
+
+    await this.prismaService.lesson.delete({
+      where: {
+        id: lessonId,
+      },
+    })
+  }
+
+  private async assertGroupAccess(
+    groupId: string,
+    userId: string,
+    options: {
+      requireManage?: boolean
+      requireWritable?: boolean
+    } = {},
+  ) {
+    await this.authorizationService.authorizeGroupAccess(groupId, userId, {
+      requiredFeature: 'lessonsEnabled',
+      featureErrorMessage: 'Lessons module is disabled for this group',
+      requiredRoles: options.requireManage ? [...LESSON_MANAGE_ROLES] : undefined,
+      roleErrorMessage: 'You cannot manage lessons in this group',
+      requireWritable: options.requireWritable ?? false,
+    })
+  }
+
+  private async getLessonRecordOrThrow(
+    executor: PrismaExecutor,
+    groupId: string,
+    lessonId: string,
+  ): Promise<LessonRecord> {
+    const lesson = await executor.lesson.findFirst({
+      where: {
+        id: lessonId,
+        groupId,
+      },
+      select: lessonSelect,
+    })
+
+    if (!lesson) {
+      throw new NotFoundException('Lesson not found')
+    }
+
+    return lesson
+  }
+
+  private async getNextSortOrder(
+    executor: PrismaExecutor,
+    groupId: string,
+    materialSubsectionId: string | null,
+  ) {
+    const aggregate = await executor.lesson.aggregate({
+      where: {
+        groupId,
+        materialSubsectionId,
+      },
+      _max: {
+        sortOrder: true,
+      },
+    })
+
+    return (aggregate._max.sortOrder ?? 0) + 1
+  }
+
+  private async assertMaterialSubsectionBelongsToGroup(
+    groupId: string,
+    materialSubsectionId: string,
+  ) {
+    const subsection = await this.prismaService.materialSubsection.findFirst({
+      where: {
+        id: materialSubsectionId,
+        groupId,
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    if (!subsection) {
+      throw new NotFoundException('Material subsection not found')
+    }
+  }
+
+  private normalizeNullableText(value?: string) {
+    if (value === undefined) {
+      return undefined
+    }
+
+    return value.trim().length > 0 ? value : null
+  }
+
+  private normalizeFileIds(fileIds?: string[]) {
+    if (!fileIds || fileIds.length === 0) {
+      return []
+    }
+
+    const normalizedFileIds: string[] = []
+    const seen = new Set<string>()
+
+    for (const fileId of fileIds) {
+      if (seen.has(fileId)) {
+        continue
+      }
+
+      seen.add(fileId)
+      normalizedFileIds.push(fileId)
+    }
+
+    return normalizedFileIds
+  }
+
+  private async assertAttachableFiles(fileIds: string[], groupId: string, lessonId?: string) {
+    if (fileIds.length === 0) {
+      return
+    }
+
+    const files = await this.prismaService.file.findMany({
+      where: {
+        id: {
+          in: fileIds,
+        },
+      },
+      select: {
+        id: true,
+        uploadedByUserId: true,
+        deletedAt: true,
+      },
+    })
+    const filesById = new Map(files.map((file) => [file.id, file]))
+    const managerUploaderIds = new Set(
+      (
+        await this.prismaService.groupMember.findMany({
+          where: {
+            groupId,
+            userId: {
+              in: [...new Set(files.map((file) => file.uploadedByUserId))],
+            },
+            role: {
+              in: [...LESSON_MANAGE_ROLES],
+            },
+          },
+          select: {
+            userId: true,
+          },
+        })
+      ).map((membership) => membership.userId),
+    )
+    const alreadyAttachedFileIds =
+      lessonId === undefined
+        ? new Set<string>()
+        : new Set(
+            (
+              await this.prismaService.lessonFile.findMany({
+                where: {
+                  lessonId,
+                  fileId: {
+                    in: fileIds,
+                  },
+                },
+                select: {
+                  fileId: true,
+                },
+              })
+            ).map((link) => link.fileId),
+          )
+
+    for (const fileId of fileIds) {
+      const file = filesById.get(fileId)
+
+      if (!file || file.deletedAt) {
+        throw new NotFoundException('File not found')
+      }
+
+      if (!managerUploaderIds.has(file.uploadedByUserId) && !alreadyAttachedFileIds.has(fileId)) {
+        throw new ForbiddenException('You cannot attach this file')
+      }
+    }
+  }
+
+  private resolveStatusMetadata(
+    currentStatus: LessonStatus,
+    currentPublishedAt: Date | null,
+    currentArchivedAt: Date | null,
+    nextStatus: LessonStatus,
+  ) {
+    if (nextStatus === currentStatus) {
+      return {
+        publishedAt: currentPublishedAt,
+        archivedAt: currentArchivedAt,
+      }
+    }
+
+    switch (nextStatus) {
+      case LessonStatus.DRAFT:
+        return {
+          publishedAt: null,
+          archivedAt: null,
+        }
+      case LessonStatus.PUBLISHED:
+        return {
+          publishedAt: currentPublishedAt ?? new Date(),
+          archivedAt: null,
+        }
+      case LessonStatus.ARCHIVED:
+        return {
+          publishedAt: currentPublishedAt,
+          archivedAt: currentArchivedAt ?? new Date(),
+        }
+    }
+  }
+
+  private async syncLessonFiles(
+    executor: Prisma.TransactionClient,
+    lessonId: string,
+    fileIds: string[],
+  ) {
+    if (fileIds.length === 0) {
+      await executor.lessonFile.deleteMany({
+        where: {
+          lessonId,
+        },
+      })
+
+      return
+    }
+
+    await executor.lessonFile.deleteMany({
+      where: {
+        lessonId,
+        fileId: {
+          notIn: fileIds,
+        },
+      },
+    })
+
+    for (const [index, fileId] of fileIds.entries()) {
+      await executor.lessonFile.upsert({
+        where: {
+          lessonId_fileId: {
+            lessonId,
+            fileId,
+          },
+        },
+        update: {
+          sortOrder: index + 1,
+        },
+        create: {
+          lessonId,
+          fileId,
+          sortOrder: index + 1,
+        },
+      })
+    }
+  }
+
+  private async mapLessonRecordToDto(lesson: LessonRecord): Promise<LessonDto> {
+    const fileUrls = await Promise.all(
+      lesson.files.map((link) => this.minioService.getObjectUrl(link.file.storageKey)),
+    )
+    const fileUrlsById = new Map(
+      lesson.files.map((link, index) => [link.file.id, fileUrls[index] ?? '']),
+    )
+
+    return mapLessonToDto(lesson, fileUrlsById)
+  }
+}
