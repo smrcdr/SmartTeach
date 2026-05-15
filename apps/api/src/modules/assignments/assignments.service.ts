@@ -25,6 +25,11 @@ import { SubmissionRecord, mapSubmissionToDto, submissionSelect } from './submis
 const ASSIGNMENT_MANAGE_ROLES = new Set<GroupRole>([GroupRole.OWNER, GroupRole.ADMIN])
 
 type PrismaExecutor = Prisma.TransactionClient | PrismaService
+type AssignmentTargetIds = {
+  lessonIds?: string[]
+  materialSectionIds?: string[]
+  materialSubsectionIds?: string[]
+}
 
 @Injectable()
 export class AssignmentsService {
@@ -52,7 +57,29 @@ export class AssignmentsService {
           : {}),
         ...(query.lessonId !== undefined
           ? {
-              lessonId: query.lessonId,
+              lessonTargets: {
+                some: {
+                  lessonId: query.lessonId,
+                },
+              },
+            }
+          : {}),
+        ...(query.materialSectionId !== undefined
+          ? {
+              materialSectionTargets: {
+                some: {
+                  materialSectionId: query.materialSectionId,
+                },
+              },
+            }
+          : {}),
+        ...(query.materialSubsectionId !== undefined
+          ? {
+              materialSubsectionTargets: {
+                some: {
+                  materialSubsectionId: query.materialSubsectionId,
+                },
+              },
             }
           : {}),
       },
@@ -82,10 +109,13 @@ export class AssignmentsService {
 
     const status = payload.status ?? AssignmentStatus.DRAFT
     const fileIds = this.normalizeFileIds(payload.fileIds)
+    const targetIds = this.normalizeAssignmentTargetIds({
+      lessonIds: payload.lessonIds ?? [],
+      materialSectionIds: payload.materialSectionIds ?? [],
+      materialSubsectionIds: payload.materialSubsectionIds ?? [],
+    })
 
-    if (payload.lessonId) {
-      await this.assertLessonBelongsToGroup(groupId, payload.lessonId)
-    }
+    await this.assertAssignmentTargetsBelongToGroup(groupId, targetIds)
 
     await this.assertAttachableFiles(fileIds, groupId)
 
@@ -93,7 +123,6 @@ export class AssignmentsService {
       const createdAssignment = await tx.assignment.create({
         data: {
           groupId,
-          lessonId: payload.lessonId ?? null,
           title: payload.title,
           content: this.normalizeNullableText(payload.content),
           status,
@@ -108,6 +137,7 @@ export class AssignmentsService {
         },
       })
 
+      await this.syncAssignmentTargets(tx, createdAssignment.id, targetIds)
       await this.syncAssignmentFiles(tx, createdAssignment.id, fileIds)
 
       return this.getAssignmentRecordOrThrow(tx, groupId, createdAssignment.id)
@@ -145,10 +175,13 @@ export class AssignmentsService {
       assignmentId,
     )
     const fileIds = payload.fileIds !== undefined ? this.normalizeFileIds(payload.fileIds) : undefined
+    const targetIds = this.normalizeAssignmentTargetIds({
+      lessonIds: payload.lessonIds,
+      materialSectionIds: payload.materialSectionIds,
+      materialSubsectionIds: payload.materialSubsectionIds,
+    })
 
-    if (payload.lessonId !== undefined && payload.lessonId !== null) {
-      await this.assertLessonBelongsToGroup(groupId, payload.lessonId)
-    }
+    await this.assertAssignmentTargetsBelongToGroup(groupId, targetIds)
 
     if (fileIds !== undefined) {
       await this.assertAttachableFiles(fileIds, groupId, assignmentId)
@@ -161,21 +194,7 @@ export class AssignmentsService {
       existingAssignment.archivedAt,
       nextStatus,
     )
-    const data: Prisma.AssignmentUpdateInput = {
-      ...(payload.lessonId !== undefined
-        ? {
-            lesson:
-              payload.lessonId === null
-                ? {
-                    disconnect: true,
-                  }
-                : {
-                    connect: {
-                      id: payload.lessonId,
-                    },
-                  },
-          }
-        : {}),
+    const data: Prisma.AssignmentUncheckedUpdateInput = {
       ...(payload.title !== undefined
         ? {
             title: payload.title,
@@ -204,8 +223,12 @@ export class AssignmentsService {
           }
         : {}),
     }
+    const targetPatchRequested =
+      targetIds.lessonIds !== undefined ||
+      targetIds.materialSectionIds !== undefined ||
+      targetIds.materialSubsectionIds !== undefined
 
-    if (Object.keys(data).length === 0 && fileIds === undefined) {
+    if (Object.keys(data).length === 0 && fileIds === undefined && !targetPatchRequested) {
       return this.mapAssignmentRecordToDto(existingAssignment)
     }
 
@@ -221,6 +244,10 @@ export class AssignmentsService {
 
       if (fileIds !== undefined) {
         await this.syncAssignmentFiles(tx, assignmentId, fileIds)
+      }
+
+      if (targetPatchRequested) {
+        await this.syncAssignmentTargets(tx, assignmentId, targetIds)
       }
 
       return this.getAssignmentRecordOrThrow(tx, groupId, assignmentId)
@@ -381,7 +408,6 @@ export class AssignmentsService {
     await this.assertAssignmentBelongsToGroup(this.prismaService, groupId, assignmentId)
 
     const submission = await this.getSubmissionRecordOrThrow(this.prismaService, assignmentId, submissionId)
-    const isAuthor = submission.authorId === userId
     const canReview = ASSIGNMENT_MANAGE_ROLES.has(membership.role)
     const contentPatchRequested =
       payload.text !== undefined ||
@@ -423,6 +449,14 @@ export class AssignmentsService {
           message: 'Validation failed',
           errors: ['status: review updates must use REVIEWED status'],
         })
+      }
+
+      if (payload.score !== undefined) {
+        await this.assertSubmissionScoreWithinAssignmentMax(
+          this.prismaService,
+          assignmentId,
+          payload.score,
+        )
       }
     }
 
@@ -521,22 +555,6 @@ export class AssignmentsService {
     return context.membership!
   }
 
-  private async assertLessonBelongsToGroup(groupId: string, lessonId: string) {
-    const lesson = await this.prismaService.lesson.findFirst({
-      where: {
-        id: lessonId,
-        groupId,
-      },
-      select: {
-        id: true,
-      },
-    })
-
-    if (!lesson) {
-      throw new NotFoundException('Lesson not found')
-    }
-  }
-
   private async assertAssignmentBelongsToGroup(
     executor: PrismaExecutor,
     groupId: string,
@@ -554,6 +572,28 @@ export class AssignmentsService {
 
     if (!assignment) {
       throw new NotFoundException('Assignment not found')
+    }
+  }
+
+  private async assertSubmissionScoreWithinAssignmentMax(
+    executor: PrismaExecutor,
+    assignmentId: string,
+    score: number,
+  ) {
+    const assignment = await executor.assignment.findUnique({
+      where: {
+        id: assignmentId,
+      },
+      select: {
+        maxScore: true,
+      },
+    })
+
+    if (assignment && assignment.maxScore !== null && score > assignment.maxScore) {
+      throw new BadRequestException({
+        message: 'Validation failed',
+        errors: ['score: cannot be greater than assignment maxScore'],
+      })
     }
   }
 
@@ -597,6 +637,68 @@ export class AssignmentsService {
     return submission
   }
 
+  private async assertAssignmentTargetsBelongToGroup(
+    groupId: string,
+    targetIds: AssignmentTargetIds,
+  ) {
+    if (targetIds.lessonIds !== undefined && targetIds.lessonIds.length > 0) {
+      const lessons = await this.prismaService.lesson.findMany({
+        where: {
+          id: {
+            in: targetIds.lessonIds,
+          },
+          groupId,
+        },
+        select: {
+          id: true,
+        },
+      })
+
+      if (lessons.length !== targetIds.lessonIds.length) {
+        throw new NotFoundException('Lesson not found')
+      }
+    }
+
+    if (targetIds.materialSectionIds !== undefined && targetIds.materialSectionIds.length > 0) {
+      const sections = await this.prismaService.materialSection.findMany({
+        where: {
+          id: {
+            in: targetIds.materialSectionIds,
+          },
+          groupId,
+        },
+        select: {
+          id: true,
+        },
+      })
+
+      if (sections.length !== targetIds.materialSectionIds.length) {
+        throw new NotFoundException('Material section not found')
+      }
+    }
+
+    if (
+      targetIds.materialSubsectionIds !== undefined &&
+      targetIds.materialSubsectionIds.length > 0
+    ) {
+      const subsections = await this.prismaService.materialSubsection.findMany({
+        where: {
+          id: {
+            in: targetIds.materialSubsectionIds,
+          },
+          groupId,
+        },
+        select: {
+          id: true,
+        },
+      })
+
+      if (subsections.length !== targetIds.materialSubsectionIds.length) {
+        throw new NotFoundException('Material subsection not found')
+      }
+    }
+  }
+
   private normalizeNullableText(value?: string) {
     if (value === undefined) {
       return undefined
@@ -623,6 +725,23 @@ export class AssignmentsService {
     }
 
     return normalizedFileIds
+  }
+
+  private normalizeAssignmentTargetIds(targetIds: AssignmentTargetIds): AssignmentTargetIds {
+    return {
+      lessonIds:
+        targetIds.lessonIds === undefined
+          ? undefined
+          : this.normalizeFileIds(targetIds.lessonIds),
+      materialSectionIds:
+        targetIds.materialSectionIds === undefined
+          ? undefined
+          : this.normalizeFileIds(targetIds.materialSectionIds),
+      materialSubsectionIds:
+        targetIds.materialSubsectionIds === undefined
+          ? undefined
+          : this.normalizeFileIds(targetIds.materialSubsectionIds),
+    }
   }
 
   private async assertAttachableFiles(fileIds: string[], groupId: string, assignmentId?: string) {
@@ -776,6 +895,146 @@ export class AssignmentsService {
           publishedAt: currentPublishedAt,
           archivedAt: currentArchivedAt ?? new Date(),
         }
+    }
+  }
+
+  private async syncAssignmentTargets(
+    executor: Prisma.TransactionClient,
+    assignmentId: string,
+    targetIds: AssignmentTargetIds,
+  ) {
+    if (targetIds.lessonIds !== undefined) {
+      await this.syncAssignmentLessonTargets(executor, assignmentId, targetIds.lessonIds)
+    }
+
+    if (targetIds.materialSectionIds !== undefined) {
+      await this.syncAssignmentMaterialSectionTargets(
+        executor,
+        assignmentId,
+        targetIds.materialSectionIds,
+      )
+    }
+
+    if (targetIds.materialSubsectionIds !== undefined) {
+      await this.syncAssignmentMaterialSubsectionTargets(
+        executor,
+        assignmentId,
+        targetIds.materialSubsectionIds,
+      )
+    }
+  }
+
+  private async syncAssignmentLessonTargets(
+    executor: Prisma.TransactionClient,
+    assignmentId: string,
+    lessonIds: string[],
+  ) {
+    await executor.assignmentLessonTarget.deleteMany({
+      where: {
+        assignmentId,
+        ...(lessonIds.length > 0
+          ? {
+              lessonId: {
+                notIn: lessonIds,
+              },
+            }
+          : {}),
+      },
+    })
+
+    for (const [index, lessonId] of lessonIds.entries()) {
+      await executor.assignmentLessonTarget.upsert({
+        where: {
+          assignmentId_lessonId: {
+            assignmentId,
+            lessonId,
+          },
+        },
+        update: {
+          sortOrder: index + 1,
+        },
+        create: {
+          assignmentId,
+          lessonId,
+          sortOrder: index + 1,
+        },
+      })
+    }
+  }
+
+  private async syncAssignmentMaterialSectionTargets(
+    executor: Prisma.TransactionClient,
+    assignmentId: string,
+    materialSectionIds: string[],
+  ) {
+    await executor.assignmentMaterialSectionTarget.deleteMany({
+      where: {
+        assignmentId,
+        ...(materialSectionIds.length > 0
+          ? {
+              materialSectionId: {
+                notIn: materialSectionIds,
+              },
+            }
+          : {}),
+      },
+    })
+
+    for (const [index, materialSectionId] of materialSectionIds.entries()) {
+      await executor.assignmentMaterialSectionTarget.upsert({
+        where: {
+          assignmentId_materialSectionId: {
+            assignmentId,
+            materialSectionId,
+          },
+        },
+        update: {
+          sortOrder: index + 1,
+        },
+        create: {
+          assignmentId,
+          materialSectionId,
+          sortOrder: index + 1,
+        },
+      })
+    }
+  }
+
+  private async syncAssignmentMaterialSubsectionTargets(
+    executor: Prisma.TransactionClient,
+    assignmentId: string,
+    materialSubsectionIds: string[],
+  ) {
+    await executor.assignmentMaterialSubsectionTarget.deleteMany({
+      where: {
+        assignmentId,
+        ...(materialSubsectionIds.length > 0
+          ? {
+              materialSubsectionId: {
+                notIn: materialSubsectionIds,
+              },
+            }
+          : {}),
+      },
+    })
+
+    for (const [index, materialSubsectionId] of materialSubsectionIds.entries()) {
+      await executor.assignmentMaterialSubsectionTarget.upsert({
+        where: {
+          assignmentId_materialSubsectionId: {
+            assignmentId,
+            materialSubsectionId,
+          },
+        },
+        update: {
+          sortOrder: index + 1,
+        },
+        create: {
+          assignmentId,
+          materialSubsectionId,
+          sortOrder: index + 1,
+        },
+      })
     }
   }
 

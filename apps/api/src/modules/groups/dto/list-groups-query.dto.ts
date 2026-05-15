@@ -58,7 +58,7 @@ export class ListGroupsQueryDto {
     .strict()
 
   @ApiPropertyOptional({
-    example: 'frontend',
+    example: 'patterns',
   })
   search?: string
 

@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -43,6 +42,11 @@ export class LessonsService {
               status: query.status,
             }
           : {}),
+        ...(query.materialSubsectionId !== undefined
+          ? {
+              materialSubsectionId: query.materialSubsectionId,
+            }
+          : {}),
       },
       select: lessonSelect,
       orderBy: [
@@ -71,12 +75,12 @@ export class LessonsService {
       requireWritable: true,
     })
 
-    const dates = this.resolveDateRange({
-      startsAt: payload.startsAt,
-      endsAt: payload.endsAt,
-    })
     const status = payload.status ?? LessonStatus.DRAFT
     const fileIds = this.normalizeFileIds(payload.fileIds)
+
+    if (payload.materialSubsectionId) {
+      await this.assertMaterialSubsectionBelongsToGroup(groupId, payload.materialSubsectionId)
+    }
 
     await this.assertAttachableFiles(fileIds, groupId)
 
@@ -84,12 +88,13 @@ export class LessonsService {
       const createdLesson = await tx.lesson.create({
         data: {
           groupId,
+          materialSubsectionId: payload.materialSubsectionId ?? null,
           title: payload.title,
           content: this.normalizeNullableText(payload.content),
           status,
-          sortOrder: payload.sortOrder ?? (await this.getNextSortOrder(tx, groupId)),
-          startsAt: dates.startsAt,
-          endsAt: dates.endsAt,
+          sortOrder:
+            payload.sortOrder ??
+            (await this.getNextSortOrder(tx, groupId, payload.materialSubsectionId ?? null)),
           publishedAt: status === LessonStatus.PUBLISHED ? new Date() : null,
           archivedAt: status === LessonStatus.ARCHIVED ? new Date() : null,
           createdByUserId: userId,
@@ -129,20 +134,14 @@ export class LessonsService {
     const existingLesson = await this.getLessonRecordOrThrow(this.prismaService, groupId, lessonId)
     const fileIds = payload.fileIds !== undefined ? this.normalizeFileIds(payload.fileIds) : undefined
 
+    if (payload.materialSubsectionId !== undefined && payload.materialSubsectionId !== null) {
+      await this.assertMaterialSubsectionBelongsToGroup(groupId, payload.materialSubsectionId)
+    }
+
     if (fileIds !== undefined) {
       await this.assertAttachableFiles(fileIds, groupId, lessonId)
     }
 
-    const dates = this.resolveDateRange({
-      startsAt:
-        payload.startsAt !== undefined
-          ? payload.startsAt
-          : (existingLesson.startsAt?.toISOString() ?? null),
-      endsAt:
-        payload.endsAt !== undefined
-          ? payload.endsAt
-          : (existingLesson.endsAt?.toISOString() ?? null),
-    })
     const nextStatus = payload.status ?? existingLesson.status
     const statusMetadata = this.resolveStatusMetadata(
       existingLesson.status,
@@ -150,7 +149,12 @@ export class LessonsService {
       existingLesson.archivedAt,
       nextStatus,
     )
-    const data: Prisma.LessonUpdateInput = {
+    const data: Prisma.LessonUncheckedUpdateInput = {
+      ...(payload.materialSubsectionId !== undefined
+        ? {
+            materialSubsectionId: payload.materialSubsectionId,
+          }
+        : {}),
       ...(payload.title !== undefined
         ? {
             title: payload.title,
@@ -171,16 +175,6 @@ export class LessonsService {
       ...(payload.sortOrder !== undefined
         ? {
             sortOrder: payload.sortOrder,
-          }
-        : {}),
-      ...(payload.startsAt !== undefined
-        ? {
-            startsAt: dates.startsAt,
-          }
-        : {}),
-      ...(payload.endsAt !== undefined
-        ? {
-            endsAt: dates.endsAt,
           }
         : {}),
     }
@@ -207,6 +201,20 @@ export class LessonsService {
     })
 
     return this.mapLessonRecordToDto(updatedLesson)
+  }
+
+  async deleteLesson(groupId: string, lessonId: string, userId: string): Promise<void> {
+    await this.assertGroupAccess(groupId, userId, {
+      requireManage: true,
+      requireWritable: true,
+    })
+    await this.getLessonRecordOrThrow(this.prismaService, groupId, lessonId)
+
+    await this.prismaService.lesson.delete({
+      where: {
+        id: lessonId,
+      },
+    })
   }
 
   private async assertGroupAccess(
@@ -246,10 +254,15 @@ export class LessonsService {
     return lesson
   }
 
-  private async getNextSortOrder(executor: PrismaExecutor, groupId: string) {
+  private async getNextSortOrder(
+    executor: PrismaExecutor,
+    groupId: string,
+    materialSubsectionId: string | null,
+  ) {
     const aggregate = await executor.lesson.aggregate({
       where: {
         groupId,
+        materialSubsectionId,
       },
       _max: {
         sortOrder: true,
@@ -259,30 +272,22 @@ export class LessonsService {
     return (aggregate._max.sortOrder ?? 0) + 1
   }
 
-  private resolveDateRange(params: {
-    startsAt?: string | null
-    endsAt?: string | null
-  }) {
-    const startsAt = params.startsAt ? new Date(params.startsAt) : null
-    const endsAt = params.endsAt ? new Date(params.endsAt) : null
+  private async assertMaterialSubsectionBelongsToGroup(
+    groupId: string,
+    materialSubsectionId: string,
+  ) {
+    const subsection = await this.prismaService.materialSubsection.findFirst({
+      where: {
+        id: materialSubsectionId,
+        groupId,
+      },
+      select: {
+        id: true,
+      },
+    })
 
-    if (!startsAt && endsAt) {
-      throw new BadRequestException({
-        message: 'Validation failed',
-        errors: ['endsAt: cannot be set without startsAt'],
-      })
-    }
-
-    if (startsAt && endsAt && startsAt.getTime() > endsAt.getTime()) {
-      throw new BadRequestException({
-        message: 'Validation failed',
-        errors: ['endsAt: must be greater than or equal to startsAt'],
-      })
-    }
-
-    return {
-      startsAt,
-      endsAt,
+    if (!subsection) {
+      throw new NotFoundException('Material subsection not found')
     }
   }
 

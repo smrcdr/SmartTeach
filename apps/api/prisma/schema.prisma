@@ -75,6 +75,8 @@ model User {
   joinRequests    GroupJoinRequest[] @relation("JoinRequestAuthor")
   reviewedJoinRequests GroupJoinRequest[] @relation("JoinRequestReviewer")
   createdLessons  Lesson[] @relation("LessonCreator")
+  createdMaterialSections MaterialSection[] @relation("MaterialSectionCreator")
+  createdMaterialSubsections MaterialSubsection[] @relation("MaterialSubsectionCreator")
   createdAssignments Assignment[] @relation("AssignmentCreator")
   submissions     Submission[] @relation("SubmissionAuthor")
   reviewedSubmissions Submission[] @relation("SubmissionReviewer")
@@ -82,6 +84,7 @@ model User {
   createdChats    Chat[] @relation("ChatCreator")
   chatMemberships ChatMember[]
   messages        Message[] @relation("MessageAuthor")
+  createdUsefulLinks GroupUsefulLink[] @relation("GroupUsefulLinkCreator")
 
   @@map("users")
 }
@@ -119,6 +122,7 @@ model File {
   assignmentFiles  AssignmentFile[]
   submissionFiles  SubmissionFile[]
   messageFiles     MessageFile[]
+  groupUsefulLinkImages GroupUsefulLink[] @relation("GroupUsefulLinkImage")
 
   @@index([uploadedByUserId])
   @@map("files")
@@ -144,6 +148,9 @@ model Group {
   assignments Assignment[]
   scheduleEvents ScheduleEvent[]
   chats       Chat[]
+  usefulLinks GroupUsefulLink[]
+  materialSections MaterialSection[]
+  materialSubsections MaterialSubsection[]
 
   @@index([ownerId])
   @@index([status])
@@ -156,6 +163,7 @@ model GroupSettings {
   lessonsEnabled      Boolean  @default(true) @map("lessons_enabled")
   assignmentsEnabled  Boolean  @default(true) @map("assignments_enabled")
   scheduleEnabled     Boolean  @default(true) @map("schedule_enabled")
+  usefulLinksEnabled  Boolean  @default(true) @map("useful_links_enabled")
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
   group               Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
@@ -198,30 +206,90 @@ model GroupJoinRequest {
   @@map("group_join_requests")
 }
 
+model GroupUsefulLink {
+  id              String   @id @default(uuid()) @db.Uuid
+  groupId         String   @map("group_id") @db.Uuid
+  title           String   @db.VarChar(120)
+  url             String   @db.VarChar(2048)
+  imageFileId     String?  @map("image_file_id") @db.Uuid
+  sortOrder       Int      @map("sort_order")
+  createdByUserId String   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  group           Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  imageFile       File?    @relation("GroupUsefulLinkImage", fields: [imageFileId], references: [id], onDelete: SetNull)
+  createdByUser   User     @relation("GroupUsefulLinkCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([groupId, sortOrder])
+  @@index([imageFileId])
+  @@index([createdByUserId])
+  @@map("group_useful_links")
+}
+
 model Lesson {
   id              String       @id @default(uuid()) @db.Uuid
   groupId         String       @map("group_id") @db.Uuid
+  materialSubsectionId String? @map("material_subsection_id") @db.Uuid
   title           String       @db.VarChar(200)
   content         String?      @db.Text
   status          LessonStatus @default(DRAFT)
   sortOrder       Int          @map("sort_order")
-  startsAt        DateTime?    @map("starts_at") @db.Timestamptz(6)
-  endsAt          DateTime?    @map("ends_at") @db.Timestamptz(6)
   publishedAt     DateTime?    @map("published_at") @db.Timestamptz(6)
   archivedAt      DateTime?    @map("archived_at") @db.Timestamptz(6)
   createdByUserId String       @map("created_by_user_id") @db.Uuid
   createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   group           Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  materialSubsection MaterialSubsection? @relation(fields: [materialSubsectionId], references: [id], onDelete: SetNull)
   createdByUser   User         @relation("LessonCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
   files           LessonFile[]
-  assignments     Assignment[]
+  assignmentTargets AssignmentLessonTarget[]
 
   @@index([groupId])
+  @@index([materialSubsectionId])
   @@index([createdByUserId])
   @@index([groupId, status])
-  @@index([groupId, startsAt])
+  @@index([groupId, materialSubsectionId, sortOrder])
   @@map("lessons")
+}
+
+model MaterialSection {
+  id              String   @id @default(uuid()) @db.Uuid
+  groupId         String   @map("group_id") @db.Uuid
+  title           String   @db.VarChar(200)
+  sortOrder       Int      @map("sort_order")
+  createdByUserId String   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  group           Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdByUser   User     @relation("MaterialSectionCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  subsections     MaterialSubsection[]
+  assignmentTargets AssignmentMaterialSectionTarget[]
+
+  @@index([groupId, sortOrder])
+  @@index([createdByUserId])
+  @@map("material_sections")
+}
+
+model MaterialSubsection {
+  id              String   @id @default(uuid()) @db.Uuid
+  groupId         String   @map("group_id") @db.Uuid
+  sectionId       String   @map("section_id") @db.Uuid
+  title           String   @db.VarChar(200)
+  sortOrder       Int      @map("sort_order")
+  createdByUserId String   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  group           Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  section         MaterialSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  createdByUser   User     @relation("MaterialSubsectionCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  lessons         Lesson[]
+  assignmentTargets AssignmentMaterialSubsectionTarget[]
+
+  @@index([groupId, sortOrder])
+  @@index([sectionId, sortOrder])
+  @@index([createdByUserId])
+  @@map("material_subsections")
 }
 
 model LessonFile {
@@ -240,7 +308,6 @@ model LessonFile {
 model Assignment {
   id              String           @id @default(uuid()) @db.Uuid
   groupId         String           @map("group_id") @db.Uuid
-  lessonId        String?          @map("lesson_id") @db.Uuid
   title           String           @db.VarChar(200)
   content         String?          @db.Text
   status          AssignmentStatus @default(DRAFT)
@@ -252,17 +319,57 @@ model Assignment {
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
   group           Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  lesson          Lesson?          @relation(fields: [lessonId], references: [id], onDelete: SetNull)
   createdByUser   User             @relation("AssignmentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  lessonTargets   AssignmentLessonTarget[]
+  materialSectionTargets AssignmentMaterialSectionTarget[]
+  materialSubsectionTargets AssignmentMaterialSubsectionTarget[]
   files           AssignmentFile[]
   submissions     Submission[]
 
   @@index([groupId])
-  @@index([lessonId])
   @@index([createdByUserId])
   @@index([groupId, status])
   @@index([groupId, dueAt])
   @@map("assignments")
+}
+
+model AssignmentLessonTarget {
+  assignmentId String   @map("assignment_id") @db.Uuid
+  lessonId     String   @map("lesson_id") @db.Uuid
+  sortOrder    Int      @default(0) @map("sort_order")
+  attachedAt   DateTime @default(now()) @map("attached_at") @db.Timestamptz(6)
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  lesson       Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@id([assignmentId, lessonId])
+  @@index([lessonId])
+  @@map("assignment_lesson_targets")
+}
+
+model AssignmentMaterialSectionTarget {
+  assignmentId      String   @map("assignment_id") @db.Uuid
+  materialSectionId String   @map("material_section_id") @db.Uuid
+  sortOrder         Int      @default(0) @map("sort_order")
+  attachedAt        DateTime @default(now()) @map("attached_at") @db.Timestamptz(6)
+  assignment        Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  materialSection   MaterialSection @relation(fields: [materialSectionId], references: [id], onDelete: Cascade)
+
+  @@id([assignmentId, materialSectionId])
+  @@index([materialSectionId])
+  @@map("assignment_material_section_targets")
+}
+
+model AssignmentMaterialSubsectionTarget {
+  assignmentId         String   @map("assignment_id") @db.Uuid
+  materialSubsectionId String   @map("material_subsection_id") @db.Uuid
+  sortOrder            Int      @default(0) @map("sort_order")
+  attachedAt           DateTime @default(now()) @map("attached_at") @db.Timestamptz(6)
+  assignment           Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  materialSubsection   MaterialSubsection @relation(fields: [materialSubsectionId], references: [id], onDelete: Cascade)
+
+  @@id([assignmentId, materialSubsectionId])
+  @@index([materialSubsectionId])
+  @@map("assignment_material_subsection_targets")
 }
 
 model AssignmentFile {
@@ -378,19 +485,23 @@ model ChatMember {
 }
 
 model Message {
-  id        String    @id @default(uuid()) @db.Uuid
-  chatId    String    @map("chat_id") @db.Uuid
-  authorId  String    @map("author_id") @db.Uuid
-  text      String?   @db.Text
-  editedAt  DateTime? @map("edited_at") @db.Timestamptz(6)
-  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  chat      Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  author    User      @relation("MessageAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  files     MessageFile[]
+  id               String    @id @default(uuid()) @db.Uuid
+  chatId           String    @map("chat_id") @db.Uuid
+  authorId         String    @map("author_id") @db.Uuid
+  replyToMessageId String?   @map("reply_to_message_id") @db.Uuid
+  text             String?   @db.Text
+  editedAt         DateTime? @map("edited_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  chat             Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  author           User      @relation("MessageAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  replyToMessage   Message?  @relation("MessageReplies", fields: [replyToMessageId], references: [id], onDelete: SetNull)
+  replies          Message[] @relation("MessageReplies")
+  files            MessageFile[]
 
   @@index([chatId, createdAt])
   @@index([authorId])
+  @@index([replyToMessageId])
   @@map("messages")
 }
 

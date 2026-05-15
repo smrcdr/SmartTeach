@@ -15,6 +15,13 @@ export class LessonDto {
   })
   groupId!: string
 
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    example: '99999999-9999-4999-8999-999999999999',
+  })
+  materialSubsectionId!: string | null
+
   @ApiProperty({
     minLength: 2,
     maxLength: 200,
@@ -39,18 +46,6 @@ export class LessonDto {
     example: 10,
   })
   sortOrder!: number
-
-  @ApiPropertyOptional({
-    format: 'date-time',
-    nullable: true,
-  })
-  startsAt!: string | null
-
-  @ApiPropertyOptional({
-    format: 'date-time',
-    nullable: true,
-  })
-  endsAt!: string | null
 
   @ApiPropertyOptional({
     format: 'date-time',

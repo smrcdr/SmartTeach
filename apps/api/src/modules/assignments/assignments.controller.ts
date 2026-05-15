@@ -62,6 +62,18 @@ export class AssignmentsController {
     type: String,
     format: 'uuid',
   })
+  @ApiQuery({
+    name: 'materialSectionId',
+    required: false,
+    type: String,
+    format: 'uuid',
+  })
+  @ApiQuery({
+    name: 'materialSubsectionId',
+    required: false,
+    type: String,
+    format: 'uuid',
+  })
   @ApiOperation({
     summary: 'Получить список заданий группы',
   })
@@ -143,7 +155,8 @@ export class AssignmentsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Обновить задание',
-    description: 'Позволяет менять статус, дедлайн, lessonId и набор привязанных файлов задания.',
+    description:
+      'Позволяет менять статус, дедлайн, связанные материалы и набор привязанных файлов задания.',
   })
   @ApiOkResponse({
     type: AssignmentDto,

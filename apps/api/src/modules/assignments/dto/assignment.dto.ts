@@ -2,6 +2,45 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { FileObjectDto } from '../../files/dto/file-object.dto'
 import { assignmentStatusValues } from '../assignments.schemas'
 
+export class AssignmentMaterialReferenceDto {
+  @ApiProperty({
+    format: 'uuid',
+    example: '77777777-7777-4777-8777-777777777777',
+  })
+  id!: string
+
+  @ApiProperty({
+    example: 'Intro to API Contracts',
+  })
+  title!: string
+
+  @ApiProperty({
+    minimum: 1,
+    example: 1,
+  })
+  sortOrder!: number
+}
+
+export class AssignmentTargetsDto {
+  @ApiProperty({
+    type: () => AssignmentMaterialReferenceDto,
+    isArray: true,
+  })
+  lessons!: AssignmentMaterialReferenceDto[]
+
+  @ApiProperty({
+    type: () => AssignmentMaterialReferenceDto,
+    isArray: true,
+  })
+  materialSections!: AssignmentMaterialReferenceDto[]
+
+  @ApiProperty({
+    type: () => AssignmentMaterialReferenceDto,
+    isArray: true,
+  })
+  materialSubsections!: AssignmentMaterialReferenceDto[]
+}
+
 export class AssignmentDto {
   @ApiProperty({
     format: 'uuid',
@@ -15,12 +54,10 @@ export class AssignmentDto {
   })
   groupId!: string
 
-  @ApiPropertyOptional({
-    format: 'uuid',
-    nullable: true,
-    example: '77777777-7777-4777-8777-777777777777',
+  @ApiProperty({
+    type: () => AssignmentTargetsDto,
   })
-  lessonId!: string | null
+  targets!: AssignmentTargetsDto
 
   @ApiProperty({
     minLength: 2,

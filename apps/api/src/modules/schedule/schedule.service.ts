@@ -20,22 +20,18 @@ import { ScheduleEventDto } from './dto/schedule-event.dto'
 import { UpdateScheduleEventRequestDto } from './dto/update-schedule-event-request.dto'
 import {
   mapAssignmentToScheduleEntry,
-  mapLessonToScheduleEntry,
   mapScheduleEventToDto,
   mapScheduleEventToEntry,
   scheduleAssignmentEntrySelect,
   scheduleEventSelect,
-  scheduleLessonEntrySelect,
   type ScheduleAssignmentEntryRecord,
   type ScheduleEventRecord,
-  type ScheduleLessonEntryRecord,
 } from './schedule.mapper'
 
 const SCHEDULE_MANAGE_ROLES = new Set<GroupRole>([GroupRole.OWNER, GroupRole.ADMIN])
 const SCHEDULE_ENTRY_ORDER: Record<ScheduleEntryDto['sourceType'], number> = {
-  LESSON: 0,
-  ASSIGNMENT_DEADLINE: 1,
-  CUSTOM_EVENT: 2,
+  ASSIGNMENT_DEADLINE: 0,
+  CUSTOM_EVENT: 1,
 }
 
 @Injectable()
@@ -54,38 +50,7 @@ export class ScheduleService {
     const access = await this.assertGroupAccess(groupId, userId)
 
     const range = this.resolveTimeRange(query.from, query.to)
-    const [lessons, assignments, customEvents] = await Promise.all([
-      access.lessonsEnabled
-        ? this.prismaService.lesson.findMany({
-            where: {
-              groupId,
-              startsAt: {
-                not: null,
-              },
-              endsAt: {
-                not: null,
-              },
-              ...this.buildWindowWhere<Prisma.LessonWhereInput>({
-                from: range.from,
-                to: range.to,
-                startsAtField: 'startsAt',
-                endsAtField: 'endsAt',
-              }),
-            },
-            select: scheduleLessonEntrySelect,
-            orderBy: [
-              {
-                startsAt: 'asc',
-              },
-              {
-                endsAt: 'asc',
-              },
-              {
-                id: 'asc',
-              },
-            ],
-          })
-        : Promise.resolve<ScheduleLessonEntryRecord[]>([]),
+    const [assignments, customEvents] = await Promise.all([
       access.assignmentsEnabled
         ? this.prismaService.assignment.findMany({
             where: {
@@ -142,7 +107,6 @@ export class ScheduleService {
     ])
 
     return this.sortScheduleEntries([
-      ...lessons.map(mapLessonToScheduleEntry),
       ...assignments.map(mapAssignmentToScheduleEntry),
       ...customEvents.map(mapScheduleEventToEntry),
     ])
@@ -340,7 +304,6 @@ export class ScheduleService {
 
     return {
       role: context.membership!.role,
-      lessonsEnabled: context.settings.lessonsEnabled,
       assignmentsEnabled: context.settings.assignmentsEnabled,
     }
   }
@@ -402,7 +365,7 @@ export class ScheduleService {
     }
   }
 
-  private buildWindowWhere<T extends Prisma.LessonWhereInput | Prisma.ScheduleEventWhereInput>(
+  private buildWindowWhere<T extends Prisma.ScheduleEventWhereInput>(
     params: {
       from?: Date
       to?: Date
@@ -480,18 +443,7 @@ export class ScheduleService {
     startsAt: Date,
     endsAt: Date,
   ) {
-    const [matchingLesson, matchingAssignment] = await Promise.all([
-      this.prismaService.lesson.findFirst({
-        where: {
-          groupId,
-          title,
-          startsAt,
-          endsAt,
-        },
-        select: {
-          id: true,
-        },
-      }),
+    const matchingAssignment =
       startsAt.getTime() !== endsAt.getTime()
         ? Promise.resolve(null)
         : this.prismaService.assignment.findFirst({
@@ -503,17 +455,9 @@ export class ScheduleService {
             select: {
               id: true,
             },
-          }),
-    ])
+          })
 
-    if (matchingLesson) {
-      throw new BadRequestException({
-        message: 'Validation failed',
-        errors: ['schedule event duplicates lesson-derived schedule entry'],
-      })
-    }
-
-    if (matchingAssignment) {
+    if (await matchingAssignment) {
       throw new BadRequestException({
         message: 'Validation failed',
         errors: ['schedule event duplicates assignment-derived schedule entry'],

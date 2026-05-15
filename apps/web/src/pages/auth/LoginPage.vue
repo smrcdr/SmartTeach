@@ -1,131 +1,120 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, reactive } from 'vue'
+import { useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
+import { validateLoginPayload } from '@/features/auth/lib/auth-validation'
+import { useAuthStore } from '@/features/auth/stores/auth.store'
+import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
+import AppButton from '@/shared/ui/AppButton.vue'
+import AppTextField from '@/shared/ui/AppTextField.vue'
 
-import { getAuthErrorMessage } from '../../features/auth/api/auth.api'
-import AuthPageShell from '../../features/auth/components/AuthPageShell.vue'
-import { useAuth } from '../../features/auth/composables/useAuth'
-import AppButton from '../../shared/ui/AppButton.vue'
-import AppErrorState from '../../shared/ui/AppErrorState.vue'
-import AppInput from '../../shared/ui/AppInput.vue'
-
+const auth = useAuthStore()
+const notifications = useNotificationStore()
 const route = useRoute()
 const router = useRouter()
-const { login } = useAuth()
+const form = reactive({
+  email: '',
+  password: ''
+})
 
-const email = ref('')
-const password = ref('')
-const submitError = ref('')
-const isSubmitting = ref(false)
+const redirectTarget = computed(() => typeof route.query.redirect === 'string' ? route.query.redirect : '/my-groups')
 
-async function handleSubmit() {
-  if (isSubmitting.value) {
+async function submit() {
+  const validationError = validateLoginPayload(form)
+
+  if (validationError) {
+    notifications.error(validationError)
     return
   }
 
-  isSubmitting.value = true
-  submitError.value = ''
-
   try {
-    await login({
-      email: email.value.trim(),
-      password: password.value,
-    })
-
-    const redirectTarget = typeof route.query.redirect === 'string' ? route.query.redirect : '/groups'
-
-    await router.replace(redirectTarget)
-  } catch (error) {
-    submitError.value = getAuthErrorMessage(error, 'Не удалось войти в систему')
-  } finally {
-    isSubmitting.value = false
+    await auth.login(form)
+    notifications.success('Вход выполнен')
+    await router.push(redirectTarget.value)
+  } catch {
+    notifications.error(auth.error ?? 'Не удалось войти')
   }
 }
 </script>
 
 <template>
-  <AuthPageShell
-    eyebrow="Вход"
-    title="Откройте свои группы и продолжайте работу без лишних переходов."
-    description="SmartTeach оставляет вход отдельным маршрутом, а после авторизации сразу переводит пользователя в рабочую зону групп, чатов и учебных модулей."
-    alternate-label="Нужен новый аккаунт?"
-    alternate-action-label="Зарегистрироваться"
-    alternate-to="/register"
-  >
-    <form class="auth-page__form" @submit.prevent="handleSubmit">
-      <AppInput
-        v-model="email"
-        label="Email"
-        type="email"
-        autocomplete="username"
-        required
-        :disabled="isSubmitting"
-      />
-      <AppInput
-        v-model="password"
-        label="Пароль"
-        type="password"
-        autocomplete="current-password"
-        required
-        :disabled="isSubmitting"
-      />
-      <AppButton type="submit" block :disabled="isSubmitting">
-        {{ isSubmitting ? 'Входим...' : 'Войти' }}
-      </AppButton>
-    </form>
-
-    <AppErrorState v-if="submitError" title="Не удалось войти" :description="submitError" />
-
-    <template #meta>
-      <div v-if="typeof route.query.redirect === 'string'" class="auth-page__meta">
-        <strong>После входа откроется:</strong>
-        <span>{{ route.query.redirect }}</span>
-      </div>
-    </template>
-
-    <template #aside>
-      <span class="page-eyebrow">Что получает пользователь</span>
-      <h2 class="auth-page__title">Сессия остается прозрачной и не размазывается по публичным экранам.</h2>
-      <p class="muted">
-        После успешного входа SmartTeach поднимает текущего пользователя и возвращает его в рабочую часть продукта
-        без промежуточного шага.
-      </p>
-      <ul class="list-copy">
-        <li>после авторизации пользователь сразу попадает в раздел групп</li>
-        <li>при возврате по `redirect` открывается ранее запрошенный приватный раздел</li>
-        <li>обычная перезагрузка страницы не требует повторного входа</li>
-      </ul>
-      <div class="panel-note">
-        Логин и регистрация живут на отдельных маршрутах, поэтому у каждой страницы остается собственная структура и
-        приоритет действий.
-      </div>
-    </template>
-  </AuthPageShell>
+  <main class="page auth-page auth-page--centered">
+    <section class="auth-shell auth-shell--wide">
+      <form class="auth-card auth-card--wide-fields" novalidate @submit.prevent="submit">
+        <div class="auth-card__header">
+          <span class="eyebrow">Сессия</span>
+          <h2>Войти</h2>
+        </div>
+        <AppTextField v-model="form.email" label="Email" type="email" placeholder="Введите email" />
+        <AppTextField v-model="form.password" label="Пароль" type="password" placeholder="Введите пароль" />
+        <AppButton type="submit" size="lg">{{ auth.isLoading ? 'Входим...' : 'Войти' }}</AppButton>
+        <RouterLink class="auth-card__link" to="/register">
+          Нет аккаунта? <span class="auth-card__link-action">Зарегистрироваться</span>
+        </RouterLink>
+      </form>
+    </section>
+  </main>
 </template>
 
 <style scoped>
-.auth-page__form {
-  display: grid;
-  gap: 1rem;
-}
-
-.auth-page__title {
-  font-size: 1.18rem;
-  letter-spacing: -0.03em;
-}
-
-.auth-page__meta {
+.auth-page {
+  align-items: center;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  padding: 0.95rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-panel-muted);
-  color: var(--color-subtle);
+  justify-content: center;
+  min-height: 100vh;
 }
 
-.auth-page__meta strong {
-  color: var(--color-text);
+.auth-shell {
+  display: flex;
+  justify-content: center;
+  margin: 0 auto;
+  max-width: 480px;
+  width: min(100%, 480px);
 }
+
+.auth-card {
+  display: grid;
+}
+
+.auth-card {
+  align-content: center;
+  background: var(--color-surface-lowest);
+  border: 1.5px solid var(--color-outline-variant);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  gap: 17px;
+  padding: clamp(28px, 5vw, 44px);
+  width: 100%;
+}
+
+.auth-card--wide-fields :deep(.field),
+.auth-card--wide-fields :deep(.field__control) {
+  width: 100%;
+}
+
+.auth-card__header h2 {
+  margin: 0;
+}
+
+.auth-card__header h2 {
+  color: var(--color-primary);
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+
+.auth-card__link {
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.auth-card__link {
+  font-size: 0.92rem;
+  font-weight: 700;
+  justify-self: center;
+}
+
+.auth-card__link-action {
+  color: var(--color-primary);
+}
+
 </style>

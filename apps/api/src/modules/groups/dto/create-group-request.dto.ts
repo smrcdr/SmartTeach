@@ -16,7 +16,7 @@ export class CreateGroupRequestDto {
   @ApiProperty({
     minLength: 2,
     maxLength: 150,
-    example: 'Frontend Patterns Lab',
+    example: 'API Patterns Lab',
   })
   name!: string
 

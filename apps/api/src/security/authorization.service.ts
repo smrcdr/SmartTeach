@@ -7,6 +7,7 @@ export type GroupFeatureFlag =
   | 'lessonsEnabled'
   | 'assignmentsEnabled'
   | 'scheduleEnabled'
+  | 'usefulLinksEnabled'
 
 type GroupAuthorizationOptions = {
   allowDeleted?: boolean
@@ -40,6 +41,7 @@ const DEFAULT_FEATURE_ERROR_MESSAGES: Record<GroupFeatureFlag, string> = {
   lessonsEnabled: 'Lessons module is disabled for this group',
   assignmentsEnabled: 'Assignments module is disabled for this group',
   scheduleEnabled: 'Schedule module is disabled for this group',
+  usefulLinksEnabled: 'Useful links module is disabled for this group',
 }
 
 @Injectable()
@@ -67,6 +69,7 @@ export class AuthorizationService {
             lessonsEnabled: true,
             assignmentsEnabled: true,
             scheduleEnabled: true,
+            usefulLinksEnabled: true,
           },
         },
         members: {
@@ -125,6 +128,7 @@ export class AuthorizationService {
         lessonsEnabled: group.settings.lessonsEnabled,
         assignmentsEnabled: group.settings.assignmentsEnabled,
         scheduleEnabled: group.settings.scheduleEnabled,
+        usefulLinksEnabled: group.settings.usefulLinksEnabled,
       },
     }
   }

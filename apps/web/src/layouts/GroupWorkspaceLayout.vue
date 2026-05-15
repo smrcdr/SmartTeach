@@ -1,423 +1,223 @@
-<script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
-
-import GroupModuleBadges from '../features/groups/components/GroupModuleBadges.vue'
-import { getGroupsErrorMessage } from '../features/groups/api/groups.api'
-import { useGroupWorkspace } from '../features/groups/composables/useGroupWorkspace'
-import {
-  getEnabledGroupModules,
-  getGroupMembershipRoleLabel,
-  groupAccessModeLabels,
-  groupStatusLabels,
-} from '../features/groups/lib/groups.ui'
-import AppButton from '../shared/ui/AppButton.vue'
-import AppCard from '../shared/ui/AppCard.vue'
-import AppErrorState from '../shared/ui/AppErrorState.vue'
-import AppLoader from '../shared/ui/AppLoader.vue'
-
-const route = useRoute()
-const mobileSectionsOpen = ref(false)
-
-const groupId = computed(() => String(route.params.groupId ?? ''))
-const workspace = useGroupWorkspace(groupId)
-const group = computed(() => workspace.group.value)
-const settings = computed(() => workspace.settings.value)
-const workspaceName = computed(() => group.value?.name ?? groupId.value.toUpperCase())
-const workspaceLead = computed(
-  () =>
-    normalizeOptionalText(group.value?.description) ||
-    'Единое рабочее пространство собирает все внутренние разделы группы в одном контексте.',
-)
-const membershipLabel = computed(() => getGroupMembershipRoleLabel(workspace.membershipRole.value))
-const accessModeLabel = computed(() => (group.value ? groupAccessModeLabels[group.value.accessMode] : ''))
-const statusLabel = computed(() => (group.value ? groupStatusLabels[group.value.status] : ''))
-const moduleLabels = computed(() => (settings.value ? getEnabledGroupModules(settings.value) : []))
-const readOnlyNotice = computed(() =>
-  workspace.isReadOnly.value
-    ? 'Группа находится в архиве. Внутренние разделы доступны только для просмотра, а редактирующие действия должны быть скрыты.'
-    : 'Навигация и доступ к разделам собираются централизованно по роли участника, режиму доступа и включённым модулям.',
-)
-const errorMessage = computed(() => {
-  const error = workspace.workspaceError.value
-
-  return error ? getGroupsErrorMessage(error, 'Не удалось загрузить рабочее пространство группы') : ''
-})
-const activeWorkspaceModule = computed(() => {
-  const matchedRecord = [...route.matched]
-    .reverse()
-    .find((record) => typeof record.meta.workspaceModule === 'string')
-
-  return typeof matchedRecord?.meta.workspaceModule === 'string' ? matchedRecord.meta.workspaceModule : ''
-})
-
-watch(
-  () => route.fullPath,
-  () => {
-    mobileSectionsOpen.value = false
-  },
-)
-
-function isActive(routeName: string, module: string) {
-  return route.matched.some((record) => record.name === routeName) || activeWorkspaceModule.value === module
-}
-
-function normalizeOptionalText(value: unknown) {
-  if (typeof value !== 'string') {
-    return ''
-  }
-
-  return value.trim()
-}
-</script>
-
 <template>
-  <div class="workspace">
-    <AppLoader v-if="workspace.isWorkspacePending.value" label="Собираем рабочее пространство группы и права доступа" />
-
-    <AppErrorState
-      v-else-if="errorMessage"
-      title="Не удалось открыть рабочее пространство группы"
-      :description="errorMessage"
-    >
-      <template #actions>
-        <AppButton to="/groups" variant="secondary">К списку групп</AppButton>
-      </template>
-    </AppErrorState>
-
-    <template v-else-if="group && settings">
-      <div class="workspace__hero">
-        <div class="workspace__hero-copy">
-          <span class="page-eyebrow">Рабочее пространство группы</span>
-          <h1 class="page-title">{{ workspaceName }}</h1>
-          <p class="page-lead">{{ workspaceLead }}</p>
-
-          <div class="pill-list">
-            <span class="pill">{{ membershipLabel }}</span>
-            <span class="pill">{{ accessModeLabel }}</span>
-            <span class="pill">{{ statusLabel }}</span>
-          </div>
+  <div>
+    <AppTopNav />
+    <aside v-if="group" class="workspace-nav">
+      <RouterLink to="/my-groups" class="workspace-nav__brand">
+        <span>{{ initials }}</span>
+        <div>
+          <strong>{{ group.name }}</strong>
+          <small>{{ group.code }}</small>
         </div>
+      </RouterLink>
 
-        <div class="workspace__hero-actions">
-          <AppButton variant="ghost" class="workspace__menu-button" @click="mobileSectionsOpen = true">
-            Разделы группы
-          </AppButton>
+      <nav aria-label="Навигация группы">
+        <RouterLink
+          v-for="item in visibleNavItems"
+          :key="item.key"
+          :to="{ name: item.toName, params: { groupId: group.id } }"
+          :class="['workspace-nav__item', { 'workspace-nav__item--active': isNavItemActive(item) }]"
+          active-class=""
+          exact-active-class=""
+        >
+          <component :is="item.icon" :size="19" />
+          <span>{{ item.label }}</span>
+        </RouterLink>
+      </nav>
+    </aside>
 
-          <AppCard tone="accent" class="workspace__notice">
-            <strong>{{ workspace.isReadOnly.value ? 'Режим только для чтения' : 'Навигация группы' }}</strong>
-            <p class="muted">{{ readOnlyNotice }}</p>
-          </AppCard>
-        </div>
-      </div>
-
-      <div class="workspace__layout">
-        <aside class="workspace__sidebar">
-          <nav class="workspace__nav" aria-label="Разделы группы">
-            <RouterLink
-              v-for="item in workspace.visibleNavItems.value"
-              :key="item.key"
-              :to="item.to"
-              :class="['workspace__nav-link', { 'workspace__nav-link--active': isActive(item.routeName, item.module) }]"
-            >
-              <strong>{{ item.label }}</strong>
-              <span>{{ item.description }}</span>
-            </RouterLink>
-          </nav>
-
-          <AppCard class="workspace__summary-card">
-            <div class="workspace__summary-head">
-              <h2 class="workspace__card-title">Сводка группы</h2>
-              <span class="workspace__code">{{ group.code }}</span>
-            </div>
-
-            <div class="metric-grid">
-              <div class="metric">
-                <span class="metric__value">{{ group.membersCount }}</span>
-                <span class="metric__label">Участники</span>
-              </div>
-
-              <div class="metric">
-                <span class="metric__value">{{ moduleLabels.length }}</span>
-                <span class="metric__label">Модули</span>
-              </div>
-
-              <div class="metric">
-                <span class="metric__value">{{ workspace.primaryNavItems.value.length }}</span>
-                <span class="metric__label">Разделы</span>
-              </div>
-            </div>
-
-            <GroupModuleBadges :modules="moduleLabels" />
-          </AppCard>
-        </aside>
-
-        <section class="workspace__content">
-          <RouterView />
-        </section>
-      </div>
-
-      <transition name="workspace-fade">
-        <div v-if="mobileSectionsOpen" class="workspace__overlay">
-          <button
-            type="button"
-            class="workspace__backdrop"
-            aria-label="Закрыть навигацию группы"
-            @click="mobileSectionsOpen = false"
-          />
-
-          <div class="workspace__drawer">
-            <div class="workspace__drawer-header">
-              <div>
-                <span class="page-eyebrow">Разделы группы</span>
-                <h2 class="workspace__drawer-title">{{ workspaceName }}</h2>
-              </div>
-
-              <button type="button" class="workspace__drawer-close" @click="mobileSectionsOpen = false">
-                Закрыть
-              </button>
-            </div>
-
-            <nav class="workspace__drawer-nav" aria-label="Разделы группы">
-              <RouterLink
-                v-for="item in workspace.visibleNavItems.value"
-                :key="item.key"
-                :to="item.to"
-                :class="[
-                  'workspace__drawer-link',
-                  { 'workspace__drawer-link--active': isActive(item.routeName, item.module) },
-                ]"
-              >
-                <strong>{{ item.label }}</strong>
-                <span>{{ item.description }}</span>
-              </RouterLink>
-            </nav>
-
-            <AppCard tone="muted">
-              <div class="workspace__summary-head">
-                <strong>Код группы</strong>
-                <span class="workspace__code">{{ group.code }}</span>
-              </div>
-              <GroupModuleBadges :modules="moduleLabels" />
-            </AppCard>
-          </div>
-        </div>
-      </transition>
-    </template>
+    <main class="workspace-main">
+      <RouterView />
+    </main>
   </div>
 </template>
 
+<script setup lang="ts">
+import { computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { groupWorkspaceNav } from '@/app/router/routes'
+import type { Group } from '@/features/groups/api/groups.api'
+import { useGroup } from '@/features/groups/composables/useGroup'
+import { canManageGroup } from '@/features/groups/lib/group-permissions'
+import AppTopNav from '@/shared/ui/AppTopNav.vue'
+
+type GroupWorkspaceNavItem = (typeof groupWorkspaceNav)[number]
+
+const route = useRoute()
+const router = useRouter()
+const { group } = useGroup()
+const initials = computed(() => group.value?.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('') ?? '')
+const visibleNavItems = computed(() => {
+  return groupWorkspaceNav.filter((item) => isNavItemVisible(item, group.value))
+})
+
+function isModuleEnabled(item: GroupWorkspaceNavItem, currentGroup: Group | null) {
+  if (!('settingKey' in item)) {
+    return true
+  }
+
+  return Boolean(currentGroup?.settings[item.settingKey])
+}
+
+function isNavItemVisible(item: GroupWorkspaceNavItem, currentGroup: Group | null) {
+  const isAdminAllowed = !('adminOnly' in item) || !item.adminOnly || canManageGroup(currentGroup)
+
+  return isAdminAllowed && isModuleEnabled(item, currentGroup)
+}
+
+function findCurrentNavItem() {
+  const routeName = String(route.name ?? '')
+
+  return groupWorkspaceNav.find((item) => (item.activeNames as readonly string[]).includes(routeName)) ?? null
+}
+
+function isNavItemActive(item: GroupWorkspaceNavItem) {
+  return (item.activeNames as readonly string[]).includes(String(route.name ?? ''))
+}
+
+watch([() => route.name, () => group.value], () => {
+  const currentGroup = group.value
+  const currentItem = findCurrentNavItem()
+
+  if (!currentGroup || !currentItem || !('settingKey' in currentItem) || isModuleEnabled(currentItem, currentGroup)) {
+    return
+  }
+
+  void router.replace({
+    name: 'group-workspace',
+    params: {
+      groupId: currentGroup.id
+    }
+  })
+}, { immediate: true })
+</script>
+
 <style scoped>
-.workspace {
-  display: grid;
-  gap: 1.5rem;
-}
-
-.workspace__hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
-  gap: 1rem;
-  padding: 1.4rem 1.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.7);
-  box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(18px);
-}
-
-.workspace__hero-copy {
-  display: grid;
-  gap: 0.9rem;
-  min-width: 0;
-}
-
-.workspace__hero-actions {
-  display: grid;
-  gap: 0.75rem;
-  align-content: start;
-}
-
-.workspace__notice {
-  gap: 0.6rem;
-}
-
-.workspace__menu-button {
-  display: none;
-}
-
-.workspace__layout {
-  display: grid;
-  grid-template-columns: minmax(17rem, 20rem) minmax(0, 1fr);
-  gap: 1rem;
-  align-items: start;
-}
-
-.workspace__sidebar {
-  position: sticky;
-  top: 6.4rem;
-  display: grid;
-  gap: 1rem;
-}
-
-.workspace__nav {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.workspace__nav-link {
-  display: grid;
-  gap: 0.25rem;
-  padding: 0.95rem 1rem;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.58);
-  color: var(--color-subtle);
-}
-
-.workspace__nav-link strong {
-  color: var(--color-text);
-}
-
-.workspace__nav-link span {
-  font-size: 0.9rem;
-}
-
-.workspace__nav-link--active {
-  border-color: rgba(31, 117, 156, 0.18);
-  background: var(--color-accent-soft);
-}
-
-.workspace__summary-card {
-  gap: 1.2rem;
-}
-
-.workspace__summary-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.workspace__card-title {
-  font-size: 1.05rem;
-  letter-spacing: -0.02em;
-}
-
-.workspace__code {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.38rem 0.68rem;
-  border-radius: var(--radius-pill);
-  background: var(--color-panel-muted);
-  color: var(--color-accent-strong);
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.workspace__content {
-  min-width: 0;
-}
-
-.workspace__overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 55;
-}
-
-.workspace__backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(20, 32, 51, 0.18);
-  cursor: pointer;
-}
-
-.workspace__drawer {
-  position: absolute;
-  right: 0;
+.workspace-nav {
+  --workspace-nav-divider: color-mix(in srgb, var(--color-divider) 58%, var(--color-outline) 42%);
+  background: var(--color-surface-low);
+  border-right: 1px solid var(--workspace-nav-divider);
   bottom: 0;
-  left: 0;
-  display: grid;
-  gap: 1rem;
-  padding: 1.2rem 1rem 1rem;
-  border-top-left-radius: var(--radius-lg);
-  border-top-right-radius: var(--radius-lg);
-  background: var(--color-panel);
-  box-shadow: var(--shadow-md);
-}
-
-.workspace__drawer-header {
+  box-shadow: 1px 0 0 color-mix(in srgb, var(--workspace-nav-divider) 42%, transparent);
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 24px;
+  left: 0;
+  padding: 88px 16px 24px;
+  position: fixed;
+  top: 0;
+  width: 270px;
+  z-index: 20;
 }
 
-.workspace__drawer-title {
-  font-size: 1.4rem;
-  letter-spacing: -0.03em;
+.workspace-nav__brand {
+  align-items: center;
+  border-radius: var(--radius-lg);
+  display: flex;
+  gap: 12px;
+  padding: 12px;
 }
 
-.workspace__drawer-close {
-  padding: 0;
-  color: var(--color-subtle);
-  cursor: pointer;
+.workspace-nav__brand > span {
+  align-items: center;
+  background: var(--color-primary);
+  border-radius: var(--radius-lg);
+  color: #fff;
+  display: inline-flex;
+  font-weight: 850;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
 }
 
-.workspace__drawer-nav {
+.workspace-nav__brand strong,
+.workspace-nav__brand small {
+  display: block;
+}
+
+.workspace-nav__brand strong {
+  color: var(--color-primary);
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+
+.workspace-nav__brand small {
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  margin-top: 3px;
+}
+
+.workspace-nav nav {
   display: grid;
-  gap: 0.45rem;
+  gap: 6px;
 }
 
-.workspace__drawer-link {
-  display: grid;
-  gap: 0.2rem;
-  padding: 0.85rem 0.95rem;
-  border-radius: var(--radius-sm);
-  background: var(--color-panel-muted);
+.workspace-nav__item {
+  align-items: center;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  display: flex;
+  font-size: 0.94rem;
+  font-weight: 700;
+  gap: 12px;
+  min-height: 46px;
+  padding: 0 14px;
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
-.workspace__drawer-link span {
-  color: var(--color-subtle);
-  font-size: 0.88rem;
+.workspace-nav__item:hover {
+  background: var(--color-surface-highest);
+  transform: translateX(2px);
 }
 
-.workspace__drawer-link--active {
-  background: var(--color-accent-soft);
-  color: var(--color-accent-strong);
+.workspace-nav__item--active {
+  background: var(--color-primary-container);
+  box-shadow: var(--shadow-action-primary);
+  color: var(--color-action-primary-text);
 }
 
-.workspace-fade-enter-active,
-.workspace-fade-leave-active {
-  transition: opacity 180ms ease;
+.workspace-nav__item--active:hover {
+  background: var(--color-primary-container);
+  color: var(--color-action-primary-text);
 }
 
-.workspace-fade-enter-from,
-.workspace-fade-leave-to {
-  opacity: 0;
+.workspace-main {
+  margin-left: 270px;
+  min-height: 100vh;
+}
+
+:deep(.page) {
+  max-width: 1240px;
 }
 
 @media (max-width: 980px) {
-  .workspace__hero {
-    grid-template-columns: 1fr;
+  .workspace-nav {
+    bottom: auto;
+    border-bottom: 1px solid var(--workspace-nav-divider);
+    border-right: 0;
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--workspace-nav-divider) 42%, transparent);
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 74px 16px 12px;
+    right: 0;
+    top: 0;
+    width: auto;
   }
 
-  .workspace__menu-button {
-    display: inline-flex;
+  .workspace-nav__brand {
+    min-width: 220px;
   }
 
-  .workspace__layout {
-    grid-template-columns: 1fr;
+  .workspace-nav nav {
+    display: flex;
   }
 
-  .workspace__sidebar {
-    position: static;
+  .workspace-nav__item {
+    min-width: max-content;
   }
 
-  .workspace__nav,
-  .workspace__summary-card {
-    display: none;
+  .workspace-main {
+    margin-left: 0;
+    padding-top: 92px;
   }
 }
 </style>

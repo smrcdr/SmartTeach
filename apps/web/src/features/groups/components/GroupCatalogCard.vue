@@ -1,218 +1,190 @@
 <script setup lang="ts">
+import { Clock, Users } from 'lucide-vue-next'
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
-
-import AppButton from '../../../shared/ui/AppButton.vue'
-import AppCard from '../../../shared/ui/AppCard.vue'
 import type { Group } from '../api/groups.api'
-import {
-  formatMembersCount,
-  getEnabledGroupModules,
-  groupAccessModeLabels,
-  groupStatusLabels,
-} from '../lib/groups.ui'
-import GroupModuleBadges from './GroupModuleBadges.vue'
+import AppButton from '@/shared/ui/AppButton.vue'
+import ModuleBadges from './ModuleBadges.vue'
 
 const props = defineProps<{
   group: Group
-  isJoined: boolean
+  compact?: boolean
 }>()
 
-const router = useRouter()
-const moduleLabels = computed(() => getEnabledGroupModules(props.group.settings))
-const membersLabel = computed(() => formatMembersCount(props.group.membersCount))
-const accessLabel = computed(() => groupAccessModeLabels[props.group.accessMode])
-const statusLabel = computed(() => groupStatusLabels[props.group.status])
-const actionLabel = computed(() => (props.isJoined ? 'Перейти в рабочее пространство' : 'Открыть группу'))
-const actionTarget = computed(() => (props.isJoined ? `/groups/${props.group.id}/overview` : `/groups/${props.group.id}`))
+const initials = computed(() => props.group.name
+  .split(/\s+/)
+  .filter(Boolean)
+  .slice(0, 2)
+  .map((part) => part[0])
+  .join('')
+  .toUpperCase())
 
-function navigateToTarget() {
-  void router.push(actionTarget.value)
-}
-
-function handleCardKeydown(event: KeyboardEvent) {
-  if (event.key !== 'Enter' && event.key !== ' ') {
-    return
+const accessLabel = computed(() => {
+  if (props.group.accessMode === 'OPEN') {
+    return 'Открытая'
   }
 
-  event.preventDefault()
-  navigateToTarget()
-}
+  if (props.group.accessMode === 'BY_REQUEST') {
+    return 'По заявке'
+  }
+
+  return 'Закрытая'
+})
 </script>
 
 <template>
-  <AppCard
-    class="catalog-card"
-    :tone="isJoined ? 'accent' : 'default'"
-    role="link"
-    tabindex="0"
-    :aria-label="`${actionLabel}: ${group.name}`"
-    @click="navigateToTarget"
-    @keydown="handleCardKeydown"
-  >
-    <div class="catalog-card__header">
-      <div class="catalog-card__copy">
-        <div class="catalog-card__meta">
-          <span class="catalog-card__code">{{ group.code }}</span>
-          <span :class="['catalog-card__badge', `catalog-card__badge--${group.accessMode.toLowerCase()}`]">
-            {{ accessLabel }}
-          </span>
-          <span v-if="group.status !== 'ACTIVE'" class="catalog-card__status">{{ statusLabel }}</span>
-          <span v-if="isJoined" class="catalog-card__status catalog-card__status--joined">Вы уже внутри</span>
+  <article :class="['group-card', compact && 'group-card--compact']">
+    <RouterLink :to="{ name: 'group-preview', params: { groupId: group.id } }" class="group-card__media">
+      <span class="group-card__initials">{{ initials }}</span>
+      <span v-if="group.viewerMembershipRole" class="group-card__flag">Вы участник</span>
+    </RouterLink>
+
+    <div class="group-card__content">
+      <div>
+        <div class="group-card__title-row">
+          <h2>{{ group.name }}</h2>
+          <span>{{ group.code }}</span>
         </div>
-        <h2 class="catalog-card__title">{{ group.name }}</h2>
-        <p class="catalog-card__description">
-          {{ group.description ?? 'Описание пока не добавлено, но группа уже видима в каталоге.' }}
-        </p>
+        <p>{{ group.description }}</p>
+        <ModuleBadges :settings="group.settings" />
       </div>
 
-      <AppButton type="button" :variant="isJoined ? 'primary' : 'secondary'" size="sm" @click.stop="navigateToTarget">
-        {{ actionLabel }}
-      </AppButton>
+      <div class="group-card__footer">
+        <div class="group-card__meta">
+          <span><Users :size="18" /> {{ group.membersCount.toLocaleString('ru-RU') }} участников</span>
+          <span><Clock :size="18" /> {{ accessLabel }}</span>
+        </div>
+        <RouterLink :to="{ name: 'group-preview', params: { groupId: group.id } }">
+          <AppButton>Подробнее</AppButton>
+        </RouterLink>
+      </div>
     </div>
-
-    <dl class="catalog-card__facts">
-      <div>
-        <dt>Владелец</dt>
-        <dd>{{ group.owner.displayName }}</dd>
-      </div>
-      <div>
-        <dt>Участники</dt>
-        <dd>{{ membersLabel }}</dd>
-      </div>
-      <div>
-        <dt>Доступ</dt>
-        <dd>{{ accessLabel }}</dd>
-      </div>
-    </dl>
-
-    <GroupModuleBadges :modules="moduleLabels" />
-  </AppCard>
+  </article>
 </template>
 
 <style scoped>
-.catalog-card {
-  height: 100%;
-  cursor: pointer;
-  transition:
-    transform 160ms ease,
-    border-color 160ms ease,
-    box-shadow 160ms ease;
-}
-
-.catalog-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(31, 117, 156, 0.2);
-  box-shadow: 0 18px 36px rgba(20, 32, 51, 0.12);
-}
-
-.catalog-card:focus-visible {
-  outline: 3px solid rgba(31, 117, 156, 0.24);
-  outline-offset: 3px;
-}
-
-.catalog-card__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.catalog-card__copy {
+.group-card {
+  background: var(--color-surface-lowest);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
   display: grid;
-  gap: 0.65rem;
+  grid-template-columns: minmax(260px, 360px) 1fr;
+  overflow: hidden;
+  transition: box-shadow 180ms ease, transform 180ms ease;
 }
 
-.catalog-card__meta {
+.group-card:hover {
+  box-shadow: var(--shadow-ambient);
+  transform: translateY(-2px);
+}
+
+.group-card__media {
+  align-items: center;
+  background:
+    radial-gradient(circle at 28% 22%, rgb(255 255 255 / 62%), transparent 32%),
+    linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  display: grid;
+  justify-items: center;
+  min-height: 240px;
+  overflow: hidden;
+  position: relative;
+}
+
+.group-card__initials {
+  color: #fff;
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.group-card__flag {
+  background: rgb(255 255 255 / 88%);
+  border-radius: var(--radius-sm);
+  color: var(--color-primary);
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  padding: 7px 9px;
+  position: absolute;
+  right: 14px;
+  text-transform: uppercase;
+  top: 14px;
+}
+
+.group-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  justify-content: space-between;
+  padding: 30px;
+}
+
+.group-card__title-row {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.group-card h2 {
+  color: var(--color-primary);
+  font-size: 1.55rem;
+  line-height: 1.12;
+  margin: 0;
+}
+
+.group-card__title-row span {
+  background: var(--color-secondary-container);
+  border-radius: var(--radius-xs);
+  color: #424464;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.76rem;
+  font-weight: 800;
+  padding: 7px 9px;
+  white-space: nowrap;
+}
+
+.group-card p {
+  color: var(--color-text-muted);
+  line-height: 1.65;
+  margin: 12px 0 22px;
+}
+
+.group-card__footer {
+  align-items: center;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+.group-card__meta {
+  color: var(--color-text-muted);
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
+  gap: 18px;
+  font-size: 0.9rem;
+  font-weight: 650;
 }
 
-.catalog-card__code,
-.catalog-card__badge,
-.catalog-card__status {
-  display: inline-flex;
+.group-card__meta span {
   align-items: center;
-  min-height: 2rem;
-  padding: 0.35rem 0.68rem;
-  border-radius: var(--radius-pill);
-  font-size: 0.82rem;
-  font-weight: 800;
+  display: inline-flex;
+  gap: 7px;
 }
 
-.catalog-card__code {
-  border: 1px solid var(--color-border);
-  background: var(--color-panel-muted);
-  color: var(--color-subtle);
+.group-card--compact {
+  grid-template-columns: minmax(220px, 320px) 1fr;
 }
 
-.catalog-card__badge {
-  background: var(--color-accent-soft);
-  color: var(--color-accent-strong);
-}
-
-.catalog-card__badge--by_request {
-  background: rgba(20, 32, 51, 0.08);
-  color: var(--color-text);
-}
-
-.catalog-card__badge--closed {
-  background: rgba(156, 71, 71, 0.1);
-  color: var(--color-danger);
-}
-
-.catalog-card__status {
-  background: rgba(20, 32, 51, 0.08);
-  color: var(--color-text);
-}
-
-.catalog-card__status--joined {
-  background: var(--color-success-soft);
-  color: var(--color-success);
-}
-
-.catalog-card__title {
-  font-size: 1.3rem;
-  line-height: 1.08;
-  letter-spacing: -0.03em;
-}
-
-.catalog-card__description {
-  color: var(--color-subtle);
-}
-
-.catalog-card__facts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.8rem;
-}
-
-.catalog-card__facts div {
-  display: grid;
-  gap: 0.28rem;
-}
-
-.catalog-card__facts dt {
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-}
-
-.catalog-card__facts dd {
-  margin: 0;
-  font-weight: 700;
-}
-
-@media (max-width: 720px) {
-  .catalog-card__header {
-    flex-direction: column;
+@media (max-width: 840px) {
+  .group-card,
+  .group-card--compact {
+    grid-template-columns: 1fr;
   }
 
-  .catalog-card__facts {
-    grid-template-columns: 1fr;
+  .group-card__footer,
+  .group-card__title-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

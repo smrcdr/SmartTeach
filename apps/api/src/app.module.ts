@@ -9,10 +9,12 @@ import { AssignmentsModule } from './modules/assignments/assignments.module'
 import { ChatsModule } from './modules/chats/chats.module'
 import { FilesModule } from './modules/files/files.module'
 import { GroupSettingsModule } from './modules/group-settings/group-settings.module'
+import { GroupUsefulLinksModule } from './modules/group-useful-links/group-useful-links.module'
 import { GroupMembersModule } from './modules/group-members/group-members.module'
 import { GroupsModule } from './modules/groups/groups.module'
 import { JoinRequestsModule } from './modules/join-requests/join-requests.module'
 import { LessonsModule } from './modules/lessons/lessons.module'
+import { MaterialsModule } from './modules/materials/materials.module'
 import { ScheduleModule } from './modules/schedule/schedule.module'
 import { SecurityModule } from './security/security.module'
 import { UsersModule } from './modules/users/users.module'
@@ -35,9 +37,11 @@ import { SystemModule } from './modules/system/system.module'
     FilesModule,
     GroupsModule,
     GroupSettingsModule,
+    GroupUsefulLinksModule,
     GroupMembersModule,
     JoinRequestsModule,
     LessonsModule,
+    MaterialsModule,
     ScheduleModule,
   ],
 })

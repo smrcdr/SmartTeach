@@ -1,346 +1,579 @@
-import type { components, paths } from '../../../shared/api/generated/openapi'
-import { apiClient } from '../../../shared/api/client/http'
+import { apiRequest } from '@/shared/api/http'
+import type { FileObject } from '@/shared/api/files.api'
 
-export type Group = components['schemas']['Group']
-export type GroupMember = components['schemas']['GroupMember']
-export type GroupJoinRequest = components['schemas']['GroupJoinRequest']
-export type GroupSettings = components['schemas']['GroupSettings']
-export type ScheduleEntry = components['schemas']['ScheduleEntry']
-export type CreateGroupPayload = components['schemas']['CreateGroupRequest']
-export type UpdateGroupPayload = components['schemas']['UpdateGroupRequest']
-export type UpdateGroupMemberPayload = components['schemas']['UpdateGroupMemberRequest']
-export type JoinRequestDecisionPayload = components['schemas']['JoinRequestDecisionRequest']
-export type UpdateGroupSettingsPayload = components['schemas']['UpdateGroupSettingsRequest']
-export type GroupAccessMode = Group['accessMode']
-export type GroupStatus = Group['status']
-export type ListGroupsQuery = NonNullable<paths['/groups']['get']['parameters']['query']>
-export type ListGroupScheduleQuery = NonNullable<paths['/groups/{groupId}/schedule']['get']['parameters']['query']>
-export type ListGroupJoinRequestsQuery = NonNullable<
-  paths['/groups/{groupId}/join-requests']['get']['parameters']['query']
->
-
-type ErrorResponse = components['schemas']['ErrorResponse']
-
-export class GroupsApiError extends Error {
-  readonly statusCode: number
-  readonly errors: string[]
-
-  constructor(error: ErrorResponse | undefined, statusCode: number, fallbackMessage: string) {
-    super(error?.message ?? fallbackMessage)
-    this.name = 'GroupsApiError'
-    this.statusCode = error?.statusCode ?? statusCode
-    this.errors = error?.errors ?? []
-  }
+export type PublicUser = {
+  id: string
+  displayName: string
+  bio: string | null
+  avatarFileId?: string | null
+  avatarUrl?: string | null
 }
 
-export async function listGroups(query: Partial<ListGroupsQuery> = {}) {
-  const { data, error, response } = await apiClient.GET('/groups', {
-    params: {
-      query,
-    },
+export type GroupSettings = {
+  chatEnabled: boolean
+  lessonsEnabled: boolean
+  assignmentsEnabled: boolean
+  scheduleEnabled: boolean
+  usefulLinksEnabled: boolean
+}
+
+export type Group = {
+  id: string
+  code: string
+  name: string
+  description: string | null
+  ownerId: string
+  owner: PublicUser
+  accessMode: 'OPEN' | 'BY_REQUEST' | 'CLOSED'
+  status: 'ACTIVE' | 'ARCHIVED' | 'DELETED'
+  settings: GroupSettings
+  membersCount: number
+  viewerMembershipRole: 'OWNER' | 'ADMIN' | 'USER' | null
+  viewerJoinRequestStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null
+  createdAt: string
+  updatedAt: string
+  archivedAt: string | null
+  deletedAt: string | null
+}
+
+export type Lesson = {
+  id: string
+  groupId: string
+  materialSubsectionId: string | null
+  title: string
+  content: string | null
+  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
+  sortOrder: number
+  publishedAt: string | null
+  archivedAt: string | null
+  createdByUserId: string
+  files: FileObject[]
+  createdAt: string
+  updatedAt: string
+}
+
+export type AssignmentMaterialReference = {
+  id: string
+  title: string
+  sortOrder: number
+}
+
+export type AssignmentTargets = {
+  lessons: AssignmentMaterialReference[]
+  materialSections: AssignmentMaterialReference[]
+  materialSubsections: AssignmentMaterialReference[]
+}
+
+export type Assignment = {
+  id: string
+  groupId: string
+  targets: AssignmentTargets
+  title: string
+  content: string | null
+  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
+  dueAt: string | null
+  maxScore: number | null
+  publishedAt: string | null
+  archivedAt: string | null
+  createdByUserId: string
+  files: FileObject[]
+  createdAt: string
+  updatedAt: string
+}
+
+export type Submission = {
+  id: string
+  assignmentId: string
+  authorId: string
+  attemptNumber: number
+  text: string | null
+  status: 'DRAFT' | 'SUBMITTED' | 'REVIEWED'
+  files: FileObject[]
+  score: number | null
+  feedback: string | null
+  submittedAt: string | null
+  reviewedByUserId: string | null
+  reviewedAt: string | null
+  createdAt: string
+  updatedAt: string
+  author: PublicUser
+  reviewer: PublicUser | null
+}
+
+export type MaterialLesson = {
+  id: string
+  groupId: string
+  materialSubsectionId: string | null
+  title: string
+  status: Lesson['status']
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type MaterialSubsection = {
+  id: string
+  groupId: string
+  sectionId: string
+  title: string
+  sortOrder: number
+  lessonsCount: number
+  createdByUserId: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type MaterialSection = {
+  id: string
+  groupId: string
+  title: string
+  sortOrder: number
+  createdByUserId: string
+  subsections: MaterialSubsection[]
+  createdAt: string
+  updatedAt: string
+}
+
+export type MaterialSubsectionDetails = {
+  section: {
+    id: string
+    title: string
+    sortOrder: number
+  }
+  subsection: MaterialSubsection
+  lessons: MaterialLesson[]
+}
+
+export type ScheduleEvent = {
+  id: string
+  groupId: string
+  title: string
+  description: string | null
+  startsAt: string
+  endsAt: string
+  location: string | null
+  status: 'PLANNED' | 'CANCELLED'
+  createdByUserId: string
+  cancelledAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type UsefulLink = {
+  id: string
+  groupId: string
+  title: string
+  url: string
+  image: FileObject | null
+  sortOrder: number
+  createdByUserId: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type GroupMember = {
+  groupId: string
+  userId: string
+  role: 'OWNER' | 'ADMIN' | 'USER'
+  joinedAt: string
+  updatedAt: string
+  user: PublicUser
+}
+
+export type GroupJoinRequest = {
+  id: string
+  groupId: string
+  userId: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  reviewedByUserId: string | null
+  reviewedAt: string | null
+  createdAt: string
+  updatedAt: string
+  user: PublicUser
+  reviewer: PublicUser | null
+}
+
+export type GroupListQuery = {
+  search?: string
+  mine?: boolean
+}
+
+export type CreateGroupPayload = {
+  name: string
+  description?: string
+  accessMode: Group['accessMode']
+  settings: GroupSettings
+}
+
+export type UpdateGroupPayload = {
+  name?: string
+  description?: string
+  accessMode?: Group['accessMode']
+}
+
+export type UpdateGroupSettingsPayload = Partial<GroupSettings>
+
+export type CreateLessonPayload = {
+  title: string
+  materialSubsectionId?: string | null
+  content?: string
+  status?: Lesson['status']
+  sortOrder?: number
+  fileIds?: string[]
+}
+
+export type UpdateLessonPayload = Partial<CreateLessonPayload>
+
+export type CreateAssignmentPayload = {
+  lessonIds?: string[]
+  materialSectionIds?: string[]
+  materialSubsectionIds?: string[]
+  title: string
+  content?: string
+  status?: Assignment['status']
+  dueAt?: string
+  maxScore?: number
+  fileIds?: string[]
+}
+
+export type CreateMaterialSectionPayload = {
+  title: string
+  sortOrder?: number
+}
+
+export type CreateMaterialSubsectionPayload = {
+  title: string
+  sortOrder?: number
+}
+
+export type UpdateMaterialSectionPayload = Partial<CreateMaterialSectionPayload>
+
+export type UpdateMaterialSubsectionPayload = Partial<CreateMaterialSubsectionPayload>
+
+export type ListLessonsQuery = {
+  materialSubsectionId?: string
+}
+
+export type ListAssignmentsQuery = {
+  lessonId?: string
+  materialSectionId?: string
+  materialSubsectionId?: string
+}
+
+export type CreateSubmissionPayload = {
+  text?: string
+  fileIds?: string[]
+  status?: Submission['status']
+}
+
+export type UpdateSubmissionPayload = {
+  text?: string
+  fileIds?: string[]
+  status?: Submission['status']
+  score?: number
+  feedback?: string
+}
+
+export type CreateScheduleEventPayload = {
+  title: string
+  description?: string
+  startsAt: string
+  endsAt: string
+  location?: string
+}
+
+export type CreateUsefulLinkPayload = {
+  title: string
+  url: string
+  imageFileId?: string | null
+  sortOrder?: number
+}
+
+function toQuery(query: GroupListQuery = {}) {
+  const params = new URLSearchParams()
+
+  if (query.search) {
+    params.set('search', query.search)
+  }
+
+  if (query.mine) {
+    params.set('joinedOnly', 'true')
+  }
+
+  const value = params.toString()
+  return value ? `?${value}` : ''
+}
+
+export function listGroups(query?: GroupListQuery, token?: string | null) {
+  return apiRequest<Group[]>(`/groups${toQuery(query)}`, { token })
+}
+
+export function getGroup(groupId: string, token?: string | null) {
+  return apiRequest<Group>(`/groups/${groupId}`, { token })
+}
+
+export function getGroupByCode(code: string, token?: string | null) {
+  return apiRequest<Group>(`/groups/by-code/${encodeURIComponent(code.trim())}`, { token })
+}
+
+export function createGroup(payload: CreateGroupPayload, token?: string | null) {
+  return apiRequest<Group>('/groups', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updateGroup(groupId: string, payload: UpdateGroupPayload, token?: string | null) {
+  return apiRequest<Group>(`/groups/${groupId}`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updateGroupSettings(groupId: string, payload: UpdateGroupSettingsPayload, token?: string | null) {
+  return apiRequest<GroupSettings>(`/groups/${groupId}/settings`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(payload)
+  })
+}
+
+export function joinGroup(groupId: string, token?: string | null) {
+  return apiRequest<GroupMember>(`/groups/${groupId}/join`, {
+    method: 'POST',
+    token
+  })
+}
+
+export function createJoinRequest(groupId: string, token?: string | null) {
+  return apiRequest<GroupJoinRequest>(`/groups/${groupId}/join-requests`, {
+    method: 'POST',
+    token
+  })
+}
+
+function buildQuery(params: Record<string, string | undefined> = {}) {
+  const search = new URLSearchParams()
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) {
+      search.set(key, value)
+    }
   })
 
-  if (data) {
-    return data
-  }
+  const query = search.toString()
 
-  throw new GroupsApiError(error, response.status, 'Не удалось загрузить список групп')
+  return query ? `?${query}` : ''
 }
 
-export async function createGroup(payload: CreateGroupPayload) {
-  const { data, error, response } = await apiClient.POST('/groups', {
-    body: payload,
+export function listMaterials(groupId: string, token?: string | null) {
+  return apiRequest<MaterialSection[]>(`/groups/${groupId}/materials`, { token })
+}
+
+export function createMaterialSection(
+  groupId: string,
+  payload: CreateMaterialSectionPayload,
+  token?: string | null
+) {
+  return apiRequest<MaterialSection>(`/groups/${groupId}/materials/sections`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload)
   })
-
-  if (data) {
-    return data
-  }
-
-  throw new GroupsApiError(error, response.status, 'Не удалось создать группу')
 }
 
-export async function getGroup(groupId: string) {
-  const { data, error, response } = await apiClient.GET('/groups/{groupId}', {
-    params: {
-      path: {
-        groupId,
-      },
-    },
+export function updateMaterialSection(
+  groupId: string,
+  sectionId: string,
+  payload: UpdateMaterialSectionPayload,
+  token?: string | null
+) {
+  return apiRequest<MaterialSection>(`/groups/${groupId}/materials/sections/${sectionId}`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(payload)
   })
-
-  if (data) {
-    return data
-  }
-
-  throw new GroupsApiError(error, response.status, 'Не удалось загрузить группу')
 }
 
-export async function updateGroup(groupId: string, payload: UpdateGroupPayload) {
-  const { data, error, response } = await apiClient.PATCH('/groups/{groupId}', {
-    params: {
-      path: {
-        groupId,
-      },
-    },
-    body: payload,
+export function deleteMaterialSection(groupId: string, sectionId: string, token?: string | null) {
+  return apiRequest<void>(`/groups/${groupId}/materials/sections/${sectionId}`, {
+    method: 'DELETE',
+    token
   })
-
-  if (data) {
-    return data
-  }
-
-  throw new GroupsApiError(error, response.status, 'Не удалось обновить группу')
 }
 
-export async function deleteGroup(groupId: string) {
-  const { error, response } = await apiClient.DELETE('/groups/{groupId}', {
-    params: {
-      path: {
-        groupId,
-      },
-    },
+export function createMaterialSubsection(
+  groupId: string,
+  sectionId: string,
+  payload: CreateMaterialSubsectionPayload,
+  token?: string | null
+) {
+  return apiRequest<MaterialSubsectionDetails>(`/groups/${groupId}/materials/sections/${sectionId}/subsections`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload)
   })
-
-  if (response.ok) {
-    return
-  }
-
-  throw new GroupsApiError(error, response.status, 'Не удалось удалить группу')
 }
 
-export async function joinGroup(groupId: string) {
-  const { data, error, response } = await apiClient.POST('/groups/{groupId}/join', {
-    params: {
-      path: {
-        groupId,
-      },
-    },
+export function updateMaterialSubsection(
+  groupId: string,
+  subsectionId: string,
+  payload: UpdateMaterialSubsectionPayload,
+  token?: string | null
+) {
+  return apiRequest<MaterialSubsectionDetails>(`/groups/${groupId}/materials/subsections/${subsectionId}`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(payload)
   })
-
-  if (data) {
-    return data
-  }
-
-  throw new GroupsApiError(error, response.status, 'Не удалось вступить в группу')
 }
 
-export async function leaveGroup(groupId: string) {
-  const { error, response } = await apiClient.POST('/groups/{groupId}/leave', {
-    params: {
-      path: {
-        groupId,
-      },
-    },
+export function deleteMaterialSubsection(groupId: string, subsectionId: string, token?: string | null) {
+  return apiRequest<void>(`/groups/${groupId}/materials/subsections/${subsectionId}`, {
+    method: 'DELETE',
+    token
   })
-
-  if (response.ok) {
-    return
-  }
-
-  throw new GroupsApiError(error, response.status, 'Не удалось покинуть группу')
 }
 
-export async function listGroupMembers(groupId: string) {
-  const { data, error, response } = await apiClient.GET('/groups/{groupId}/members', {
-    params: {
-      path: {
-        groupId,
-      },
-    },
+export function getMaterialSubsection(groupId: string, subsectionId: string, token?: string | null) {
+  return apiRequest<MaterialSubsectionDetails>(`/groups/${groupId}/materials/subsections/${subsectionId}`, { token })
+}
+
+export function listLessons(groupId: string, token?: string | null, query: ListLessonsQuery = {}) {
+  return apiRequest<Lesson[]>(`/groups/${groupId}/lessons${buildQuery(query)}`, { token })
+}
+
+export function getLesson(groupId: string, lessonId: string, token?: string | null) {
+  return apiRequest<Lesson>(`/groups/${groupId}/lessons/${lessonId}`, { token })
+}
+
+export function createLesson(groupId: string, payload: CreateLessonPayload, token?: string | null) {
+  return apiRequest<Lesson>(`/groups/${groupId}/lessons`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload)
   })
-
-  if (data) {
-    return data
-  }
-
-  throw new GroupsApiError(error, response.status, 'Не удалось загрузить участников группы')
 }
 
-export async function updateGroupMemberRole(groupId: string, userId: string, payload: UpdateGroupMemberPayload) {
-  const { data, error, response } = await apiClient.PATCH('/groups/{groupId}/members/{userId}', {
-    params: {
-      path: {
-        groupId,
-        userId,
-      },
-    },
-    body: payload,
+export function updateLesson(groupId: string, lessonId: string, payload: UpdateLessonPayload, token?: string | null) {
+  return apiRequest<Lesson>(`/groups/${groupId}/lessons/${lessonId}`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(payload)
   })
-
-  if (data) {
-    return data
-  }
-
-  throw new GroupsApiError(error, response.status, 'Не удалось обновить роль участника')
 }
 
-export async function removeGroupMember(groupId: string, userId: string) {
-  const { error, response } = await apiClient.DELETE('/groups/{groupId}/members/{userId}', {
-    params: {
-      path: {
-        groupId,
-        userId,
-      },
-    },
+export function deleteLesson(groupId: string, lessonId: string, token?: string | null) {
+  return apiRequest<void>(`/groups/${groupId}/lessons/${lessonId}`, {
+    method: 'DELETE',
+    token
   })
-
-  if (response.ok) {
-    return
-  }
-
-  throw new GroupsApiError(error, response.status, 'Не удалось удалить участника из группы')
 }
 
-export async function getGroupSettings(groupId: string) {
-  const { data, error, response } = await apiClient.GET('/groups/{groupId}/settings', {
-    params: {
-      path: {
-        groupId,
-      },
-    },
+export function listAssignments(groupId: string, token?: string | null, query: ListAssignmentsQuery = {}) {
+  return apiRequest<Assignment[]>(`/groups/${groupId}/assignments${buildQuery(query)}`, { token })
+}
+
+export function getAssignment(groupId: string, assignmentId: string, token?: string | null) {
+  return apiRequest<Assignment>(`/groups/${groupId}/assignments/${assignmentId}`, { token })
+}
+
+export function createAssignment(groupId: string, payload: CreateAssignmentPayload, token?: string | null) {
+  return apiRequest<Assignment>(`/groups/${groupId}/assignments`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload)
   })
-
-  if (data) {
-    return data
-  }
-
-  throw new GroupsApiError(error, response.status, 'Не удалось загрузить настройки группы')
 }
 
-export async function updateGroupSettings(groupId: string, payload: UpdateGroupSettingsPayload) {
-  const { data, error, response } = await apiClient.PATCH('/groups/{groupId}/settings', {
-    params: {
-      path: {
-        groupId,
-      },
-    },
-    body: payload,
+export function listSubmissions(
+  groupId: string,
+  assignmentId: string,
+  token?: string | null,
+  query: { mineOnly?: boolean } = {}
+) {
+  return apiRequest<Submission[]>(
+    `/groups/${groupId}/assignments/${assignmentId}/submissions${buildQuery({
+      mineOnly: query.mineOnly === undefined ? undefined : String(query.mineOnly)
+    })}`,
+    { token }
+  )
+}
+
+export function getSubmission(groupId: string, assignmentId: string, submissionId: string, token?: string | null) {
+  return apiRequest<Submission>(`/groups/${groupId}/assignments/${assignmentId}/submissions/${submissionId}`, { token })
+}
+
+export function createSubmission(
+  groupId: string,
+  assignmentId: string,
+  payload: CreateSubmissionPayload,
+  token?: string | null
+) {
+  return apiRequest<Submission>(`/groups/${groupId}/assignments/${assignmentId}/submissions`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload)
   })
-
-  if (data) {
-    return data
-  }
-
-  throw new GroupsApiError(error, response.status, 'Не удалось обновить настройки группы')
 }
 
-export async function listGroupSchedule(groupId: string, query: Partial<ListGroupScheduleQuery> = {}) {
-  const normalizedQuery = Object.fromEntries(
-    Object.entries(query).filter(([, value]) => value !== undefined && value !== ''),
-  ) as Partial<ListGroupScheduleQuery>
-
-  const { data, error, response } = await apiClient.GET('/groups/{groupId}/schedule', {
-    params: {
-      path: {
-        groupId,
-      },
-      query: normalizedQuery,
-    },
+export function updateSubmission(
+  groupId: string,
+  assignmentId: string,
+  submissionId: string,
+  payload: UpdateSubmissionPayload,
+  token?: string | null
+) {
+  return apiRequest<Submission>(`/groups/${groupId}/assignments/${assignmentId}/submissions/${submissionId}`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(payload)
   })
-
-  if (data) {
-    return data
-  }
-
-  throw new GroupsApiError(error, response.status, 'Не удалось загрузить календарь группы')
 }
 
-export async function listGroupJoinRequests(groupId: string, query: Partial<ListGroupJoinRequestsQuery> = {}) {
-  const normalizedQuery = Object.fromEntries(
-    Object.entries(query).filter(([, value]) => value !== undefined),
-  ) as Partial<ListGroupJoinRequestsQuery>
+export function listScheduleEvents(groupId: string, token?: string | null) {
+  return apiRequest<ScheduleEvent[]>(`/groups/${groupId}/schedule/events`, { token })
+}
 
-  const { data, error, response } = await apiClient.GET('/groups/{groupId}/join-requests', {
-    params: {
-      path: {
-        groupId,
-      },
-      query: normalizedQuery,
-    },
+export function createScheduleEvent(groupId: string, payload: CreateScheduleEventPayload, token?: string | null) {
+  return apiRequest<ScheduleEvent>(`/groups/${groupId}/schedule/events`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload)
   })
-
-  if (data) {
-    return data
-  }
-
-  throw new GroupsApiError(error, response.status, 'Не удалось загрузить заявки на вступление')
 }
 
-export async function createJoinRequest(groupId: string) {
-  const { data, error, response } = await apiClient.POST('/groups/{groupId}/join-requests', {
-    params: {
-      path: {
-        groupId,
-      },
-    },
+export function listUsefulLinks(groupId: string, token?: string | null) {
+  return apiRequest<UsefulLink[]>(`/groups/${groupId}/useful-links`, { token })
+}
+
+export function createUsefulLink(groupId: string, payload: CreateUsefulLinkPayload, token?: string | null) {
+  return apiRequest<UsefulLink>(`/groups/${groupId}/useful-links`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload)
   })
-
-  if (data) {
-    return data
-  }
-
-  throw new GroupsApiError(error, response.status, 'Не удалось отправить заявку на вступление')
 }
 
-export async function decideGroupJoinRequest(
+export function listMembers(groupId: string, token?: string | null) {
+  return apiRequest<GroupMember[]>(`/groups/${groupId}/members`, { token })
+}
+
+export function listJoinRequests(groupId: string, token?: string | null) {
+  return apiRequest<GroupJoinRequest[]>(`/groups/${groupId}/join-requests`, { token })
+}
+
+export function decideJoinRequest(
   groupId: string,
   requestId: string,
-  payload: JoinRequestDecisionPayload,
+  decision: 'APPROVED' | 'REJECTED',
+  token?: string | null
 ) {
-  const { data, error, response } = await apiClient.PATCH('/groups/{groupId}/join-requests/{requestId}', {
-    params: {
-      path: {
-        groupId,
-        requestId,
-      },
-    },
-    body: payload,
+  return apiRequest<GroupJoinRequest>(`/groups/${groupId}/join-requests/${requestId}`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify({ decision })
   })
-
-  if (data) {
-    return data
-  }
-
-  throw new GroupsApiError(error, response.status, 'Не удалось обработать заявку на вступление')
-}
-
-export async function lookupGroupByCode(code: string) {
-  const normalizedCode = code.trim().toUpperCase()
-  const { data, error, response } = await apiClient.GET('/groups/by-code/{code}', {
-    params: {
-      path: {
-        code: normalizedCode,
-      },
-    },
-  })
-
-  if (data) {
-    return data
-  }
-
-  throw new GroupsApiError(error, response.status, 'Не удалось найти группу по коду')
-}
-
-export function getGroupsErrorMessage(error: unknown, fallbackMessage: string) {
-  if (error instanceof GroupsApiError) {
-    return error.errors[0] ?? error.message
-  }
-
-  if (error instanceof Error && error.message) {
-    return error.message
-  }
-
-  return fallbackMessage
-}
-
-export function isAlreadyGroupMemberError(error: unknown) {
-  return error instanceof GroupsApiError && error.statusCode === 409 && error.message === 'User is already a member of this group'
-}
-
-export function isPendingJoinRequestError(error: unknown) {
-  return (
-    error instanceof GroupsApiError &&
-    error.statusCode === 409 &&
-    error.message === 'You already have a pending join request for this group'
-  )
 }

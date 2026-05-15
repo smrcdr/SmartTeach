@@ -17,15 +17,6 @@ export const scheduleEventSelect = {
   updatedAt: true,
 } satisfies Prisma.ScheduleEventSelect
 
-export const scheduleLessonEntrySelect = {
-  id: true,
-  groupId: true,
-  title: true,
-  content: true,
-  startsAt: true,
-  endsAt: true,
-} satisfies Prisma.LessonSelect
-
 export const scheduleAssignmentEntrySelect = {
   id: true,
   groupId: true,
@@ -36,10 +27,6 @@ export const scheduleAssignmentEntrySelect = {
 
 export type ScheduleEventRecord = Prisma.ScheduleEventGetPayload<{
   select: typeof scheduleEventSelect
-}>
-
-export type ScheduleLessonEntryRecord = Prisma.LessonGetPayload<{
-  select: typeof scheduleLessonEntrySelect
 }>
 
 export type ScheduleAssignmentEntryRecord = Prisma.AssignmentGetPayload<{
@@ -60,18 +47,6 @@ export function mapScheduleEventToDto(event: ScheduleEventRecord): ScheduleEvent
     cancelledAt: event.cancelledAt?.toISOString() ?? null,
     createdAt: event.createdAt.toISOString(),
     updatedAt: event.updatedAt.toISOString(),
-  }
-}
-
-export function mapLessonToScheduleEntry(lesson: ScheduleLessonEntryRecord): ScheduleEntryDto {
-  return {
-    sourceType: 'LESSON',
-    sourceId: lesson.id,
-    groupId: lesson.groupId,
-    title: lesson.title,
-    description: lesson.content,
-    startsAt: lesson.startsAt!.toISOString(),
-    endsAt: lesson.endsAt!.toISOString(),
   }
 }
 

@@ -5,6 +5,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common'
 import { GroupRole, GroupStatus, JoinRequestStatus, Prisma } from '@prisma/client'
 import { CodeGeneratorService } from '../../common/code-generator.service'
@@ -39,12 +40,24 @@ export class GroupsService {
     private readonly minioService: MinioService,
   ) {}
 
-  async listGroups(userId: string, query: ListGroupsQueryDto) {
+  async listGroups(userId: string | null, query: ListGroupsQueryDto) {
+    let visibilityWhere: Prisma.GroupWhereInput
+
+    if (query.joinedOnly) {
+      if (!userId) {
+        throw new UnauthorizedException()
+      }
+
+      visibilityWhere = this.buildJoinedOnlyWhere(userId)
+    } else {
+      visibilityWhere = this.buildVisibleWhere(userId)
+    }
+
     const groupSelect = buildGroupSelect(userId)
     const groups = await this.prismaService.group.findMany({
       where: {
         AND: [
-          query.joinedOnly ? this.buildJoinedOnlyWhere(userId) : this.buildVisibleWhere(userId),
+          visibilityWhere,
           ...(query.search
             ? [
                 {
@@ -129,6 +142,7 @@ export class GroupsService {
                   lessonsEnabled: payload.settings.lessonsEnabled,
                   assignmentsEnabled: payload.settings.assignmentsEnabled,
                   scheduleEnabled: payload.settings.scheduleEnabled,
+                  usefulLinksEnabled: payload.settings.usefulLinksEnabled,
                 },
               },
               members: {
@@ -155,7 +169,7 @@ export class GroupsService {
     throw new ConflictException('Failed to generate a unique group code')
   }
 
-  async getGroupByCodeOrThrow(userId: string, code: string) {
+  async getGroupByCodeOrThrow(userId: string | null, code: string) {
     const groupSelect = buildGroupSelect(userId)
     const group = await this.prismaService.group.findFirst({
       where: {
@@ -179,7 +193,7 @@ export class GroupsService {
     return this.mapGroupRecordToDto(group)
   }
 
-  async getGroupByIdOrThrow(userId: string, groupId: string) {
+  async getGroupByIdOrThrow(userId: string | null, groupId: string) {
     const groupSelect = buildGroupSelect(userId)
     const group = await this.prismaService.group.findFirst({
       where: {
@@ -339,6 +353,11 @@ export class GroupsService {
             scheduleEnabled: payload.scheduleEnabled,
           }
         : {}),
+      ...(payload.usefulLinksEnabled !== undefined
+        ? {
+            usefulLinksEnabled: payload.usefulLinksEnabled,
+          }
+        : {}),
     }
 
     if (Object.keys(data).length === 0) {
@@ -391,7 +410,16 @@ export class GroupsService {
     return context.group
   }
 
-  private buildVisibleWhere(userId: string): Prisma.GroupWhereInput {
+  private buildVisibleWhere(userId: string | null): Prisma.GroupWhereInput {
+    if (!userId) {
+      return {
+        status: GroupStatus.ACTIVE,
+        accessMode: {
+          in: [...PUBLIC_GROUP_ACCESS_MODES],
+        },
+      }
+    }
+
     return {
       OR: [
         this.buildJoinedOnlyWhere(userId),

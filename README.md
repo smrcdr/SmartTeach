@@ -1,9 +1,8 @@
 # SmartTeach
 
-SmartTeach переведен в workspace-монорепо с двумя приложениями:
+SmartTeach — workspace-монорепо с backend-приложением:
 
-- `apps/web` — текущий frontend на `Vue 3 + Vite`
-- `apps/api` — новый backend-каркас на `NestJS`
+- `apps/api` — backend на `NestJS`
 
 Дополнительные каталоги:
 
@@ -62,7 +61,7 @@ Prisma-файлы backend теперь лежат в `apps/api/prisma`.
    npm run prisma:generate
    ```
 
-7. Запустите приложения:
+7. Запустите API:
 
    ```bash
    npm run dev
@@ -70,10 +69,8 @@ Prisma-файлы backend теперь лежат в `apps/api/prisma`.
 
 Отдельные команды:
 
-- `npm run dev:web` — frontend
 - `npm run dev:api` — backend
-- `npm run build` — сборка frontend и backend
-- `npm run build:web` — сборка frontend
+- `npm run build` — сборка backend
 - `npm run build:api` — сборка backend
 - `npm run db:migrate` — Prisma migration для backend
 - `npm run db:seed` — seed для backend

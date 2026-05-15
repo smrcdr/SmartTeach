@@ -1,267 +1,178 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/features/auth/stores/auth.store'
+import {
+  createGroup,
+  type CreateGroupPayload,
+  type GroupSettings
+} from '@/features/groups/api/groups.api'
+import GroupAccessModeSelect from '@/features/groups/components/GroupAccessModeSelect.vue'
+import GroupModuleSwitch from '@/features/groups/components/GroupModuleSwitch.vue'
+import { groupSettingOptions } from '@/features/groups/lib/group-form-options'
+import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
+import AppButton from '@/shared/ui/AppButton.vue'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import AppTextField from '@/shared/ui/AppTextField.vue'
+import AppTextarea from '@/shared/ui/AppTextarea.vue'
 
-import GroupModuleBadges from '../../features/groups/components/GroupModuleBadges.vue'
-import { getGroupsErrorMessage, type GroupAccessMode } from '../../features/groups/api/groups.api'
-import { useCreateGroupMutation } from '../../features/groups/composables/useGroups'
-import { getEnabledGroupModules, groupAccessModeDescriptions } from '../../features/groups/lib/groups.ui'
-import AppButton from '../../shared/ui/AppButton.vue'
-import AppCard from '../../shared/ui/AppCard.vue'
-import AppErrorState from '../../shared/ui/AppErrorState.vue'
-import AppInput from '../../shared/ui/AppInput.vue'
-import AppSelect from '../../shared/ui/AppSelect.vue'
-import AppTextarea from '../../shared/ui/AppTextarea.vue'
-
-type GroupSettingsForm = {
-  chatEnabled: boolean
-  lessonsEnabled: boolean
-  assignmentsEnabled: boolean
-  scheduleEnabled: boolean
-}
-
-const router = useRouter()
-const createGroupMutation = useCreateGroupMutation()
-
-const form = reactive<{
+type CreateGroupForm = {
   name: string
   description: string
-  accessMode: GroupAccessMode
-  settings: GroupSettingsForm
-}>({
+  accessMode: CreateGroupPayload['accessMode']
+  settings: GroupSettings
+}
+
+const auth = useAuthStore()
+const notifications = useNotificationStore()
+const router = useRouter()
+const isSubmitting = ref(false)
+const form = reactive<CreateGroupForm>({
   name: '',
   description: '',
-  accessMode: 'OPEN',
+  accessMode: 'BY_REQUEST',
   settings: {
     chatEnabled: true,
-    lessonsEnabled: false,
-    assignmentsEnabled: false,
-    scheduleEnabled: false,
-  },
+    lessonsEnabled: true,
+    assignmentsEnabled: true,
+    scheduleEnabled: true,
+    usefulLinksEnabled: true
+  } satisfies GroupSettings
 })
 
-const nameError = ref('')
-const submitError = ref('')
+function buildPayload(): CreateGroupPayload {
+  const description = form.description.trim()
 
-const accessModeOptions = [
-  {
-    label: 'Открытая',
-    value: 'OPEN',
-  },
-  {
-    label: 'По заявке',
-    value: 'BY_REQUEST',
-  },
-  {
-    label: 'Закрытая',
-    value: 'CLOSED',
-  },
-]
+  return {
+    name: form.name.trim(),
+    ...(description ? { description } : {}),
+    accessMode: form.accessMode,
+    settings: { ...form.settings }
+  }
+}
 
-const moduleOptions: Array<{
-  key: keyof GroupSettingsForm
-  label: string
-  description: string
-}> = [
-  {
-    key: 'chatEnabled',
-    label: 'Чаты',
-    description: 'Глобальные и групповые обсуждения сразу доступны в новом рабочем пространстве.',
-  },
-  {
-    key: 'lessonsEnabled',
-    label: 'Уроки',
-    description: 'Группа готовится к работе с операционным списком уроков и дат.',
-  },
-  {
-    key: 'assignmentsEnabled',
-    label: 'Задания',
-    description: 'В группе появятся задания, попытки и проверка работ участников.',
-  },
-  {
-    key: 'scheduleEnabled',
-    label: 'Расписание',
-    description: 'Включает ленту событий и дедлайнов внутри группы.',
-  },
-]
+function validateForm() {
+  if (form.name.trim().length < 2) {
+    notifications.error('Название группы должно быть не короче 2 символов')
+    return false
+  }
 
-const enabledModules = computed(() => getEnabledGroupModules(form.settings))
-const accessModeDescription = computed(() => groupAccessModeDescriptions[form.accessMode])
+  return true
+}
 
-async function handleSubmit() {
-  if (createGroupMutation.isPending.value) {
+async function submit() {
+  if (isSubmitting.value || !validateForm()) {
     return
   }
 
-  const normalizedName = form.name.trim()
-  const normalizedDescription = form.description.trim()
-
-  nameError.value = ''
-  submitError.value = ''
-
-  if (normalizedName.length < 2) {
-    nameError.value = 'Укажите название не короче 2 символов.'
-    return
-  }
+  isSubmitting.value = true
 
   try {
-    const createdGroup = await createGroupMutation.mutateAsync({
-      name: normalizedName,
-      description: normalizedDescription || undefined,
-      accessMode: form.accessMode,
-      settings: {
-        ...form.settings,
-      },
-    })
-
-    await router.push(`/groups/${createdGroup.id}/overview`)
-  } catch (error) {
-    submitError.value = getGroupsErrorMessage(error, 'Не удалось создать группу')
+    const group = await createGroup(buildPayload(), auth.accessToken)
+    notifications.success('Группа создана')
+    await router.push({ name: 'group-workspace', params: { groupId: group.id } })
+  } catch (caught) {
+    notifications.error(caught instanceof Error ? caught.message : 'Не удалось создать группу')
+  } finally {
+    isSubmitting.value = false
   }
 }
 </script>
 
 <template>
-  <div class="page-shell">
-    <header class="page-header">
-      <span class="page-eyebrow">Группы / Создание</span>
-      <h1 class="page-title">Создание группы теперь начинается с одной рабочей формы без лишних промежуточных шагов.</h1>
-      <p class="page-lead">
-        Код группы сгенерируется автоматически, а владелец сразу попадёт в собственное рабочее пространство после успешного
-        создания.
-      </p>
-    </header>
+  <main class="page narrow-page">
+    <AppPageHeader
+      eyebrow="Новая группа"
+      title="Создать группу"
+      description="Укажите данные группы и доступные разделы."
+    />
 
-    <div class="section-grid">
-      <AppCard class="span-8">
-        <form class="form-grid" @submit.prevent="handleSubmit">
-          <AppInput
-            v-model="form.name"
-            label="Название группы"
-            placeholder="Например, Лаборатория веб-разработки"
-            :error="nameError"
-            required
-            class="span-full"
+    <form class="create-group-form surface-panel" novalidate @submit.prevent="submit">
+      <AppTextField
+        v-model="form.name"
+        name="name"
+        label="Имя"
+        placeholder="Введите имя группы"
+      />
+      <AppTextarea
+        v-model="form.description"
+        name="description"
+        label="Описание"
+        placeholder="Добавьте описание"
+      />
+      <GroupAccessModeSelect v-model="form.accessMode" name="accessMode" />
+
+      <section class="create-group-form__modules" aria-labelledby="group-modules-title">
+        <h2 id="group-modules-title">Разделы</h2>
+        <div class="create-group-form__module-grid">
+          <GroupModuleSwitch
+            v-for="option in groupSettingOptions"
+            :key="option.key"
+            v-model="form.settings[option.key]"
+            :name="option.key"
+            :label="option.label"
           />
-
-          <AppTextarea
-            v-model="form.description"
-            label="Описание"
-            hint="Описание опционально, но помогает отличить группу в каталоге и в рабочем списке."
-            placeholder="Коротко опишите, для чего нужна группа и что в ней происходит."
-            class="span-full"
-          />
-
-          <AppSelect
-            v-model="form.accessMode"
-            label="Режим доступа"
-            :options="accessModeOptions"
-            class="span-full"
-          />
-
-          <fieldset class="modules span-full">
-            <legend class="modules__legend">Модули группы</legend>
-
-            <label v-for="option in moduleOptions" :key="option.key" class="modules__item">
-              <input v-model="form.settings[option.key]" type="checkbox" />
-              <div class="modules__copy">
-                <strong>{{ option.label }}</strong>
-                <span>{{ option.description }}</span>
-              </div>
-            </label>
-          </fieldset>
-
-          <AppErrorState
-            v-if="submitError"
-            class="span-full"
-            title="Не удалось создать группу"
-            :description="submitError"
-          />
-
-          <div class="page-actions span-full">
-            <AppButton type="submit" :disabled="createGroupMutation.isPending.value">
-              {{ createGroupMutation.isPending.value ? 'Создаём группу...' : 'Создать группу' }}
-            </AppButton>
-            <AppButton to="/groups" variant="secondary">Вернуться к группам</AppButton>
-          </div>
-        </form>
-      </AppCard>
-
-      <AppCard class="span-4" tone="accent">
-        <span class="page-eyebrow">Что получится</span>
-        <h2 class="side-title">Дефолтный сценарий сразу собирает открытую группу с включённым чатом.</h2>
-        <p class="muted">{{ accessModeDescription }}</p>
-
-        <div class="side-block">
-          <strong>Включённые модули</strong>
-          <GroupModuleBadges :modules="enabledModules" />
         </div>
+      </section>
 
-        <div class="side-block">
-          <strong>Важно</strong>
-          <ul class="list-copy">
-            <li>владелец автоматически становится первым участником</li>
-            <li>код группы создаётся на сервере и не вводится вручную</li>
-            <li>после сохранения открывается контекст группы</li>
-          </ul>
-        </div>
-      </AppCard>
-    </div>
-  </div>
+      <div class="create-group-form__actions">
+        <AppButton type="submit" size="lg" :disabled="isSubmitting">
+          {{ isSubmitting ? 'Создаём...' : 'Создать группу' }}
+        </AppButton>
+        <RouterLink to="/my-groups" class="create-group-form__cancel">Отмена</RouterLink>
+      </div>
+    </form>
+  </main>
 </template>
 
 <style scoped>
-.modules {
+.create-group-form {
   display: grid;
-  gap: 0.85rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-panel-muted);
+  gap: 20px;
+  padding: clamp(24px, 4vw, 36px);
 }
 
-.modules__legend {
-  padding: 0 0.25rem;
-  font-weight: 700;
+.create-group-form__modules {
+  display: grid;
+  gap: 14px;
 }
 
-.modules__item {
+.create-group-form__modules h2 {
+  color: var(--color-text-muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.create-group-form__module-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.create-group-form__actions {
+  align-items: center;
   display: flex;
-  align-items: flex-start;
-  gap: 0.8rem;
-  padding: 0.95rem 1rem;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.72);
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 8px;
 }
 
-.modules__item input {
-  width: 1rem;
-  height: 1rem;
-  margin-top: 0.2rem;
+.create-group-form__cancel {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  font-weight: 720;
 }
 
-.modules__copy {
-  display: grid;
-  gap: 0.3rem;
+.create-group-form__cancel:hover {
+  color: var(--color-primary);
 }
 
-.modules__copy strong {
-  font-size: 0.98rem;
-}
-
-.modules__copy span {
-  color: var(--color-subtle);
-}
-
-.side-title {
-  font-size: 1.15rem;
-  line-height: 1.12;
-  letter-spacing: -0.03em;
-}
-
-.side-block {
-  display: grid;
-  gap: 0.75rem;
+@media (max-width: 720px) {
+  .create-group-form__module-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

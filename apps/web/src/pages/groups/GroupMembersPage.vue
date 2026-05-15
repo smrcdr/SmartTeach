@@ -1,584 +1,385 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { Clipboard, MessageCircle, UserPlus, UserRound } from 'lucide-vue-next'
+import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/features/auth/stores/auth.store'
+import { createDirectChat } from '@/features/chats/api/chats.api'
+import { listMembers, type GroupMember } from '@/features/groups/api/groups.api'
+import { useGroup } from '@/features/groups/composables/useGroup'
+import { useGroupRouteList } from '@/features/groups/composables/useGroupRouteResource'
+import { canManageGroup } from '@/features/groups/lib/group-permissions'
+import { getGroupRoleLabel } from '@/features/groups/lib/status-labels'
+import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
+import ContentList from '@/features/groups/components/ContentList.vue'
+import AppButton from '@/shared/ui/AppButton.vue'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import EmptyState from '@/shared/ui/EmptyState.vue'
 
-import { useAuth } from '../../features/auth/composables/useAuth'
-import { getGroupsErrorMessage, type GroupMember } from '../../features/groups/api/groups.api'
-import {
-  useGroupMembers,
-  useLeaveGroupMutation,
-  useRemoveGroupMemberMutation,
-  useUpdateGroupMemberRoleMutation,
-} from '../../features/groups/composables/useGroups'
-import { useGroupWorkspace } from '../../features/groups/composables/useGroupWorkspace'
-import { groupMembershipRoleLabels } from '../../features/groups/lib/groups.ui'
-import AppButton from '../../shared/ui/AppButton.vue'
-import AppCard from '../../shared/ui/AppCard.vue'
-import AppEmptyState from '../../shared/ui/AppEmptyState.vue'
-import AppErrorState from '../../shared/ui/AppErrorState.vue'
-import AppLoader from '../../shared/ui/AppLoader.vue'
-import UserDirectChatButton from '../../features/chats/components/UserDirectChatButton.vue'
-
-const route = useRoute()
+const auth = useAuthStore()
+const notifications = useNotificationStore()
 const router = useRouter()
-const { currentUser } = useAuth()
+const { group } = useGroup()
+const { items: members } = useGroupRouteList(listMembers)
+const canManage = computed(() => canManageGroup(group.value))
+const isInviteDialogOpen = ref(false)
+const selectedMember = ref<GroupMember | null>(null)
+const memberMenuPosition = ref({ left: 12, top: 12 })
+const isOpeningChat = ref(false)
+const memberMenuStyle = computed(() => ({
+  left: `${memberMenuPosition.value.left}px`,
+  top: `${memberMenuPosition.value.top}px`
+}))
 
-const groupId = computed(() => String(route.params.groupId ?? ''))
-const workspace = useGroupWorkspace(groupId)
-const membersQuery = useGroupMembers(groupId, {
-  enabled: workspace.isMember,
-})
-const updateMemberRoleMutation = useUpdateGroupMemberRoleMutation(groupId)
-const removeMemberMutation = useRemoveGroupMemberMutation(groupId)
-const leaveGroupMutation = useLeaveGroupMutation(groupId)
+function getMemberMenuPosition(event: MouseEvent) {
+  const viewportPadding = 12
+  const menuWidth = 280
+  const menuHeight = 112
+  const maxLeft = Math.max(viewportPadding, window.innerWidth - menuWidth - viewportPadding)
+  const maxTop = Math.max(viewportPadding, window.innerHeight - menuHeight - viewportPadding)
 
-const roleDrafts = reactive<Record<string, GroupMember['role']>>({})
-const transferTargetUserId = ref('')
-const actionError = ref('')
-const busyActionKey = ref('')
-
-const group = computed(() => workspace.group.value)
-const members = computed(() => membersQuery.data.value ?? [])
-const memberCount = computed(() => members.value.length)
-const managerCount = computed(() => members.value.filter((member) => member.role !== 'USER').length)
-const currentUserId = computed(() => currentUser.value?.id ?? '')
-const currentMember = computed(() => members.value.find((member) => member.userId === currentUserId.value) ?? null)
-const membersErrorMessage = computed(() => {
-  const error = membersQuery.error.value
-
-  return error ? getGroupsErrorMessage(error, 'Не удалось загрузить состав группы') : ''
-})
-const canShowManagerActions = computed(() => workspace.canManageGroup.value && !workspace.isReadOnly.value)
-const transferCandidates = computed(() =>
-  members.value.filter((member) => member.userId !== group.value?.ownerId),
-)
-const canLeaveGroup = computed(
-  () =>
-    !workspace.isReadOnly.value &&
-    (workspace.membershipRole.value === 'USER' || workspace.membershipRole.value === 'ADMIN'),
-)
-const isActionPending = computed(
-  () =>
-    updateMemberRoleMutation.isPending.value ||
-    removeMemberMutation.isPending.value ||
-    leaveGroupMutation.isPending.value,
-)
-
-watch(
-  members,
-  (nextMembers) => {
-    const nextUserIds = new Set(nextMembers.map((member) => member.userId))
-
-    for (const member of nextMembers) {
-      roleDrafts[member.userId] = member.role
-    }
-
-    for (const userId of Object.keys(roleDrafts)) {
-      if (!nextUserIds.has(userId)) {
-        delete roleDrafts[userId]
-      }
-    }
-
-    if (!transferCandidates.value.some((member) => member.userId === transferTargetUserId.value)) {
-      transferTargetUserId.value = transferCandidates.value[0]?.userId ?? ''
-    }
-  },
-  {
-    immediate: true,
-  },
-)
-
-function canManageMember(member: GroupMember) {
-  return canShowManagerActions.value && member.userId !== currentUserId.value && member.userId !== group.value?.ownerId
-}
-
-function isRoleDirty(member: GroupMember) {
-  return (roleDrafts[member.userId] ?? member.role) !== member.role
-}
-
-function getInitials(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((chunk) => chunk[0]?.toUpperCase() ?? '')
-    .join('')
-}
-
-function formatJoinedAt(value: string) {
-  return new Intl.DateTimeFormat('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date(value))
-}
-
-function normalizeOptionalText(value: unknown) {
-  if (typeof value !== 'string') {
-    return ''
+  return {
+    left: Math.min(Math.max(event.clientX, viewportPadding), maxLeft),
+    top: Math.min(Math.max(event.clientY + 8, viewportPadding), maxTop)
   }
-
-  return value.trim()
 }
 
-function getAvatarUrl(value: unknown) {
-  return typeof value === 'string' ? value : ''
-}
-
-function resetActionState() {
-  actionError.value = ''
-}
-
-async function handleRoleSave(member: GroupMember) {
-  if (!canManageMember(member) || !isRoleDirty(member)) {
+function toggleMemberMenu(member: GroupMember, event: MouseEvent) {
+  if (selectedMember.value?.userId === member.userId) {
+    selectedMember.value = null
     return
   }
 
-  busyActionKey.value = `role:${member.userId}`
-  resetActionState()
+  memberMenuPosition.value = getMemberMenuPosition(event)
+  selectedMember.value = member
+}
+
+async function copyGroupCode() {
+  if (!group.value?.code) {
+    return
+  }
 
   try {
-    await updateMemberRoleMutation.mutateAsync({
-      userId: member.userId,
-      role: roleDrafts[member.userId] ?? member.role,
-    })
-  } catch (error) {
-    actionError.value = getGroupsErrorMessage(error, 'Не удалось обновить роль участника')
-  } finally {
-    busyActionKey.value = ''
+    await navigator.clipboard.writeText(group.value.code)
+    notifications.success('Код скопирован')
+  } catch {
+    notifications.error('Не удалось скопировать код')
   }
 }
 
-async function handleTransferOwnership() {
-  const targetMember = transferCandidates.value.find((member) => member.userId === transferTargetUserId.value)
-
-  if (!workspace.isOwner.value || workspace.isReadOnly.value || !targetMember) {
+async function openDirectChat() {
+  if (!selectedMember.value || !auth.accessToken || isOpeningChat.value) {
     return
   }
 
-  const shouldProceed = window.confirm(
-    `Передать владение группой "${group.value?.name ?? 'этой группой'}" пользователю ${
-      targetMember.user.displayName
-    }? После этого вы останетесь в группе как администратор.`,
-  )
-
-  if (!shouldProceed) {
+  if (selectedMember.value.userId === auth.user?.id) {
+    notifications.error('Нельзя создать чат с собой')
     return
   }
 
-  busyActionKey.value = 'transfer'
-  resetActionState()
-
+  isOpeningChat.value = true
   try {
-    await updateMemberRoleMutation.mutateAsync({
-      userId: targetMember.userId,
-      role: 'OWNER',
-    })
-  } catch (error) {
-    actionError.value = getGroupsErrorMessage(error, 'Не удалось передать владение группой')
+    const chat = await createDirectChat(selectedMember.value.userId, auth.accessToken)
+    selectedMember.value = null
+    await router.push({ name: 'chats', query: { chatId: chat.id } })
+  } catch (caught) {
+    notifications.error(caught instanceof Error ? caught.message : 'Не удалось открыть чат')
   } finally {
-    busyActionKey.value = ''
+    isOpeningChat.value = false
   }
 }
 
-async function handleRemoveMember(member: GroupMember) {
-  if (!canManageMember(member)) {
+async function openPublicProfile() {
+  if (!selectedMember.value) {
     return
   }
 
-  const shouldProceed = window.confirm(
-    `Удалить ${member.user.displayName} из группы "${group.value?.name ?? 'этой группы'}"? Участник потеряет доступ ко всем разделам группы.`,
-  )
+  const userId = selectedMember.value.userId
 
-  if (!shouldProceed) {
-    return
-  }
-
-  busyActionKey.value = `remove:${member.userId}`
-  resetActionState()
-
-  try {
-    await removeMemberMutation.mutateAsync(member.userId)
-  } catch (error) {
-    actionError.value = getGroupsErrorMessage(error, 'Не удалось удалить участника из группы')
-  } finally {
-    busyActionKey.value = ''
-  }
-}
-
-async function handleLeaveGroup() {
-  if (!canLeaveGroup.value) {
-    return
-  }
-
-  const shouldProceed = window.confirm(
-    `Покинуть группу "${group.value?.name ?? 'эту группу'}"? После выхода доступ к рабочему пространству группы будет сразу закрыт.`,
-  )
-
-  if (!shouldProceed) {
-    return
-  }
-
-  busyActionKey.value = 'leave'
-  resetActionState()
-
-  try {
-    await leaveGroupMutation.mutateAsync()
-    await router.push({
-      name: 'groups',
-    })
-  } catch (error) {
-    actionError.value = getGroupsErrorMessage(error, 'Не удалось покинуть группу')
-  } finally {
-    busyActionKey.value = ''
-  }
+  selectedMember.value = null
+  await router.push({ name: 'public-profile', params: { userId } })
 }
 </script>
 
 <template>
-  <div class="page-shell">
-    <header class="page-header">
-      <span class="page-eyebrow">Рабочее пространство / Участники</span>
-      <h1 class="page-title">Состав группы, роли и сценарии владения управляются в одном рабочем контуре.</h1>
-      <p class="page-lead">
-        Все участники видят полный список состава. Владелец и администраторы получают отдельные действия для ролей,
-        удаления и передачи владения без выхода из рабочего пространства группы.
-      </p>
-    </header>
+  <main class="page" @click="selectedMember = null">
+    <AppPageHeader
+      eyebrow="Команда"
+      title="Участники"
+      description="Состав группы, роли и доступ к учебным материалам."
+      align="split"
+    >
+      <template v-if="canManage" #actions>
+        <AppButton @click="isInviteDialogOpen = true"><UserPlus :size="18" /> Пригласить</AppButton>
+      </template>
+    </AppPageHeader>
 
-    <div v-if="workspace.isReadOnly.value" class="panel-note">
-      Группа находится в архиве. Состав и роли остаются видимыми, но все редактирующие действия и выход из группы
-      отключены до восстановления.
-    </div>
-
-    <AppLoader v-if="membersQuery.isPending.value" label="Загружаем состав группы и роли участников" />
-
-    <AppErrorState
-      v-else-if="membersErrorMessage"
-      title="Не удалось загрузить участников"
-      :description="membersErrorMessage"
-    />
-
-    <AppEmptyState
-      v-else-if="members.length === 0"
-      title="В группе пока нет участников"
-      description="Когда сервер вернёт состав группы, здесь появятся участники, роли и доступные управляющие действия."
-    />
-
-    <div v-else class="section-grid">
-      <AppCard class="span-8 members-card">
-        <div class="members-card__header">
-          <div>
-            <h2 class="members-card__title">Состав группы</h2>
-            <p class="muted">Роль владельца и управляющие роли фиксируются прямо в списке без перехода в отдельный экран.</p>
-          </div>
-
-          <div class="pill-list">
-            <span class="pill">{{ memberCount }} участников</span>
-            <span class="pill">{{ managerCount }} менеджеров</span>
-          </div>
-        </div>
-
-        <AppErrorState
-          v-if="actionError"
-          title="Не удалось выполнить действие"
-          :description="actionError"
-        />
-
-        <ul class="member-list">
-          <li v-for="member in members" :key="member.userId" class="member-item">
-            <div class="member-item__identity">
-              <img
-                v-if="getAvatarUrl(member.user.avatarUrl)"
-                :src="getAvatarUrl(member.user.avatarUrl)"
-                :alt="member.user.displayName"
-                class="member-item__avatar member-item__avatar--image"
-              />
-              <div v-else class="member-item__avatar">
-                {{ getInitials(member.user.displayName) }}
-              </div>
-
-              <div class="member-item__copy">
-                <div class="member-item__headline">
-                  <strong>{{ member.user.displayName }}</strong>
-                  <span class="pill">{{ groupMembershipRoleLabels[member.role] }}</span>
-                  <span v-if="member.userId === currentUserId" class="pill">Вы</span>
-                </div>
-
-                <p v-if="normalizeOptionalText(member.user.bio)" class="member-item__bio">
-                  {{ normalizeOptionalText(member.user.bio) }}
-                </p>
-                <p v-else class="member-item__bio member-item__bio--muted">
-                  Публичное описание не заполнено.
-                </p>
-
-                <p class="member-item__meta">В группе с {{ formatJoinedAt(member.joinedAt) }}</p>
-
-                <div v-if="member.userId !== currentUserId" class="member-item__context-actions">
-                  <AppButton
-                    variant="ghost"
-                    size="sm"
-                    :to="{
-                      name: 'public-user-profile',
-                      params: {
-                        userId: member.userId,
-                      },
-                    }"
-                  >
-                    Профиль
-                  </AppButton>
-                  <UserDirectChatButton :user-id="member.userId" />
-                </div>
-              </div>
-            </div>
-
-            <div v-if="canManageMember(member)" class="member-item__actions">
-              <label class="member-item__field">
-                <span class="member-item__field-label">Роль</span>
-                <select
-                  v-model="roleDrafts[member.userId]"
-                  class="member-item__select"
-                  :disabled="isActionPending"
-                >
-                  <option value="ADMIN">Администратор</option>
-                  <option value="USER">Участник</option>
-                </select>
-              </label>
-
-              <div class="member-item__buttons">
-                <AppButton
-                  variant="secondary"
-                  size="sm"
-                  :disabled="!isRoleDirty(member) || isActionPending"
-                  @click="handleRoleSave(member)"
-                >
-                  {{ busyActionKey === `role:${member.userId}` ? 'Сохраняем...' : 'Сохранить роль' }}
-                </AppButton>
-
-                <AppButton
-                  variant="ghost"
-                  size="sm"
-                  :disabled="isActionPending"
-                  @click="handleRemoveMember(member)"
-                >
-                  {{ busyActionKey === `remove:${member.userId}` ? 'Удаляем...' : 'Удалить из группы' }}
-                </AppButton>
-              </div>
-            </div>
-          </li>
-        </ul>
-      </AppCard>
-
-      <AppCard class="span-4 side-card" tone="accent">
-        <span class="page-eyebrow">Моё участие</span>
-        <h2 class="side-card__title">{{ currentMember ? groupMembershipRoleLabels[currentMember.role] : 'Участник группы' }}</h2>
-        <p class="muted">
-          {{ currentMember?.userId === group?.ownerId
-            ? 'Владелец не может выйти из группы напрямую: сначала нужно явно передать владение другому участнику.'
-            : 'Выход из группы вынесен отдельно, чтобы не путать его с админским удалением участников.' }}
-        </p>
-
-        <div class="pill-list">
-          <span v-if="currentMember" class="pill">{{ groupMembershipRoleLabels[currentMember.role] }}</span>
-          <span v-if="group" class="pill">{{ group.name }}</span>
-        </div>
-
-        <div class="side-card__actions">
-          <AppButton
-            v-if="canLeaveGroup"
-            variant="secondary"
-            block
-            :disabled="isActionPending"
-            @click="handleLeaveGroup"
-          >
-            {{ busyActionKey === 'leave' ? 'Выходим...' : 'Покинуть группу' }}
-          </AppButton>
-
-          <AppButton v-else-if="workspace.isOwner.value" href="#ownership-transfer" variant="secondary" block>
-            Перейти к передаче владения
-          </AppButton>
-        </div>
-      </AppCard>
-
-      <AppCard
-        v-if="workspace.isOwner.value"
-        id="ownership-transfer"
-        class="span-4 side-card"
+    <ContentList title="Список участников">
+      <div
+        v-for="member in members"
+        :key="member.userId"
+        class="member-row-shell"
       >
-        <span class="page-eyebrow">Владение</span>
-        <h2 class="side-card__title">Передача владения</h2>
-        <p class="muted">
-          Это отдельный явный сценарий: выбранный участник становится владельцем, а текущий владелец автоматически остаётся
-          в группе как администратор.
-        </p>
+        <button
+          class="member-row"
+          type="button"
+          :aria-expanded="selectedMember?.userId === member.userId"
+          @click.stop="toggleMemberMenu(member, $event)"
+        >
+          <img v-if="member.user.avatarUrl" :src="member.user.avatarUrl" :alt="member.user.displayName" />
+          <span v-else class="member-row__initials">{{ member.user.displayName.slice(0, 1) }}</span>
+          <div>
+            <h3>{{ member.user.displayName }}</h3>
+            <p>{{ member.user.bio }}</p>
+          </div>
+          <strong>{{ getGroupRoleLabel(member.role) }}</strong>
+        </button>
 
-        <template v-if="transferCandidates.length > 0">
-          <label class="member-item__field">
-            <span class="member-item__field-label">Новый владелец</span>
-            <select
-              v-model="transferTargetUserId"
-              class="member-item__select"
-              :disabled="workspace.isReadOnly.value || isActionPending"
-            >
-              <option v-for="member in transferCandidates" :key="member.userId" :value="member.userId">
-                {{ member.user.displayName }}
-              </option>
-            </select>
-          </label>
-
-          <AppButton
-            block
-            :disabled="workspace.isReadOnly.value || !transferTargetUserId || isActionPending"
-            @click="handleTransferOwnership"
+        <section
+          v-if="selectedMember?.userId === member.userId"
+          class="member-menu"
+          role="menu"
+          :style="memberMenuStyle"
+          @click.stop
+        >
+          <button
+            type="button"
+            role="menuitem"
+            :disabled="isOpeningChat || member.userId === auth.user?.id"
+            @click="openDirectChat"
           >
-            {{ busyActionKey === 'transfer' ? 'Передаём владение...' : 'Передать владение' }}
-          </AppButton>
-        </template>
+            <MessageCircle :size="18" />
+            {{ isOpeningChat ? 'Открываем...' : 'Написать' }}
+          </button>
+          <button type="button" role="menuitem" @click="openPublicProfile">
+            <UserRound :size="18" />
+            Открыть профиль
+          </button>
+        </section>
+      </div>
+      <EmptyState v-if="members.length === 0" title="Участников пока нет" />
+    </ContentList>
 
-        <AppEmptyState
-          v-else
-          title="Некому передавать владение"
-          description="Для передачи владения в группе должен быть хотя бы ещё один участник."
-        />
-      </AppCard>
-
-      <AppCard class="span-8 side-card">
-        <span class="page-eyebrow">Права доступа</span>
-        <h2 class="side-card__title">Что учитывает экран участников</h2>
-        <ul class="list-copy">
-          <li>обычные участники видят состав группы, но не получают опасных действий и управления ролями</li>
-          <li>администраторы и владелец управляют ролями и удалением только вне архивного режима только для чтения</li>
-          <li>передача владения не скрыта внутри обычного выбора роли и вынесена в отдельный подтверждаемый сценарий</li>
-        </ul>
-      </AppCard>
+    <div
+      v-if="isInviteDialogOpen && group"
+      class="invite-dialog"
+      role="presentation"
+      @click.self="isInviteDialogOpen = false"
+    >
+      <section
+        class="invite-dialog__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="invite-dialog-title"
+      >
+        <div>
+          <span class="invite-dialog__eyebrow">Код группы</span>
+          <h2 id="invite-dialog-title">Приглашение</h2>
+        </div>
+        <button
+          class="invite-dialog__code"
+          type="button"
+          aria-label="Скопировать код группы"
+          @click="copyGroupCode"
+        >
+          <Clipboard :size="20" />
+          <strong>{{ group.code }}</strong>
+        </button>
+        <AppButton type="button" variant="secondary" @click="isInviteDialogOpen = false">Закрыть</AppButton>
+      </section>
     </div>
-  </div>
+  </main>
 </template>
 
 <style scoped>
-.members-card,
-.side-card {
-  gap: 1.2rem;
+.member-row-shell {
+  position: relative;
 }
 
-.members-card__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.members-card__title,
-.side-card__title {
-  font-size: 1.08rem;
-  letter-spacing: -0.02em;
-}
-
-.member-list {
-  display: grid;
-  gap: 0.9rem;
-}
-
-.member-item {
-  display: grid;
-  gap: 1rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.66);
-}
-
-.member-item__identity {
-  display: flex;
-  gap: 1rem;
-  align-items: flex-start;
-}
-
-.member-item__avatar {
-  display: grid;
-  place-items: center;
-  width: 3rem;
-  height: 3rem;
-  border-radius: 50%;
-  background: var(--color-accent-soft);
-  color: var(--color-accent-strong);
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  flex-shrink: 0;
-}
-
-.member-item__avatar--image {
-  object-fit: cover;
-  background: var(--color-panel-muted);
-}
-
-.member-item__copy {
-  display: grid;
-  gap: 0.45rem;
-}
-
-.member-item__headline {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+.member-row {
   align-items: center;
-}
-
-.member-item__bio {
-  color: var(--color-text);
-}
-
-.member-item__bio--muted,
-.member-item__meta {
-  color: var(--color-subtle);
-}
-
-.member-item__context-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-}
-
-.member-item__actions {
+  background: var(--color-surface-lowest);
+  border-radius: var(--radius-md);
+  border: 0;
+  color: inherit;
+  cursor: pointer;
   display: grid;
-  gap: 0.85rem;
-  padding-top: 0.2rem;
-  border-top: 1px solid rgba(31, 117, 156, 0.12);
+  font: inherit;
+  gap: 16px;
+  grid-template-columns: 52px 1fr auto;
+  padding: 18px 20px;
+  text-align: left;
+  transition: background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  width: 100%;
 }
 
-.member-item__field {
-  display: grid;
-  gap: 0.4rem;
+.member-row:hover {
+  background: var(--color-surface-low);
+  box-shadow: 0 12px 32px -24px rgb(21 25 108 / 42%);
+  transform: translateY(-1px);
 }
 
-.member-item__field-label {
-  font-size: 0.8rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
+.member-row img,
+.member-row__initials {
+  border-radius: 50%;
+  height: 52px;
+  width: 52px;
+}
+
+.member-row img {
+  object-fit: cover;
+}
+
+.member-row__initials {
+  align-items: center;
+  background: var(--color-primary);
+  color: #fff;
+  display: inline-flex;
+  font-weight: 850;
+  justify-content: center;
   text-transform: uppercase;
-  color: var(--color-muted);
 }
 
-.member-item__select {
-  min-height: 2.8rem;
-  padding: 0.72rem 0.9rem;
-  border: 1px solid var(--color-border);
+.member-row h3,
+.member-row p {
+  margin: 0;
+}
+
+.member-row h3 {
+  color: var(--color-primary);
+  margin-bottom: 5px;
+}
+
+.member-row p {
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+.member-row strong {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.member-menu {
+  background: var(--color-menu-surface);
+  border: 1px solid var(--color-menu-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-menu);
+  display: grid;
+  gap: 4px;
+  min-width: 248px;
+  padding: 10px;
+  position: fixed;
+  width: min(280px, calc(100vw - 24px));
+  z-index: 20;
+}
+
+.member-menu button {
+  align-items: center;
+  background: transparent;
+  border: 0;
   border-radius: var(--radius-sm);
-  background: var(--color-panel);
   color: var(--color-text);
-}
-
-.member-item__buttons,
-.side-card__actions {
+  cursor: pointer;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 650;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 14px;
+  text-align: left;
 }
 
-@media (max-width: 900px) {
-  .members-card__header,
-  .member-item__identity {
-    flex-direction: column;
+.member-menu button:hover:not(:disabled),
+.member-menu button:focus-visible:not(:disabled) {
+  background: var(--color-menu-hover);
+  color: var(--color-primary);
+  outline: none;
+}
+
+.member-menu button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.invite-dialog {
+  align-items: center;
+  background: rgb(0 0 0 / 34%);
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  left: 0;
+  padding: 24px;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 90;
+}
+
+.invite-dialog__panel {
+  background: var(--color-menu-surface);
+  border: 1px solid var(--color-menu-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-menu);
+  display: grid;
+  gap: 20px;
+  max-width: 420px;
+  padding: 28px;
+  width: min(100%, 420px);
+}
+
+.invite-dialog__eyebrow {
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.invite-dialog h2 {
+  color: var(--color-text);
+  font-size: 1.45rem;
+  line-height: 1.15;
+  margin: 6px 0 0;
+}
+
+.invite-dialog__code {
+  align-items: center;
+  background: var(--color-surface-low);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 2rem;
+  font-weight: 900;
+  gap: 12px;
+  justify-content: center;
+  letter-spacing: 0.08em;
+  padding: 18px;
+  text-align: center;
+  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+  width: 100%;
+}
+
+.invite-dialog__code:hover {
+  background: var(--color-surface-highest);
+  border-color: var(--color-focus-border);
+  transform: translateY(-1px);
+}
+
+.invite-dialog__code strong {
+  font: inherit;
+}
+
+@media (max-width: 620px) {
+  .member-row {
+    align-items: start;
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .member-row strong {
+    grid-column: 2;
   }
 }
 </style>

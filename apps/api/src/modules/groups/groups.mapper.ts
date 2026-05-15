@@ -4,11 +4,14 @@ import type { AvatarUrlByFileId } from '../users/user-avatar.utils'
 import { GroupDto } from './dto/group.dto'
 import { GroupSettingsDto } from './dto/group-settings.dto'
 
+const ANONYMOUS_VIEWER_USER_ID = '00000000-0000-0000-0000-000000000000'
+
 export const groupSettingsSelect = {
   chatEnabled: true,
   lessonsEnabled: true,
   assignmentsEnabled: true,
   scheduleEnabled: true,
+  usefulLinksEnabled: true,
 } satisfies Prisma.GroupSettingsSelect
 
 const groupBaseSelect = {
@@ -44,19 +47,21 @@ const groupViewerJoinRequestSelect = {
   status: true,
 } satisfies Prisma.GroupJoinRequestSelect
 
-export function buildGroupSelect(userId: string) {
+export function buildGroupSelect(userId: string | null) {
+  const viewerUserId = userId ?? ANONYMOUS_VIEWER_USER_ID
+
   return {
     ...groupBaseSelect,
     members: {
       where: {
-        userId,
+        userId: viewerUserId,
       },
       select: groupViewerMembershipSelect,
       take: 1,
     },
     joinRequests: {
       where: {
-        userId,
+        userId: viewerUserId,
       },
       orderBy: [
         {
@@ -86,6 +91,7 @@ export function mapGroupSettingsToDto(settings: GroupSettingsRecord): GroupSetti
     lessonsEnabled: settings.lessonsEnabled,
     assignmentsEnabled: settings.assignmentsEnabled,
     scheduleEnabled: settings.scheduleEnabled,
+    usefulLinksEnabled: settings.usefulLinksEnabled,
   }
 }
 

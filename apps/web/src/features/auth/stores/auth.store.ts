@@ -1,140 +1,198 @@
-import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { computed, ref } from 'vue'
+import { ApiError } from '@/shared/api/http'
+import * as authApi from '../api/auth.api'
+import { translateAuthValidationError } from '../lib/auth-validation'
 
-import { queryClient } from '../../../app/providers/query'
-import {
-  applyAccessSession,
-  clearAccessSession,
-  getAccessToken,
-  onAccessSessionChange,
-} from '../../../shared/api/client/http'
-import {
-  getCurrentUser,
-  login as loginRequest,
-  logout as logoutRequest,
-  refreshSession,
-  register as registerRequest,
-  type AuthUser,
-  type LoginPayload,
-  type RegisterPayload,
-} from '../api/auth.api'
-type InitializationState = 'idle' | 'pending' | 'ready'
+const tokenStorageKey = 'smarteach.accessToken'
+const sessionStorageKey = 'smarteach.sessionId'
 
-export const useAuthStore = defineStore('auth', () => {
-  const accessToken = ref<string | null>(getAccessToken())
-  const currentUser = ref<AuthUser | null>(null)
-  const initializationState = ref<InitializationState>('idle')
+function getStoredToken() {
+  return localStorage.getItem(tokenStorageKey)
+}
 
-  let initializePromise: Promise<void> | null = null
-  let authStateVersion = 0
+function getStoredSessionId() {
+  return localStorage.getItem(sessionStorageKey)
+}
 
-  const isAuthenticated = computed(() => Boolean(accessToken.value && currentUser.value))
-  const isInitializing = computed(() => initializationState.value === 'pending')
-  const hasInitialized = computed(() => initializationState.value === 'ready')
-
-  onAccessSessionChange((session) => {
-    accessToken.value = session?.accessToken ?? null
-  })
-
-  async function initialize() {
-    if (hasInitialized.value) {
-      return
-    }
-
-    if (!initializePromise) {
-      initializationState.value = 'pending'
-      initializePromise = bootstrapSession().finally(() => {
-        initializationState.value = 'ready'
-        initializePromise = null
-      })
-    }
-
-    return initializePromise
+function getPayloadValidationErrors(payload: unknown): string[] {
+  if (!payload || typeof payload !== 'object' || !('errors' in payload)) {
+    return []
   }
 
-  async function bootstrapSession() {
-    const bootstrapVersion = authStateVersion
-    const session = await refreshSession()
+  const errors = (payload as { errors?: unknown }).errors
 
-    if (bootstrapVersion !== authStateVersion) {
-      return
+  if (!Array.isArray(errors)) {
+    return []
+  }
+
+  return errors.map(String)
+}
+
+function getAuthValidationErrorMessage(payload: unknown) {
+  const errors = getPayloadValidationErrors(payload)
+
+  for (const error of errors) {
+    const translated = translateAuthValidationError(error)
+
+    if (translated) {
+      return translated
+    }
+  }
+
+  return errors[0] ?? null
+}
+
+function getAuthErrorMessage(caught: unknown, fallback: string) {
+  if (caught instanceof ApiError) {
+    if (caught.status === 0) {
+      return 'Не удалось подключиться к серверу'
     }
 
-    if (!session) {
-      clearSessionState()
+    if (caught.status === 401) {
+      return 'Неверный email или пароль'
+    }
+
+    if (caught.status === 409) {
+      return 'Пользователь с таким email уже существует'
+    }
+
+    if (caught.status === 400) {
+      return getAuthValidationErrorMessage(caught.payload) ?? 'Проверьте правильность заполнения полей'
+    }
+
+    if (caught.status >= 500) {
+      return 'Сервер временно недоступен. Попробуйте позже'
+    }
+  }
+
+  if (caught instanceof Error && caught.message) {
+    return caught.message
+  }
+
+  return fallback
+}
+
+export const useAuthStore = defineStore('auth', () => {
+  const accessToken = ref<string | null>(getStoredToken())
+  const sessionId = ref<string | null>(getStoredSessionId())
+  const user = ref<authApi.AuthUser | null>(null)
+  const isLoading = ref(false)
+  const error = ref<string | null>(null)
+  const hasCheckedSession = ref(false)
+
+  const displayUser = computed(() => user.value)
+
+  const isAuthenticated = computed(() => Boolean(accessToken.value && user.value))
+
+  function setSession(session: authApi.AuthSession) {
+    accessToken.value = session.accessToken
+    sessionId.value = session.sessionId
+    user.value = session.user
+    localStorage.setItem(tokenStorageKey, session.accessToken)
+    localStorage.setItem(sessionStorageKey, session.sessionId)
+  }
+
+  function setTokenPair(tokenPair: authApi.TokenPair) {
+    accessToken.value = tokenPair.accessToken
+    sessionId.value = tokenPair.sessionId
+    localStorage.setItem(tokenStorageKey, tokenPair.accessToken)
+    localStorage.setItem(sessionStorageKey, tokenPair.sessionId)
+  }
+
+  function clearSession() {
+    accessToken.value = null
+    sessionId.value = null
+    user.value = null
+    localStorage.removeItem(tokenStorageKey)
+    localStorage.removeItem(sessionStorageKey)
+  }
+
+  async function login(payload: authApi.LoginPayload) {
+    isLoading.value = true
+    error.value = null
+    try {
+      setSession(await authApi.login(payload))
+    } catch (caught) {
+      error.value = getAuthErrorMessage(caught, 'Не удалось войти')
+      throw caught
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  async function register(payload: authApi.RegisterPayload) {
+    isLoading.value = true
+    error.value = null
+    try {
+      setSession(await authApi.register(payload))
+    } catch (caught) {
+      error.value = getAuthErrorMessage(caught, 'Не удалось зарегистрироваться')
+      throw caught
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  async function loadMe() {
+    if (!accessToken.value) {
       return
     }
 
     try {
-      await syncCurrentUser()
+      user.value = await authApi.getMe(accessToken.value)
     } catch {
-      if (bootstrapVersion !== authStateVersion) {
-        return
-      }
-
-      clearSessionState()
+      clearSession()
     }
   }
 
-  async function login(payload: LoginPayload) {
-    const session = await loginRequest(payload)
+  async function ensureSession() {
+    if (accessToken.value) {
+      if (!user.value) {
+        await loadMe()
+      }
 
-    await establishSession(session)
-  }
+      hasCheckedSession.value = true
+      return Boolean(accessToken.value)
+    }
 
-  async function register(payload: RegisterPayload) {
-    const session = await registerRequest(payload)
+    if (hasCheckedSession.value) {
+      return false
+    }
 
-    await establishSession(session)
+    hasCheckedSession.value = true
+
+    try {
+      setTokenPair(await authApi.refresh())
+      await loadMe()
+      return Boolean(accessToken.value)
+    } catch {
+      clearSession()
+      return false
+    }
   }
 
   async function logout() {
-    await logoutRequest()
-    clearSessionState()
-    initializationState.value = 'ready'
-  }
-
-  function setCurrentUser(user: AuthUser | null) {
-    currentUser.value = user
-  }
-
-  function clearSessionState() {
-    authStateVersion += 1
-    clearAccessSession()
-    setCurrentUser(null)
-    queryClient.clear()
-  }
-
-  async function establishSession(session: { accessToken: string; sessionId: string }) {
-    authStateVersion += 1
-    applyAccessSession(session)
-
     try {
-      await syncCurrentUser()
-      initializationState.value = 'ready'
-    } catch (error) {
-      clearSessionState()
-      initializationState.value = 'ready'
-      throw error
+      await authApi.logout(accessToken.value)
+    } finally {
+      clearSession()
     }
-  }
-
-  async function syncCurrentUser() {
-    setCurrentUser(await getCurrentUser())
   }
 
   return {
     accessToken,
-    currentUser,
-    initializationState,
+    sessionId,
+    user,
+    displayUser,
     isAuthenticated,
-    isInitializing,
-    hasInitialized,
-    initialize,
+    isLoading,
+    error,
     login,
     register,
-    logout,
-    setCurrentUser,
-    clearSessionState,
+    loadMe,
+    ensureSession,
+    clearSession,
+    logout
   }
 })

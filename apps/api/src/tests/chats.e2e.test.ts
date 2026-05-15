@@ -155,6 +155,17 @@ type MessageResponse = {
     url: string
     createdAt: string
   }>
+  replyToMessage: {
+    id: string
+    authorId: string
+    text: string | null
+    deletedAt: string | null
+    createdAt: string
+    author: {
+      id: string
+      displayName: string
+    }
+  } | null
   editedAt: string | null
   deletedAt: string | null
   createdAt: string
@@ -852,6 +863,22 @@ test('message endpoints support attachment sync during edits and hide deleted co
   const textMessageId = textMessageResult.body.id
   assert.equal(textMessageResult.body.text, 'Первый вариант домашней работы готов.')
   assert.equal(textMessageResult.body.files.length, 0)
+  assert.equal(textMessageResult.body.replyToMessage, null)
+
+  const replyMessageResult = await request<MessageResponse>(`/chats/${chatCreateResult.body.id}/messages`, {
+    method: 'POST',
+    token: owner.accessToken,
+    body: {
+      text: 'Посмотрю и дам комментарии.',
+      replyToMessageId: textMessageId,
+    },
+  })
+
+  assert.equal(replyMessageResult.response.status, 201)
+  assert.ok(replyMessageResult.body)
+  assert.equal(replyMessageResult.body.replyToMessage?.id, textMessageId)
+  assert.equal(replyMessageResult.body.replyToMessage?.text, 'Первый вариант домашней работы готов.')
+  assert.equal(replyMessageResult.body.replyToMessage?.author.id, member.user.id)
 
   const attachmentMessageResult = await request<MessageResponse>(
     `/chats/${chatCreateResult.body.id}/messages`,
@@ -895,9 +922,11 @@ test('message endpoints support attachment sync during edits and hide deleted co
 
   assert.equal(listMessagesResult.response.status, 200)
   assert.ok(listMessagesResult.body)
-  assert.equal(listMessagesResult.body.length, 2)
+  assert.equal(listMessagesResult.body.length, 3)
   assert.equal(listMessagesResult.body[0]?.id, textMessageResult.body.id)
-  assert.equal(listMessagesResult.body[1]?.id, attachmentMessageResult.body.id)
+  assert.equal(listMessagesResult.body[1]?.id, replyMessageResult.body.id)
+  assert.equal(listMessagesResult.body[1]?.replyToMessage?.id, textMessageResult.body.id)
+  assert.equal(listMessagesResult.body[2]?.id, attachmentMessageResult.body.id)
 
   const chatDetailResult = await request<ChatResponse>(`/chats/${chatCreateResult.body.id}`, {
     method: 'GET',
@@ -994,10 +1023,15 @@ test('message endpoints support attachment sync during edits and hide deleted co
 
   assert.equal(listAfterDeleteResult.response.status, 200)
   assert.ok(listAfterDeleteResult.body)
-  assert.equal(listAfterDeleteResult.body.length, 2)
+  assert.equal(listAfterDeleteResult.body.length, 3)
   const deletedMessage = listAfterDeleteResult.body.find((message) => message.id === textMessageId)
   assert.ok(deletedMessage)
   assert.ok(deletedMessage.deletedAt)
   assert.equal(deletedMessage.text, null)
   assert.deepEqual(deletedMessage.files, [])
+  const replyAfterDelete = listAfterDeleteResult.body.find((message) => message.id === replyMessageResult.body?.id)
+  assert.ok(replyAfterDelete)
+  assert.equal(replyAfterDelete.replyToMessage?.id, textMessageId)
+  assert.equal(replyAfterDelete.replyToMessage?.text, null)
+  assert.ok(replyAfterDelete.replyToMessage?.deletedAt)
 })

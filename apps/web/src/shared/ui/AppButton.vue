@@ -1,126 +1,128 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { RouterLink, type RouteLocationRaw } from 'vue-router'
 
-const props = withDefaults(
-  defineProps<{
-    to?: RouteLocationRaw
-    href?: string
-    variant?: 'primary' | 'secondary' | 'ghost'
-    size?: 'md' | 'sm'
-    type?: 'button' | 'submit' | 'reset'
-    block?: boolean
-    disabled?: boolean
-  }>(),
-  {
-    variant: 'primary',
-    size: 'md',
-    type: 'button',
-    block: false,
-    disabled: false,
-  },
-)
-
-const component = computed(() => {
-  if (props.to) {
-    return RouterLink
-  }
-
-  if (props.href) {
-    return 'a'
-  }
-
-  return 'button'
+const props = withDefaults(defineProps<{
+  variant?: 'primary' | 'secondary' | 'tertiary' | 'quiet'
+  size?: 'sm' | 'md' | 'lg'
+  iconOnly?: boolean
+  ariaLabel?: string
+  type?: 'button' | 'submit' | 'reset'
+  disabled?: boolean
+}>(), {
+  variant: 'primary',
+  size: 'md',
+  iconOnly: false,
+  ariaLabel: undefined,
+  type: 'button',
+  disabled: false
 })
 
-const buttonClass = computed(() => [
+const classes = computed(() => [
   'app-button',
   `app-button--${props.variant}`,
   `app-button--${props.size}`,
-  props.block ? 'app-button--block' : '',
-  props.disabled ? 'app-button--disabled' : '',
+  { 'app-button--icon-only': props.iconOnly }
 ])
-
-const componentProps = computed(() => {
-  if (props.to) {
-    return {
-      to: props.to,
-    }
-  }
-
-  if (props.href) {
-    return {
-      href: props.href,
-    }
-  }
-
-  return {
-    type: props.type,
-    disabled: props.disabled,
-  }
-})
 </script>
 
 <template>
-  <component :is="component" :class="buttonClass" v-bind="componentProps">
+  <button
+    :type="type"
+    :class="classes"
+    :aria-label="ariaLabel"
+    :disabled="disabled"
+  >
     <slot />
-  </component>
+  </button>
 </template>
 
 <style scoped>
 .app-button {
-  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  min-height: 2.9rem;
-  padding: 0.72rem 1.1rem;
-  border: 1px solid transparent;
-  border-radius: var(--radius-pill);
-  font-weight: 700;
+  border: 0;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition:
-    transform 160ms ease,
-    border-color 160ms ease,
-    background-color 160ms ease,
-    color 160ms ease;
+  display: inline-flex;
+  font-weight: 750;
+  gap: 10px;
+  justify-content: center;
+  letter-spacing: 0;
+  line-height: 1;
+  min-height: 42px;
+  transition: background-color 160ms ease, box-shadow 160ms ease, color 160ms ease, transform 160ms ease;
+  white-space: nowrap;
 }
 
 .app-button:hover {
   transform: translateY(-1px);
 }
 
+.app-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+  transform: none;
+}
+
+.app-button:disabled:hover {
+  transform: none;
+}
+
+.app-button:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.app-button:focus-visible {
+  outline: 3px solid var(--color-focus-border);
+  outline-offset: 3px;
+}
+
 .app-button--primary {
-  background: var(--color-text);
-  color: #ffffff;
-  box-shadow: 0 16px 32px rgba(20, 32, 51, 0.16);
+  background: var(--color-action-primary-bg);
+  box-shadow: var(--shadow-action-primary);
+  color: var(--color-action-primary-text);
+}
+
+.app-button--primary:hover {
+  box-shadow: var(--shadow-action-primary-hover);
 }
 
 .app-button--secondary {
-  background: var(--color-panel);
-  border-color: var(--color-border);
+  background: var(--color-surface-high);
   color: var(--color-text);
 }
 
-.app-button--ghost {
+.app-button--tertiary {
   background: transparent;
-  border-color: rgba(31, 117, 156, 0.16);
-  color: var(--color-accent-strong);
+  color: var(--color-primary);
+  font-size: 0.76rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.app-button--quiet {
+  background: transparent;
+  color: var(--color-text-muted);
 }
 
 .app-button--sm {
-  min-height: 2.45rem;
-  padding: 0.55rem 0.9rem;
-  font-size: 0.92rem;
+  min-height: 34px;
+  padding: 0 14px;
 }
 
-.app-button--block {
-  width: 100%;
+.app-button--md {
+  min-height: 42px;
+  padding: 0 20px;
 }
 
-.app-button--disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  pointer-events: none;
+.app-button--lg {
+  min-height: 50px;
+  padding: 0 28px;
+}
+
+.app-button--icon-only {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  min-width: 42px;
+  padding: 0;
 }
 </style>

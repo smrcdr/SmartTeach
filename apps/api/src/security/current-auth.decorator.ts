@@ -12,3 +12,11 @@ export const CurrentAuth = createParamDecorator(
     return request.auth
   },
 )
+
+export const CurrentOptionalAuth = createParamDecorator(
+  (_data: unknown, context: ExecutionContext) => {
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>()
+
+    return request.auth ?? null
+  },
+)

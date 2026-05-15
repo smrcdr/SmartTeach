@@ -1,276 +1,395 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
-
-import GroupModuleBadges from '../../features/groups/components/GroupModuleBadges.vue'
-import { useGroupWorkspace } from '../../features/groups/composables/useGroupWorkspace'
+import { computed, reactive, ref } from 'vue'
+import { BookOpen, CalendarDays, ClipboardList, Link, MessageCircle, Plus, Upload, X } from 'lucide-vue-next'
 import {
-  formatGroupDateTimeRange,
-  formatMembersCount,
-  getEnabledGroupModules,
-  getGroupMembershipRoleLabel,
-  groupAccessModeLabels,
-  groupStatusLabels,
-  scheduleEntryTypeLabels,
-} from '../../features/groups/lib/groups.ui'
-import AppButton from '../../shared/ui/AppButton.vue'
-import AppCard from '../../shared/ui/AppCard.vue'
-import AppEmptyState from '../../shared/ui/AppEmptyState.vue'
-import AppErrorState from '../../shared/ui/AppErrorState.vue'
-import AppLoader from '../../shared/ui/AppLoader.vue'
+  createUsefulLink,
+  listAssignments,
+  listLessons,
+  listScheduleEvents,
+  listUsefulLinks,
+  type CreateUsefulLinkPayload
+} from '@/features/groups/api/groups.api'
+import { listGroupChats } from '@/features/chats/api/chats.api'
+import { useAuthStore } from '@/features/auth/stores/auth.store'
+import { canManageGroup } from '@/features/groups/lib/group-permissions'
+import { useGroup } from '@/features/groups/composables/useGroup'
+import { useGroupRouteList } from '@/features/groups/composables/useGroupRouteResource'
+import { getGroupStatusLabel } from '@/features/groups/lib/status-labels'
+import { uploadFile } from '@/shared/api/files.api'
+import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
+import AppButton from '@/shared/ui/AppButton.vue'
+import ContentList from '@/features/groups/components/ContentList.vue'
+import EmptyState from '@/shared/ui/EmptyState.vue'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import AppTextField from '@/shared/ui/AppTextField.vue'
+import MetricTile from '@/shared/ui/MetricTile.vue'
+import StatusPill from '@/shared/ui/StatusPill.vue'
 
-const route = useRoute()
+const auth = useAuthStore()
+const notifications = useNotificationStore()
+const { group, error } = useGroup()
+const usefulLinksEnabled = computed(() => Boolean(group.value?.settings.usefulLinksEnabled))
+const canManage = computed(() => canManageGroup(group.value))
+const hasMetrics = computed(() => {
+  const settings = group.value?.settings
 
-const groupId = computed(() => String(route.params.groupId ?? ''))
-const workspace = useGroupWorkspace(groupId)
-const group = computed(() => workspace.group.value)
-const settings = computed(() => workspace.settings.value)
-const moduleLabels = computed(() => (settings.value ? getEnabledGroupModules(settings.value) : []))
-const membershipLabel = computed(() => getGroupMembershipRoleLabel(workspace.membershipRole.value))
-const ownerLabel = computed(() => group.value?.owner.displayName ?? 'Не удалось определить владельца')
-const quickLinks = computed(() => workspace.primaryNavItems.value.slice(0, 5))
-const upcomingEntries = computed(() => workspace.upcomingEntries.value)
-const groupLead = computed(
-  () => normalizeOptionalText(group.value?.description) || 'Операционная сводка группы: состав, код доступа, модули и ближайшие активности.',
-)
+  return Boolean(
+    settings?.lessonsEnabled ||
+    settings?.assignmentsEnabled ||
+    settings?.scheduleEnabled ||
+    settings?.chatEnabled
+  )
+})
+const isLinkDialogOpen = ref(false)
+const isSubmittingLink = ref(false)
+const imageInput = ref<HTMLInputElement | null>(null)
+const linkForm = reactive({
+  title: '',
+  url: '',
+  imageFile: null as File | null
+})
+const { items: lessons } = useGroupRouteList(listLessons, {
+  enabled: () => Boolean(group.value?.settings.lessonsEnabled)
+})
+const { items: assignments } = useGroupRouteList(listAssignments, {
+  enabled: () => Boolean(group.value?.settings.assignmentsEnabled)
+})
+const { items: schedule } = useGroupRouteList(listScheduleEvents, {
+  enabled: () => Boolean(group.value?.settings.scheduleEnabled)
+})
+const { items: chats } = useGroupRouteList(listGroupChats, {
+  enabled: () => Boolean(group.value?.settings.chatEnabled)
+})
+const { items: usefulLinks, refresh: refreshUsefulLinks } = useGroupRouteList(listUsefulLinks, {
+  enabled: () => usefulLinksEnabled.value
+})
 
-function normalizeOptionalText(value: unknown) {
-  if (typeof value !== 'string') {
-    return ''
+function openLinkDialog() {
+  resetLinkForm()
+  isLinkDialogOpen.value = true
+}
+
+function closeLinkDialog() {
+  if (isSubmittingLink.value) {
+    return
   }
 
-  return value.trim()
+  isLinkDialogOpen.value = false
+  resetLinkForm()
+}
+
+function resetLinkForm() {
+  linkForm.title = ''
+  linkForm.url = ''
+  linkForm.imageFile = null
+
+  if (imageInput.value) {
+    imageInput.value.value = ''
+  }
+}
+
+function handleImageChange(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0] ?? null
+
+  if (file && !file.type.startsWith('image/')) {
+    notifications.error('Для полезной ссылки можно прикрепить только изображение')
+    const input = event.target as HTMLInputElement
+
+    input.value = ''
+    linkForm.imageFile = null
+    return
+  }
+
+  linkForm.imageFile = file
+}
+
+function validateLinkForm() {
+  if (linkForm.title.trim().length === 0) {
+    notifications.error('Укажите текст ссылки')
+    return false
+  }
+
+  try {
+    const url = new URL(linkForm.url.trim())
+
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      throw new Error('Unsupported protocol')
+    }
+  } catch {
+    notifications.error('Укажите корректную ссылку')
+    return false
+  }
+
+  return true
+}
+
+async function submitUsefulLink() {
+  if (!group.value || isSubmittingLink.value || !validateLinkForm()) {
+    return
+  }
+
+  isSubmittingLink.value = true
+
+  try {
+    const image = linkForm.imageFile
+      ? await uploadFile(linkForm.imageFile, 'group-useful-links', auth.accessToken)
+      : null
+    const payload: CreateUsefulLinkPayload = {
+      title: linkForm.title.trim(),
+      url: linkForm.url.trim(),
+      imageFileId: image?.id ?? null
+    }
+
+    await createUsefulLink(group.value.id, payload, auth.accessToken)
+    await refreshUsefulLinks()
+    notifications.success('Полезная ссылка добавлена')
+    isLinkDialogOpen.value = false
+    resetLinkForm()
+  } catch (caught) {
+    notifications.error(caught instanceof Error ? caught.message : 'Не удалось добавить ссылку')
+  } finally {
+    isSubmittingLink.value = false
+  }
 }
 </script>
 
 <template>
-  <div v-if="group && settings" class="page-shell">
-    <header class="page-header">
-      <span class="page-eyebrow">Рабочее пространство / Обзор</span>
-      <h1 class="page-title">{{ group.name }}</h1>
-      <p class="page-lead">{{ groupLead }}</p>
-    </header>
+  <main v-if="group" class="page workspace-page">
+    <AppPageHeader
+      eyebrow="Рабочая область"
+      :title="group.name"
+      :description="group.description ?? undefined"
+      align="split"
+    >
+      <template #actions>
+        <StatusPill :label="getGroupStatusLabel(group.status)" tone="success" />
+      </template>
+    </AppPageHeader>
 
-    <div v-if="workspace.isReadOnly.value" class="panel-note">
-      Группа переведена в архив. Рабочее пространство работает только на чтение: просмотр доступен, а действия
-      редактирования скрываются централизованно.
-    </div>
+    <section v-if="hasMetrics" class="workspace-page__metrics">
+      <MetricTile v-if="group.settings.lessonsEnabled" label="Материалов" :value="lessons.length" detail="Опубликованные и черновики" :icon="BookOpen" />
+      <MetricTile v-if="group.settings.assignmentsEnabled" label="Заданий" :value="assignments.length" detail="Активные проверки" :icon="ClipboardList" />
+      <MetricTile v-if="group.settings.scheduleEnabled" label="Событий" :value="schedule.length" detail="Ближайшие встречи" :icon="CalendarDays" />
+      <MetricTile v-if="group.settings.chatEnabled" label="Чатов" :value="chats.length" detail="Коммуникация группы" :icon="MessageCircle" />
+    </section>
 
-    <div class="section-grid">
-      <AppCard class="span-8 overview-card">
-        <div class="overview-card__header">
-          <div>
-            <h2 class="overview-card__title">Контекст группы</h2>
-            <p class="muted">Базовая информация, которую участник должен видеть до перехода в отдельные модули.</p>
-          </div>
+    <ContentList v-if="usefulLinksEnabled" title="Полезные ссылки">
+      <template #actions>
+        <AppButton v-if="canManage" variant="secondary" size="sm" @click="openLinkDialog">
+          <Plus :size="16" />
+          Добавить ссылку
+        </AppButton>
+      </template>
 
-          <span class="overview-card__code">{{ group.code }}</span>
-        </div>
-
-        <div class="metric-grid">
-          <div class="metric">
-            <span class="metric__value">{{ formatMembersCount(group.membersCount) }}</span>
-            <span class="metric__label">Состав</span>
-          </div>
-
-          <div class="metric">
-            <span class="metric__value">{{ membershipLabel }}</span>
-            <span class="metric__label">Моя роль</span>
-          </div>
-
-          <div class="metric">
-            <span class="metric__value">{{ groupStatusLabels[group.status] }}</span>
-            <span class="metric__label">Статус</span>
-          </div>
-        </div>
-
-        <div class="overview-meta">
-          <div class="overview-meta__item">
-            <span class="overview-meta__label">Владелец</span>
-            <strong>{{ ownerLabel }}</strong>
-          </div>
-
-          <div class="overview-meta__item">
-            <span class="overview-meta__label">Режим доступа</span>
-            <strong>{{ groupAccessModeLabels[group.accessMode] }}</strong>
-          </div>
-
-          <div class="overview-meta__item">
-            <span class="overview-meta__label">Модули</span>
-            <GroupModuleBadges :modules="moduleLabels" />
-          </div>
-        </div>
-      </AppCard>
-
-      <AppCard tone="accent" class="span-4 quick-links">
-        <h2 class="overview-card__title">Быстрые переходы</h2>
-        <p class="muted">Показываются только разделы, доступные в текущей группе и вашей роли.</p>
-
-        <div class="quick-links__list">
-          <AppButton
-            v-for="item in quickLinks"
-            :key="item.key"
-            :to="item.to"
-            variant="secondary"
-            block
+      <div v-if="usefulLinks.length > 0" class="useful-links">
+        <article
+          v-for="link in usefulLinks"
+          :key="link.id"
+          class="useful-link"
+        >
+          <img
+            v-if="link.image"
+            class="useful-link__image"
+            :src="link.image.url"
+            :alt="link.title"
           >
-            {{ item.label }}
+          <span v-else class="useful-link__placeholder" aria-hidden="true">
+            <Link :size="20" />
+          </span>
+          <a :href="link.url" target="_blank" rel="noreferrer">{{ link.title }}</a>
+        </article>
+      </div>
+      <EmptyState v-else title="Полезных ссылок пока нет" />
+    </ContentList>
+
+    <div v-if="isLinkDialogOpen" class="link-dialog" @click.self="closeLinkDialog">
+      <form
+        class="link-dialog__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="link-dialog-title"
+        @submit.prevent="submitUsefulLink"
+      >
+        <header class="link-dialog__header">
+          <div>
+            <span class="eyebrow">Полезная ссылка</span>
+            <h2 id="link-dialog-title">Добавить ссылку</h2>
+          </div>
+          <button class="link-dialog__close" type="button" aria-label="Закрыть" @click="closeLinkDialog">
+            <X :size="18" />
+          </button>
+        </header>
+
+        <AppTextField v-model="linkForm.title" name="title" label="Текст" placeholder="Например: Телеграм" />
+        <AppTextField v-model="linkForm.url" name="url" label="Ссылка" placeholder="https://t.me/test123" />
+
+        <label class="link-dialog__file">
+          <span>
+            <Upload :size="18" />
+            Картинка
+          </span>
+          <strong>{{ linkForm.imageFile?.name ?? 'Выберите изображение' }}</strong>
+          <input ref="imageInput" type="file" accept="image/*" @change="handleImageChange">
+        </label>
+
+        <div class="link-dialog__actions">
+          <AppButton type="submit" size="lg" :disabled="isSubmittingLink">
+            {{ isSubmittingLink ? 'Добавляем...' : 'Добавить ссылку' }}
+          </AppButton>
+          <AppButton type="button" variant="quiet" size="lg" :disabled="isSubmittingLink" @click="closeLinkDialog">
+            Отмена
           </AppButton>
         </div>
-      </AppCard>
-
-      <AppCard class="span-8 upcoming-card">
-        <h2 class="overview-card__title">Ближайшие события</h2>
-        <p class="muted">Единая сводка по урокам, дедлайнам и пользовательским событиям на ближайший горизонт.</p>
-
-        <AppEmptyState
-          v-if="!workspace.isScheduleModuleEnabled.value"
-          title="Расписание выключено"
-          :description="
-            workspace.canManageGroup.value && !workspace.isReadOnly.value
-              ? 'Пока модуль выключен, обзор не собирает ближайшие уроки, дедлайны и пользовательские события. Его можно включить в настройках группы.'
-              : 'Пока модуль выключен, обзор не собирает ближайшие уроки, дедлайны и пользовательские события.'
-          "
-        >
-          <template v-if="workspace.canManageGroup.value && !workspace.isReadOnly.value" #actions>
-            <AppButton
-              variant="secondary"
-              :to="{
-                name: 'group-settings',
-                params: {
-                  groupId,
-                },
-              }"
-            >
-              Открыть настройки
-            </AppButton>
-          </template>
-        </AppEmptyState>
-
-        <AppErrorState
-          v-else-if="workspace.scheduleQuery.error.value"
-          title="Не удалось загрузить календарь группы"
-          description="Обзор останется доступным, но блок ближайших событий сейчас недоступен."
-        />
-
-        <AppLoader
-          v-else-if="workspace.scheduleQuery.isPending.value"
-          label="Собираем уроки, дедлайны и события группы"
-        />
-
-        <AppEmptyState
-          v-else-if="upcomingEntries.length === 0"
-          title="Пока нет ближайших событий"
-          description="Когда в группе появятся уроки, дедлайны или пользовательские события, они будут собираться здесь в единую сводку."
-        />
-
-        <ul v-else class="upcoming-list">
-          <li v-for="entry in upcomingEntries" :key="entry.sourceId" class="upcoming-list__item">
-            <div class="upcoming-list__meta">
-              <span class="pill">{{ scheduleEntryTypeLabels[entry.sourceType] }}</span>
-              <strong>{{ entry.title }}</strong>
-            </div>
-
-            <p class="muted">
-              {{ formatGroupDateTimeRange(entry.startsAt, normalizeOptionalText(entry.endsAt) || null) }}
-            </p>
-            <p v-if="normalizeOptionalText(entry.description)" class="upcoming-list__description">
-              {{ normalizeOptionalText(entry.description) }}
-            </p>
-          </li>
-        </ul>
-      </AppCard>
-
-      <AppCard class="span-4 workspace-cues">
-        <h2 class="overview-card__title">Ориентиры рабочего пространства</h2>
-        <ul class="list-copy">
-          <li>Пользователь вне группы не попадает внутрь и уходит в предпросмотр ещё на уровне проверки маршрута.</li>
-          <li>Выключенные модули исчезают из боковой навигации и быстрых переходов.</li>
-          <li>Архивная группа централизованно переводит все внутренние разделы в режим только для чтения.</li>
-        </ul>
-      </AppCard>
+      </form>
     </div>
-  </div>
+  </main>
+  <main v-else class="page">
+    <EmptyState title="Не удалось загрузить группу" :description="error ?? 'Данные группы ожидаются от API.'" />
+  </main>
 </template>
 
 <style scoped>
-.overview-card,
-.quick-links,
-.upcoming-card,
-.workspace-cues {
-  gap: 1.2rem;
+.workspace-page__metrics {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  margin-bottom: 28px;
 }
 
-.overview-card__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
+.useful-links {
+  display: grid;
+  gap: 12px;
 }
 
-.overview-card__title {
-  font-size: 1.08rem;
-  letter-spacing: -0.02em;
-}
-
-.overview-card__code {
-  display: inline-flex;
+.useful-link {
   align-items: center;
-  padding: 0.4rem 0.72rem;
-  border-radius: var(--radius-pill);
-  background: var(--color-panel-muted);
-  color: var(--color-accent-strong);
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  background: var(--color-surface-lowest);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: 14px;
+  min-height: 68px;
+  padding: 14px 16px;
 }
 
-.overview-meta {
-  display: grid;
-  gap: 1rem;
-}
-
-.overview-meta__item {
-  display: grid;
-  gap: 0.45rem;
-}
-
-.overview-meta__label {
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-}
-
-.quick-links__list {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.upcoming-list {
-  display: grid;
-  gap: 0.9rem;
-}
-
-.upcoming-list__item {
-  display: grid;
-  gap: 0.45rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border);
+.useful-link__image,
+.useful-link__placeholder {
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.56);
+  flex: 0 0 auto;
+  height: 42px;
+  width: 42px;
 }
 
-.upcoming-list__meta {
-  display: flex;
-  flex-wrap: wrap;
+.useful-link__image {
+  object-fit: cover;
+}
+
+.useful-link__placeholder {
   align-items: center;
-  gap: 0.6rem;
+  background: var(--color-surface-high);
+  color: var(--color-primary);
+  display: inline-flex;
+  justify-content: center;
 }
 
-.upcoming-list__description {
-  color: var(--color-subtle);
+.useful-link a {
+  color: var(--color-primary);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.useful-link a:hover {
+  text-decoration: underline;
+}
+
+.link-dialog {
+  align-items: center;
+  background: rgb(0 0 0 / 38%);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 70;
+}
+
+.link-dialog__panel {
+  background: var(--color-surface-lowest);
+  border: 1px solid var(--color-menu-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-menu);
+  display: grid;
+  gap: 18px;
+  max-width: 540px;
+  padding: clamp(22px, 4vw, 34px);
+  width: min(100%, 540px);
+}
+
+.link-dialog__header,
+.link-dialog__actions {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.link-dialog__header h2 {
+  color: var(--color-primary);
+  font-size: 1.45rem;
+  margin: 6px 0 0;
+}
+
+.link-dialog__close {
+  align-items: center;
+  background: var(--color-surface-low);
+  border: 1px solid var(--color-divider);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.link-dialog__file {
+  background: var(--color-surface-low);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+}
+
+.link-dialog__file span {
+  align-items: center;
+  color: var(--color-text-muted);
+  display: inline-flex;
+  font-size: 0.82rem;
+  font-weight: 800;
+  gap: 8px;
+  text-transform: uppercase;
+}
+
+.link-dialog__file strong {
+  color: var(--color-primary);
+  font-size: 0.95rem;
+}
+
+.link-dialog__file input {
+  display: none;
+}
+
+.link-dialog__actions {
+  justify-content: flex-start;
+  margin-top: 4px;
+}
+
+@media (max-width: 640px) {
+  .link-dialog__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 </style>

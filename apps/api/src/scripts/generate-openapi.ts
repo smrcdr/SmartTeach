@@ -17,10 +17,7 @@ async function main() {
     const config = app.get(AppConfigService)
     const document = createOpenApiDocument(app, config.publicApiBaseUrl)
     const yaml = require('js-yaml') as YamlModule
-    const outputPaths = [
-      resolve(__dirname, '../../../../docs/openapi.yml'),
-      resolve(__dirname, '../../../../apps/web/public/openapi.yml'),
-    ]
+    const outputPaths = [resolve(__dirname, '../../../../docs/openapi.yml')]
     const yamlDocument = yaml.dump(document, {
       lineWidth: -1,
       noRefs: true,

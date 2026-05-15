@@ -103,8 +103,6 @@ type LessonResponse = {
   content: string | null
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
   sortOrder: number
-  startsAt: string | null
-  endsAt: string | null
   publishedAt: string | null
   archivedAt: string | null
   createdByUserId: string
@@ -119,6 +117,42 @@ type LessonResponse = {
   }>
   createdAt: string
   updatedAt: string
+}
+
+type MaterialSubsectionResponse = {
+  id: string
+  groupId: string
+  sectionId: string
+  title: string
+  sortOrder: number
+  lessonsCount: number
+  createdByUserId: string
+  createdAt: string
+  updatedAt: string
+}
+
+type MaterialSectionResponse = {
+  id: string
+  groupId: string
+  title: string
+  sortOrder: number
+  createdByUserId: string
+  subsections: MaterialSubsectionResponse[]
+  createdAt: string
+  updatedAt: string
+}
+
+type MaterialSubsectionDetailsResponse = {
+  section: {
+    id: string
+    title: string
+    sortOrder: number
+  }
+  subsection: MaterialSubsectionResponse
+  lessons: Array<{
+    id: string
+    title: string
+  }>
 }
 
 async function request<T = JsonRecord>(
@@ -219,6 +253,100 @@ async function createOwnedFile(userId: string, label: string) {
   return file
 }
 
+test('materials endpoints create and update sections and subsections inside one group', async () => {
+  const owner = await registerUser('materials-owner')
+  const member = await registerUser('materials-member')
+  const group = await createGroup(owner.accessToken)
+
+  await prisma.groupMember.create({
+    data: {
+      groupId: group.id,
+      userId: member.user.id,
+      role: GroupRole.USER,
+    },
+  })
+
+  const sectionCreateResult = await request<MaterialSectionResponse>(`/groups/${group.id}/materials/sections`, {
+    method: 'POST',
+    token: owner.accessToken,
+    body: {
+      title: 'HTML',
+    },
+  })
+
+  assert.equal(sectionCreateResult.response.status, 201)
+  assert.ok(sectionCreateResult.body)
+  assert.equal(sectionCreateResult.body.title, 'HTML')
+
+  const subsectionCreateResult = await request<MaterialSubsectionDetailsResponse>(
+    `/groups/${group.id}/materials/sections/${sectionCreateResult.body.id}/subsections`,
+    {
+      method: 'POST',
+      token: owner.accessToken,
+      body: {
+        title: 'Семантика',
+      },
+    },
+  )
+
+  assert.equal(subsectionCreateResult.response.status, 201)
+  assert.ok(subsectionCreateResult.body)
+  assert.equal(subsectionCreateResult.body.subsection.title, 'Семантика')
+
+  const sectionUpdateResult = await request<MaterialSectionResponse>(
+    `/groups/${group.id}/materials/sections/${sectionCreateResult.body.id}`,
+    {
+      method: 'PATCH',
+      token: owner.accessToken,
+      body: {
+        title: 'Основы HTML',
+      },
+    },
+  )
+
+  assert.equal(sectionUpdateResult.response.status, 200)
+  assert.ok(sectionUpdateResult.body)
+  assert.equal(sectionUpdateResult.body.title, 'Основы HTML')
+
+  const subsectionUpdateResult = await request<MaterialSubsectionDetailsResponse>(
+    `/groups/${group.id}/materials/subsections/${subsectionCreateResult.body.subsection.id}`,
+    {
+      method: 'PATCH',
+      token: owner.accessToken,
+      body: {
+        title: 'Семантическая верстка',
+      },
+    },
+  )
+
+  assert.equal(subsectionUpdateResult.response.status, 200)
+  assert.ok(subsectionUpdateResult.body)
+  assert.equal(subsectionUpdateResult.body.subsection.title, 'Семантическая верстка')
+
+  const memberUpdateResult = await request(
+    `/groups/${group.id}/materials/sections/${sectionCreateResult.body.id}`,
+    {
+      method: 'PATCH',
+      token: member.accessToken,
+      body: {
+        title: 'Member update',
+      },
+    },
+  )
+
+  assert.equal(memberUpdateResult.response.status, 403)
+
+  const listResult = await request<MaterialSectionResponse[]>(`/groups/${group.id}/materials`, {
+    method: 'GET',
+    token: member.accessToken,
+  })
+
+  assert.equal(listResult.response.status, 200)
+  assert.ok(listResult.body)
+  assert.equal(listResult.body[0].title, 'Основы HTML')
+  assert.equal(listResult.body[0].subsections[0].title, 'Семантическая верстка')
+})
+
 test('lessons endpoints create, list, get and update lessons inside one group', async () => {
   const owner = await registerUser('owner')
   const member = await registerUser('member')
@@ -244,8 +372,6 @@ test('lessons endpoints create, list, get and update lessons inside one group', 
       content: 'Сначала проектируем контракт.',
       status: 'PUBLISHED',
       sortOrder: 20,
-      startsAt: '2026-04-15T09:00:00.000Z',
-      endsAt: '2026-04-15T10:30:00.000Z',
       fileIds: [firstFile.id, secondFile.id],
     },
   })
@@ -506,7 +632,7 @@ test('lessons endpoints respect lessons_enabled flag and archived group write re
   assert.equal(archivedUpdateBlockedResult.response.status, 403)
 })
 
-test('lessons endpoints allow manager-owned attachments to be reused and lesson dates to be cleared', async () => {
+test('lessons endpoints allow manager-owned attachments to be reused', async () => {
   const owner = await registerUser('collab-owner')
   const admin = await registerUser('collab-admin')
   const member = await registerUser('collab-member')
@@ -545,44 +671,34 @@ test('lessons endpoints allow manager-owned attachments to be reused and lesson 
     token: owner.accessToken,
     body: {
       title: 'Collaborative lesson',
-      startsAt: '2026-05-10T09:00:00.000Z',
-      endsAt: '2026-05-10T10:00:00.000Z',
       fileIds: [adminFile.id],
     },
   })
 
   assert.equal(collaborativeCreateResult.response.status, 201)
   assert.ok(collaborativeCreateResult.body)
-  assert.equal(collaborativeCreateResult.body.startsAt, '2026-05-10T09:00:00.000Z')
-  assert.equal(collaborativeCreateResult.body.endsAt, '2026-05-10T10:00:00.000Z')
   assert.deepEqual(collaborativeCreateResult.body.files.map((file) => file.id), [adminFile.id])
 
-  const clearDatesResult = await request<LessonResponse>(
+  const keepAttachmentResult = await request<LessonResponse>(
     `/groups/${group.id}/lessons/${collaborativeCreateResult.body.id}`,
     {
       method: 'PATCH',
       token: owner.accessToken,
       body: {
-        startsAt: null,
-        endsAt: null,
         fileIds: [adminFile.id],
       },
     },
   )
 
-  assert.equal(clearDatesResult.response.status, 200)
-  assert.ok(clearDatesResult.body)
-  assert.equal(clearDatesResult.body.startsAt, null)
-  assert.equal(clearDatesResult.body.endsAt, null)
-  assert.deepEqual(clearDatesResult.body.files.map((file) => file.id), [adminFile.id])
+  assert.equal(keepAttachmentResult.response.status, 200)
+  assert.ok(keepAttachmentResult.body)
+  assert.deepEqual(keepAttachmentResult.body.files.map((file) => file.id), [adminFile.id])
 
   const storedLesson = await prisma.lesson.findUnique({
     where: {
       id: collaborativeCreateResult.body.id,
     },
     select: {
-      startsAt: true,
-      endsAt: true,
       files: {
         select: {
           fileId: true,
@@ -596,61 +712,10 @@ test('lessons endpoints allow manager-owned attachments to be reused and lesson 
   })
 
   assert.ok(storedLesson)
-  assert.equal(storedLesson.startsAt, null)
-  assert.equal(storedLesson.endsAt, null)
   assert.deepEqual(storedLesson.files, [
     {
       fileId: adminFile.id,
       sortOrder: 1,
     },
   ])
-})
-
-test('lessons endpoints reject endsAt without startsAt on create and update', async () => {
-  const owner = await registerUser('date-guard-owner')
-  const group = await createGroup(owner.accessToken)
-
-  const createWithoutStartResult = await request(`/groups/${group.id}/lessons`, {
-    method: 'POST',
-    token: owner.accessToken,
-    body: {
-      title: 'Invalid lesson slot',
-      endsAt: '2026-06-10T10:00:00.000Z',
-    },
-  })
-
-  assert.equal(createWithoutStartResult.response.status, 400)
-  assert.ok(createWithoutStartResult.body)
-  assert.ok(
-    Array.isArray(createWithoutStartResult.body.errors) &&
-      createWithoutStartResult.body.errors.includes('endsAt: cannot be set without startsAt'),
-  )
-
-  const validLessonCreateResult = await request<LessonResponse>(`/groups/${group.id}/lessons`, {
-    method: 'POST',
-    token: owner.accessToken,
-    body: {
-      title: 'Valid lesson slot',
-      startsAt: '2026-06-10T09:00:00.000Z',
-    },
-  })
-
-  assert.equal(validLessonCreateResult.response.status, 201)
-  assert.ok(validLessonCreateResult.body)
-
-  const updateWithoutStartResult = await request(`/groups/${group.id}/lessons/${validLessonCreateResult.body.id}`, {
-    method: 'PATCH',
-    token: owner.accessToken,
-    body: {
-      startsAt: null,
-      endsAt: '2026-06-10T10:00:00.000Z',
-    },
-  })
-
-  assert.equal(updateWithoutStartResult.response.status, 400)
-  assert.ok(updateWithoutStartResult.body)
-  assert.ok(
-    Array.isArray(updateWithoutStartResult.body.errors) &&
-      updateWithoutStartResult.body.errors.includes('endsAt: cannot be set without startsAt'),
-  )
 })

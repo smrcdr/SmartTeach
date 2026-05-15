@@ -1,552 +1,308 @@
 <script setup lang="ts">
-import { computed, ref, watch, watchEffect } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-
-import { useAuthStore } from '../../features/auth/stores/auth.store'
-import { useGroupWorkspace } from '../../features/groups/composables/useGroupWorkspace'
-import SubmissionDraftForm from '../../features/assignments/components/SubmissionDraftForm.vue'
-import SubmissionStatusBadge from '../../features/assignments/components/SubmissionStatusBadge.vue'
-import {
-  deleteUploadedFile,
-  getAssignmentsErrorMessage,
-  uploadSubmissionFiles,
-} from '../../features/assignments/api/assignments.api'
-import { useAssignment, useSubmission, useUpdateSubmissionMutation } from '../../features/assignments/composables/useAssignments'
-import { buildUpdateSubmissionPayload, type SubmissionEditorSubmission } from '../../features/assignments/lib/submission-form'
-import {
-  formatAssignmentDateTime,
-  formatFileSize,
-  formatSubmissionScore,
-  getSubmissionSummary,
-  isAssignmentVisibleToUser,
-  normalizeOptionalText,
-} from '../../features/assignments/lib/assignments.ui'
-import AppButton from '../../shared/ui/AppButton.vue'
-import AppCard from '../../shared/ui/AppCard.vue'
-import AppEmptyState from '../../shared/ui/AppEmptyState.vue'
-import AppErrorState from '../../shared/ui/AppErrorState.vue'
-import AppInput from '../../shared/ui/AppInput.vue'
-import AppLoader from '../../shared/ui/AppLoader.vue'
-import AppTextarea from '../../shared/ui/AppTextarea.vue'
-import UserDirectChatButton from '../../features/chats/components/UserDirectChatButton.vue'
+import { CheckCircle } from 'lucide-vue-next'
+import { computed, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { getAssignment, getSubmission, updateSubmission } from '@/features/groups/api/groups.api'
+import type { Assignment, Submission } from '@/features/groups/api/groups.api'
+import { useAuthStore } from '@/features/auth/stores/auth.store'
+import { useGroup } from '@/features/groups/composables/useGroup'
+import { canManageGroup } from '@/features/groups/lib/group-permissions'
+import { getSubmissionStatusLabel } from '@/features/groups/lib/status-labels'
+import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
+import AppButton from '@/shared/ui/AppButton.vue'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import AppTextarea from '@/shared/ui/AppTextarea.vue'
+import EmptyState from '@/shared/ui/EmptyState.vue'
+import StatusPill from '@/shared/ui/StatusPill.vue'
+import { formatDateTime } from '@/shared/lib/date'
 
 const route = useRoute()
-const router = useRouter()
-const authStore = useAuthStore()
-
+const auth = useAuthStore()
+const notifications = useNotificationStore()
+const { group } = useGroup()
+const assignment = ref<Assignment | null>(null)
+const submission = ref<Submission | null>(null)
+const error = ref<string | null>(null)
+const isSubmitting = ref(false)
 const groupId = computed(() => String(route.params.groupId ?? ''))
 const assignmentId = computed(() => String(route.params.assignmentId ?? ''))
 const submissionId = computed(() => String(route.params.submissionId ?? ''))
-const workspace = useGroupWorkspace(groupId)
-
-const assignmentQuery = useAssignment(groupId, assignmentId, {
-  enabled: workspace.isMember,
-})
-const submissionQuery = useSubmission(groupId, assignmentId, submissionId, {
-  enabled: workspace.isMember,
-})
-const updateSubmissionMutation = useUpdateSubmissionMutation(groupId, assignmentId, submissionId)
-
-const isUploading = ref(false)
-const submitError = ref('')
-const reviewError = ref('')
-const reviewScore = ref('')
-const reviewFeedback = ref('')
-const reviewScoreError = ref('')
-
-const assignment = computed(() => assignmentQuery.data.value ?? null)
-const submission = computed(() => submissionQuery.data.value ?? null)
-const currentUserId = computed(() => authStore.currentUser?.id ?? '')
-const isAssignmentsModuleUnavailable = computed(
-  () => Boolean(workspace.settings.value) && !workspace.settings.value?.assignmentsEnabled,
+const canManage = computed(() => canManageGroup(group.value))
+const maxScore = computed(() => assignment.value?.maxScore ?? null)
+const scoreValue = computed(() => form.score.trim() === '' ? null : Number(form.score))
+const hasInvalidScore = computed(() => form.score.trim() !== '' && Number.isNaN(scoreValue.value))
+const scoreExceedsMax = computed(() =>
+  maxScore.value !== null &&
+  scoreValue.value !== null &&
+  !Number.isNaN(scoreValue.value) &&
+  scoreValue.value > maxScore.value
 )
-const shouldHideAssignment = computed(() => {
-  const currentAssignment = assignment.value
-
-  if (!currentAssignment) {
-    return false
+const maxScoreLabel = computed(() => maxScore.value === null ? 'Максимум не задан' : `Максимум: ${maxScore.value}`)
+const reviewedScoreLabel = computed(() => {
+  if (!submission.value || submission.value.score === null) {
+    return 'Оценка пока не выставлена'
   }
 
-  return !isAssignmentVisibleToUser(currentAssignment, workspace.canManageGroup.value)
+  return maxScore.value === null
+    ? `${submission.value.score} баллов`
+    : `${submission.value.score} из ${maxScore.value} баллов`
 })
-const isAuthor = computed(() => submission.value?.authorId === currentUserId.value)
-const isDraftEditable = computed(
-  () =>
-    Boolean(submission.value) &&
-    submission.value?.status === 'DRAFT' &&
-    isAuthor.value &&
-    !workspace.canManageGroup.value &&
-    !workspace.isReadOnly.value,
-)
-const canReviewSubmission = computed(
-  () =>
-    Boolean(submission.value) &&
-    workspace.canManageGroup.value &&
-    !workspace.isReadOnly.value &&
-    submission.value?.status !== 'DRAFT',
-)
-const assignmentErrorMessage = computed(() => {
-  const error = assignmentQuery.error.value
-
-  return error ? getAssignmentsErrorMessage(error, 'Не удалось загрузить задание') : ''
+const form = reactive({
+  score: '',
+  feedback: ''
 })
-const submissionErrorMessage = computed(() => {
-  const error = submissionQuery.error.value
 
-  return error ? getAssignmentsErrorMessage(error, 'Не удалось загрузить попытку') : ''
-})
-const isBusy = computed(
-  () => assignmentQuery.isPending.value || submissionQuery.isPending.value || updateSubmissionMutation.isPending.value || isUploading.value,
-)
-
-watchEffect(() => {
-  if (!workspace.isWorkspacePending.value && isAssignmentsModuleUnavailable.value) {
-    void router.replace({
-      name: 'group-overview',
-      params: {
-        groupId: groupId.value,
-      },
-    })
+async function refresh() {
+  if (!groupId.value || !assignmentId.value || !submissionId.value || !auth.accessToken) {
+    return
   }
-})
-
-watchEffect(() => {
-  if (!assignmentQuery.isPending.value && shouldHideAssignment.value) {
-    void router.replace({
-      name: 'group-assignments',
-      params: {
-        groupId: groupId.value,
-      },
-    })
-  }
-})
-
-watch(
-  () => submission.value?.id,
-  () => {
-    reviewScore.value =
-      submission.value?.score !== null && submission.value?.score !== undefined ? String(submission.value.score) : ''
-    reviewFeedback.value = normalizeOptionalText(submission.value?.feedback)
-    reviewScoreError.value = ''
-    reviewError.value = ''
-  },
-  {
-    immediate: true,
-  },
-)
-
-async function handleDraftSubmit(payload: SubmissionEditorSubmission) {
-  submitError.value = ''
-  isUploading.value = true
-
-  let uploadedFileIds: string[] = []
 
   try {
-    const uploadedFiles = await uploadSubmissionFiles(payload.newFiles)
+    const [nextSubmission, nextAssignment] = await Promise.all([
+      getSubmission(groupId.value, assignmentId.value, submissionId.value, auth.accessToken),
+      getAssignment(groupId.value, assignmentId.value, auth.accessToken)
+    ])
 
-    uploadedFileIds = uploadedFiles.map((file) => file.id)
-
-    await updateSubmissionMutation.mutateAsync(buildUpdateSubmissionPayload(payload, uploadedFileIds))
-  } catch (error) {
-    if (uploadedFileIds.length > 0) {
-      await Promise.allSettled(uploadedFileIds.map((fileId) => deleteUploadedFile(fileId)))
-    }
-
-    submitError.value = getAssignmentsErrorMessage(error, 'Не удалось обновить черновик')
-  } finally {
-    isUploading.value = false
+    submission.value = nextSubmission
+    assignment.value = nextAssignment
+    form.score = submission.value.score === null ? '' : String(submission.value.score)
+    form.feedback = submission.value.feedback ?? ''
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Не удалось загрузить решение'
   }
 }
 
-async function handleReviewSubmit() {
-  if (!assignment.value || !submission.value) {
+watch([groupId, assignmentId, submissionId, () => auth.accessToken], () => void refresh(), { immediate: true })
+
+function validateForm() {
+  if (hasInvalidScore.value) {
+    notifications.error('Введите корректную оценку')
+    return false
+  }
+
+  if (scoreValue.value !== null && scoreValue.value < 0) {
+    notifications.error('Оценка не может быть отрицательной')
+    return false
+  }
+
+  if (scoreExceedsMax.value) {
+    notifications.error('Оценка больше баллов, чем можно выдать за задание')
+    return false
+  }
+
+  return true
+}
+
+async function submitReview() {
+  if (!groupId.value || !assignmentId.value || !submissionId.value || !auth.accessToken || isSubmitting.value || !validateForm()) {
     return
   }
 
-  reviewError.value = ''
-  reviewScoreError.value = ''
-
-  const normalizedScore = reviewScore.value.trim()
-  let nextScore: number | null = null
-
-  if (assignment.value.maxScore !== null) {
-    if (!normalizedScore) {
-      if (submission.value.score !== null) {
-        reviewScoreError.value =
-          'Текущий API не поддерживает очистку уже выставленного score. Укажите новое значение или оставьте текущее.'
-      }
-    } else {
-      const parsedScore = Number(normalizedScore)
-
-      if (!Number.isInteger(parsedScore) || parsedScore < 0) {
-        reviewScoreError.value = 'Score должен быть целым числом не меньше 0.'
-      } else if (parsedScore > assignment.value.maxScore) {
-        reviewScoreError.value = `Score не может быть больше ${assignment.value.maxScore}.`
-      } else {
-        nextScore = parsedScore
-      }
-    }
-  }
-
-  if (reviewScoreError.value) {
-    return
-  }
+  isSubmitting.value = true
 
   try {
-    await updateSubmissionMutation.mutateAsync({
+    submission.value = await updateSubmission(groupId.value, assignmentId.value, submissionId.value, {
       status: 'REVIEWED',
-      feedback: reviewFeedback.value,
-      ...(nextScore !== null
-        ? {
-            score: nextScore,
-          }
-        : {}),
-    })
-  } catch (error) {
-    reviewError.value = getAssignmentsErrorMessage(error, 'Не удалось сохранить review')
+      ...(scoreValue.value !== null ? { score: scoreValue.value } : {}),
+      feedback: form.feedback.trim()
+    }, auth.accessToken)
+    notifications.success('Проверка сохранена')
+  } catch (caught) {
+    notifications.error(caught instanceof Error ? caught.message : 'Не удалось сохранить проверку')
+  } finally {
+    isSubmitting.value = false
   }
 }
 </script>
 
 <template>
-  <AppLoader
-    v-if="assignmentQuery.isPending.value || submissionQuery.isPending.value || shouldHideAssignment || isAssignmentsModuleUnavailable"
-    label="Открываем попытку и проверяем доступный режим работы"
-  />
+  <main v-if="submission" class="page narrow-page">
+    <AppPageHeader
+      eyebrow="Решение"
+      :title="submission.author.displayName"
+      :description="submission.submittedAt ? `Отправлено ${formatDateTime(submission.submittedAt)}` : `Попытка ${submission.attemptNumber}`"
+      align="split"
+    >
+      <template #actions>
+        <StatusPill
+          :label="getSubmissionStatusLabel(submission.status)"
+          :tone="submission.status === 'REVIEWED' ? 'success' : submission.status === 'SUBMITTED' ? 'warning' : 'muted'"
+        />
+      </template>
+    </AppPageHeader>
 
-  <AppErrorState
-    v-else-if="assignmentErrorMessage"
-    title="Не удалось открыть задание"
-    :description="assignmentErrorMessage"
-  >
-    <template #actions>
-      <AppButton
-        variant="secondary"
-        :to="{
-          name: 'group-assignments',
-          params: {
-            groupId,
-          },
-        }"
-      >
-        Назад к заданиям
-      </AppButton>
-    </template>
-  </AppErrorState>
+    <section class="surface-panel submission-panel">
+      <h2>{{ canManage ? 'Ответ студента' : 'Ваш ответ' }}</h2>
+      <p>{{ submission.text ?? 'Решение без текстового комментария.' }}</p>
 
-  <AppErrorState
-    v-else-if="submissionErrorMessage"
-    title="Не удалось открыть попытку"
-    :description="submissionErrorMessage"
-  >
-    <template #actions>
-      <AppButton
-        variant="secondary"
-        :to="{
-          name: 'group-assignment-details',
-          params: {
-            groupId,
-            assignmentId,
-          },
-        }"
-      >
-        Назад к заданию
-      </AppButton>
-    </template>
-  </AppErrorState>
+      <div v-if="submission.files.length > 0" class="submission-panel__files">
+        <a
+          v-for="file in submission.files"
+          :key="file.id"
+          :href="file.url"
+          target="_blank"
+          rel="noreferrer"
+        >
+          {{ file.originalName }}
+        </a>
+      </div>
+    </section>
 
-  <div v-else-if="assignment && submission" class="page-shell">
-    <header class="page-header">
-      <span class="page-eyebrow">Рабочее пространство / Задания / Попытка</span>
-      <h1 class="page-title">Попытка #{{ submission.attemptNumber }} для «{{ assignment.title }}»</h1>
-      <p class="page-lead">
-        {{
-          workspace.canManageGroup.value
-            ? 'Здесь управляющая роль проводит проверку конкретной попытки, не смешивая её с редактированием задания.'
-            : 'Здесь пользователь продолжает свой черновик или читает уже отправленную и проверенную попытку.'
-        }}
+    <form v-if="canManage" class="surface-panel review-form" @submit.prevent="submitReview">
+      <header class="review-form__header">
+        <h2>Проверка</h2>
+        <span class="score-limit">{{ maxScoreLabel }}</span>
+      </header>
+      <label class="score-field" :class="{ 'score-field--warning': scoreExceedsMax }">
+        <span>Оценка</span>
+        <input v-model="form.score" name="score" type="number" min="0" :max="maxScore ?? undefined" placeholder="Например: 95">
+      </label>
+      <p v-if="scoreExceedsMax" class="score-warning">
+        Это больше баллов, чем можно выдать за задание.
       </p>
-
-      <div class="page-actions">
-        <AppButton
-          variant="secondary"
-          :to="{
-            name: 'group-assignment-details',
-            params: {
-              groupId,
-              assignmentId,
-            },
-          }"
-        >
-          К заданию
-        </AppButton>
-        <AppButton
-          v-if="workspace.canManageGroup.value"
-          variant="secondary"
-          :to="{
-            name: 'group-assignment-submissions',
-            params: {
-              groupId,
-              assignmentId,
-            },
-          }"
-        >
-          Ко всем попыткам
+      <AppTextarea v-model="form.feedback" name="feedback" label="Комментарий" placeholder="Комментарий преподавателя" />
+      <div class="review-form__actions">
+        <AppButton type="submit" :disabled="isSubmitting">
+          <CheckCircle :size="18" />
+          {{ isSubmitting ? 'Сохраняем...' : 'Сохранить проверку' }}
         </AppButton>
       </div>
-    </header>
+    </form>
 
-    <div v-if="workspace.isReadOnly.value" class="panel-note">
-      Группа находится в архиве. Попытка остаётся доступной для чтения, но обновление черновика и проверка отключены.
-    </div>
-
-    <SubmissionDraftForm
-      v-if="isDraftEditable"
-      :submission="submission"
-      :is-busy="isBusy"
-      :submit-error="submitError"
-      :cancel-to="{
-        name: 'group-assignment-details',
-        params: {
-          groupId,
-          assignmentId,
-        },
-      }"
-      @submit="handleDraftSubmit"
-    />
-
-    <div v-else class="section-grid">
-      <AppCard class="span-8 submission-detail__card">
-        <div class="submission-detail__header">
-          <div>
-            <h2 class="submission-detail__title">Содержимое попытки</h2>
-            <p class="muted">Текст и вложения попытки остаются неизменяемыми после отправки или проверки.</p>
-          </div>
-
-          <SubmissionStatusBadge :status="submission.status" />
-        </div>
-
-        <p class="submission-detail__content">
-          {{ getSubmissionSummary(submission.text, 'Текст попытки не заполнен. Возможно, работа состоит только из вложений.') }}
-        </p>
-
-        <div class="submission-detail__files">
-          <h3 class="submission-detail__subheading">Файлы попытки</h3>
-
-          <AppEmptyState
-            v-if="submission.files.length === 0"
-            title="Файлы не приложены"
-            description="Эта попытка хранит только текстовую часть или была отправлена без вложений."
-          />
-
-          <ul v-else class="submission-detail__file-list">
-            <li v-for="file in submission.files" :key="file.id" class="submission-detail__file-item">
-              <div class="submission-detail__file-copy">
-                <a :href="file.url" target="_blank" rel="noreferrer">{{ file.originalName }}</a>
-                <span class="muted">{{ formatFileSize(file.sizeBytes) }}</span>
-              </div>
-            </li>
-          </ul>
-        </div>
-      </AppCard>
-
-      <AppCard tone="accent" class="span-4 submission-detail__card">
-        <div class="submission-detail__header">
-          <div>
-            <h2 class="submission-detail__title">Метаданные и проверка</h2>
-            <p class="muted">Правая колонка держит таймлайн попытки, комментарии и балл.</p>
-          </div>
-        </div>
-
-        <dl class="submission-detail__facts">
-          <div>
-            <dt>Автор</dt>
-            <dd>{{ submission.author.displayName }}</dd>
-          </div>
-          <div v-if="submission.author.id !== currentUserId" class="submission-detail__user-actions">
-            <dt>Контекст автора</dt>
-            <dd class="submission-detail__user-actions-row">
-              <AppButton
-                variant="ghost"
-                size="sm"
-                :to="{
-                  name: 'public-user-profile',
-                  params: {
-                    userId: submission.author.id,
-                  },
-                }"
-              >
-                Профиль
-              </AppButton>
-              <UserDirectChatButton :user-id="submission.author.id" />
-            </dd>
-          </div>
-          <div>
-            <dt>Статус</dt>
-            <dd>{{ submission.status }}</dd>
-          </div>
-          <div>
-            <dt>Создано</dt>
-            <dd>{{ formatAssignmentDateTime(submission.createdAt) }}</dd>
-          </div>
-          <div v-if="submission.submittedAt">
-            <dt>Отправлено</dt>
-            <dd>{{ formatAssignmentDateTime(submission.submittedAt) }}</dd>
-          </div>
-          <div v-if="submission.reviewedAt">
-            <dt>Проверено</dt>
-            <dd>{{ formatAssignmentDateTime(submission.reviewedAt) }}</dd>
-          </div>
-          <div>
-            <dt>Оценка</dt>
-            <dd>{{ formatSubmissionScore(submission.score, assignment.maxScore) }}</dd>
-          </div>
-        </dl>
-
-        <div v-if="canReviewSubmission" class="submission-detail__review">
-          <h3 class="submission-detail__subheading">Review flow</h3>
-
-          <AppInput
-            v-if="assignment.maxScore !== null"
-            v-model="reviewScore"
-            label="Score"
-            type="number"
-            min="0"
-            :max="assignment.maxScore"
-            step="1"
-            :hint="`Максимум ${assignment.maxScore}. Поле можно обновить, но текущий контракт не умеет очищать уже выставленный score.`"
-            :error="reviewScoreError"
-            :disabled="isBusy"
-          />
-
-          <AppTextarea
-            v-model="reviewFeedback"
-            label="Feedback"
-            placeholder="Что получилось хорошо, что стоит исправить и что ожидать от следующей попытки."
-            hint="Feedback можно оставить и без score, если у задания нет max score."
-            :disabled="isBusy"
-          />
-
-          <div class="submission-detail__review-actions">
-            <AppButton :disabled="isBusy" @click="handleReviewSubmit()">
-              {{ submission.status === 'REVIEWED' ? 'Обновить review' : 'Сохранить review' }}
-            </AppButton>
-          </div>
-
-          <p v-if="reviewError" class="submission-detail__error">{{ reviewError }}</p>
-        </div>
-
-        <div v-else-if="workspace.canManageGroup.value && submission.status === 'DRAFT'" class="panel-note">
-          Черновик пока не отправлен. Review flow открывается только после статуса `SUBMITTED`.
-        </div>
-
-        <div v-else-if="normalizeOptionalText(submission.feedback)" class="submission-detail__feedback">
-          <h3 class="submission-detail__subheading">Feedback</h3>
-          <p class="submission-detail__content">{{ submission.feedback }}</p>
-        </div>
-
-        <div v-else-if="submission.status === 'SUBMITTED'" class="panel-note">
-          Работа отправлена и ожидает проверки. После review здесь появятся feedback и итоговый score.
-        </div>
-      </AppCard>
-    </div>
-  </div>
+    <section v-else-if="submission.status === 'REVIEWED'" class="surface-panel review-result">
+      <h2>Результат проверки</h2>
+      <div class="review-result__score">{{ reviewedScoreLabel }}</div>
+      <p v-if="submission.feedback">{{ submission.feedback }}</p>
+      <p v-else>Комментарий преподавателя не добавлен.</p>
+    </section>
+  </main>
+  <main v-else class="page narrow-page">
+    <EmptyState title="Решение не загружено" :description="error ?? 'Данные решения ожидаются от API.'" />
+  </main>
 </template>
 
 <style scoped>
-.submission-detail__card {
-  gap: 1.2rem;
-}
-
-.submission-detail__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.submission-detail__title,
-.submission-detail__subheading {
-  font-size: 1.08rem;
-  letter-spacing: -0.02em;
-}
-
-.submission-detail__content {
-  color: var(--color-text);
-  line-height: 1.7;
-  white-space: pre-wrap;
-}
-
-.submission-detail__files,
-.submission-detail__review,
-.submission-detail__feedback {
+.submission-panel,
+.review-form {
   display: grid;
-  gap: 0.8rem;
+  gap: 18px;
+  padding: clamp(24px, 4vw, 34px);
 }
 
-.submission-detail__facts {
-  display: grid;
-  gap: 0.85rem;
-}
-
-.submission-detail__facts div {
-  display: grid;
-  gap: 0.25rem;
-}
-
-.submission-detail__facts dt {
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-}
-
-.submission-detail__facts dd {
+.submission-panel h2,
+.review-form h2,
+.review-result h2 {
+  color: var(--color-primary);
+  font-size: 1.25rem;
   margin: 0;
-  font-weight: 700;
 }
 
-.submission-detail__user-actions-row {
+.submission-panel p,
+.review-result p {
+  color: var(--color-text-muted);
+  line-height: 1.65;
+  margin: 0;
+}
+
+.submission-panel__files {
+  border-top: 1px solid var(--color-divider);
+  display: grid;
+  gap: 10px;
+  padding-top: 18px;
+}
+
+.submission-panel__files a {
+  color: var(--color-primary);
+  font-weight: 780;
+}
+
+.submission-panel__files a:hover {
+  text-decoration: underline;
+}
+
+.review-form__actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.review-form__header {
+  align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem;
+  gap: 12px;
+  justify-content: space-between;
 }
 
-.submission-detail__file-list {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.submission-detail__file-item {
-  padding: 0.95rem 1rem;
-  border: 1px solid var(--color-border);
+.score-limit {
+  background: var(--color-surface-low);
+  border: 1px solid var(--color-divider);
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.78);
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 8px 10px;
 }
 
-.submission-detail__file-copy {
+.score-field {
   display: grid;
-  gap: 0.2rem;
+  gap: 8px;
 }
 
-.submission-detail__review-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
+.score-field span {
+  color: var(--color-text-muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.submission-detail__error {
-  padding: 0.95rem 1rem;
-  border: 1px solid rgba(156, 71, 71, 0.18);
-  border-radius: var(--radius-sm);
-  background: var(--color-danger-soft);
-  color: var(--color-danger);
+.score-field input {
+  background: var(--color-surface-low);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  min-height: 48px;
+  outline: none;
+  padding: 0 16px;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  width: 100%;
 }
 
-@media (max-width: 900px) {
-  .submission-detail__header {
-    flex-direction: column;
-  }
+.score-field input:focus {
+  background: var(--color-surface-highest);
+  border-color: var(--color-focus-border);
+  box-shadow: 0 0 0 4px var(--color-focus-ring);
+}
+
+.score-field--warning input {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-error) 12%, transparent);
+}
+
+.score-warning {
+  background: var(--color-danger-surface);
+  border: 1px solid color-mix(in srgb, var(--color-error) 34%, transparent);
+  border-radius: var(--radius-md);
+  color: var(--color-error);
+  font-size: 0.92rem;
+  font-weight: 720;
+  margin: -6px 0 0;
+  padding: 12px 14px;
+}
+
+.review-result {
+  display: grid;
+  gap: 16px;
+  padding: clamp(24px, 4vw, 34px);
+}
+
+.review-result__score {
+  background: var(--color-surface-low);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+  font-size: 1.3rem;
+  font-weight: 900;
+  padding: 16px;
 }
 </style>

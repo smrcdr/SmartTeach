@@ -7,15 +7,15 @@
 - [07-database-structure.md](./07-database-structure.md)
 - [openapi.yml](./openapi.yml)
 
-Текущее состояние проекта:
+Историческое состояние проекта на момент составления плана:
 
-- в репозитории был только frontend на `Vue + Vite`;
+- в репозитории был клиентский прототип;
 - backend-кода, Prisma-схемы, Docker-инфраструктуры и серверных модулей не было;
-- backend нужно внедрять как новую часть проекта, а не как доработку существующего сервера.
+- backend нужно было внедрять как новую часть проекта, а не как доработку существующего сервера.
 
 Целевой результат:
 
-- репозиторий организован как `apps/web` и `apps/api`;
+- репозиторий организован как workspace с `apps/api`;
 - локальный dev-стек поднимается через Docker Compose;
 - реализован REST API по текущему `openapi.yml`;
 - реализована локальная авторизация через access/refresh tokens;
@@ -29,7 +29,6 @@
 
 Репозиторий должен быть приведен к монорепо формата:
 
-- `apps/web` — frontend;
 - `apps/api` — backend на NestJS;
 - `packages/shared` — общие типы, enum-значения, константы и общие контракты без Nest-зависимостей;
 - `infra` — docker-compose, инфраструктурные конфиги и init-скрипты;
@@ -82,27 +81,24 @@
 
 ### 1. Подготовка монорепо и dev-инфраструктуры
 
-1. Перевести frontend в `apps/web` без изменения логики.
-2. Создать `apps/api` как новое NestJS-приложение.
-3. Обновить корневой `package.json` под workspace-структуру.
-4. Добавить корневые scripts:
+1. Создать `apps/api` как новое NestJS-приложение.
+2. Обновить корневой `package.json` под workspace-структуру.
+3. Добавить корневые scripts:
    - `dev`
-   - `dev:web`
    - `dev:api`
    - `build`
-   - `build:web`
    - `build:api`
    - `db:migrate`
    - `db:seed`
    - `prisma:generate`
-5. Настроить общий `tsconfig` для монорепо и отдельные `tsconfig` для `apps/web` и `apps/api`.
-6. Добавить `.env.example` для backend.
-7. Добавить Docker Compose с сервисами:
+4. Настроить общий `tsconfig` для монорепо и отдельный `tsconfig` для `apps/api`.
+5. Добавить `.env.example` для backend.
+6. Добавить Docker Compose с сервисами:
    - `postgres`
    - `redis`
    - `minio`
-8. Добавить init-логику для создания bucket в MinIO.
-9. Зафиксировать README по запуску backend и dev-окружения.
+7. Добавить init-логику для создания bucket в MinIO.
+8. Зафиксировать README по запуску backend и dev-окружения.
 
 ### 2. Базовый каркас NestJS
 

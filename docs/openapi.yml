@@ -601,13 +601,13 @@ paths:
         - Files
   /groups:
     get:
-      description: Возвращает группы с учетом фильтров, прав доступа и участия текущего пользователя.
+      description: Возвращает публичные группы без входа в аккаунт и дополняет ответ данными участия, если передан access token.
       parameters:
         - in: query
           name: search
           required: false
           schema:
-            example: frontend
+            example: patterns
             type: string
         - in: query
           name: code
@@ -654,8 +654,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      security:
-        - bearerAuth: []
       summary: Получить список групп
       tags:
         - Groups
@@ -754,8 +752,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      security:
-        - bearerAuth: []
       summary: Получить группу по идентификатору
       tags:
         - Groups
@@ -834,6 +830,20 @@ paths:
           schema:
             format: uuid
             example: 77777777-7777-4777-8777-777777777777
+            type: string
+        - in: query
+          name: materialSectionId
+          required: false
+          schema:
+            format: uuid
+            example: 88888888-8888-4888-8888-888888888888
+            type: string
+        - in: query
+          name: materialSubsectionId
+          required: false
+          schema:
+            format: uuid
+            example: 99999999-9999-4999-8999-999999999999
             type: string
       responses:
         '200':
@@ -964,7 +974,7 @@ paths:
       tags:
         - Assignments
     patch:
-      description: Позволяет менять статус, дедлайн, lessonId и набор привязанных файлов задания.
+      description: Позволяет менять статус, дедлайн, связанные материалы и набор привязанных файлов задания.
       parameters:
         - in: path
           name: groupId
@@ -1687,6 +1697,13 @@ paths:
               - PUBLISHED
               - ARCHIVED
             type: string
+        - in: query
+          name: materialSubsectionId
+          required: false
+          schema:
+            format: uuid
+            example: 99999999-9999-4999-8999-999999999999
+            type: string
       responses:
         '200':
           description: ''
@@ -1771,6 +1788,47 @@ paths:
       tags:
         - Lessons
   /groups/{groupId}/lessons/{lessonId}:
+    delete:
+      description: Доступно владельцу и администраторам группы, если lessons_enabled включен.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: lessonId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '204':
+          description: Урок успешно удален.
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Удалить урок
+      tags:
+        - Lessons
     get:
       parameters:
         - in: path
@@ -1872,6 +1930,393 @@ paths:
       summary: Обновить урок
       tags:
         - Lessons
+  /groups/{groupId}/materials:
+    get:
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MaterialSection'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить структуру материалов группы
+      tags:
+        - Materials
+  /groups/{groupId}/materials/sections:
+    post:
+      description: Доступно владельцу и администраторам группы, если lessons_enabled включен.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMaterialSectionRequest'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialSection'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Создать раздел материалов
+      tags:
+        - Materials
+  /groups/{groupId}/materials/sections/{sectionId}:
+    delete:
+      description: Удаляет раздел, его подразделы и уроки внутри них.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: sectionId
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Раздел успешно удален.
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Удалить раздел материалов
+      tags:
+        - Materials
+    patch:
+      description: Доступно владельцу и администраторам группы, если lessons_enabled включен.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: sectionId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMaterialSectionRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialSection'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Обновить раздел материалов
+      tags:
+        - Materials
+  /groups/{groupId}/materials/sections/{sectionId}/subsections:
+    post:
+      description: Доступно владельцу и администраторам группы, если lessons_enabled включен.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: sectionId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMaterialSubsectionRequest'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialSubsectionDetails'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Создать подраздел материалов
+      tags:
+        - Materials
+  /groups/{groupId}/materials/subsections/{subsectionId}:
+    delete:
+      description: Удаляет подраздел и уроки внутри него.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: subsectionId
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Подраздел успешно удален.
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Удалить подраздел материалов
+      tags:
+        - Materials
+    get:
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: subsectionId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialSubsectionDetails'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить подраздел материалов с уроками
+      tags:
+        - Materials
+    patch:
+      description: Доступно владельцу и администраторам группы, если lessons_enabled включен.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: subsectionId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMaterialSubsectionRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialSubsectionDetails'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Обновить подраздел материалов
+      tags:
+        - Materials
   /groups/{groupId}/members:
     get:
       parameters:
@@ -2467,6 +2912,98 @@ paths:
       summary: Обновить настройки группы
       tags:
         - Group Settings
+  /groups/{groupId}/useful-links:
+    get:
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupUsefulLink'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Получить полезные ссылки группы
+      tags:
+        - Group useful links
+    post:
+      description: Доступно владельцу и администраторам группы, если useful_links_enabled включен.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupUsefulLinkRequest'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupUsefulLink'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Добавить полезную ссылку
+      tags:
+        - Group useful links
   /groups/by-code/{code}:
     get:
       parameters:
@@ -2494,8 +3031,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      security:
-        - bearerAuth: []
       summary: Найти группу по коду
       tags:
         - Groups
@@ -2601,11 +3136,8 @@ components:
           type: string
           format: uuid
           example: 66666666-6666-4666-8666-666666666666
-        lessonId:
-          type: object
-          format: uuid
-          nullable: true
-          example: 77777777-7777-4777-8777-777777777777
+        targets:
+          $ref: '#/components/schemas/AssignmentTargets'
         title:
           type: string
           minLength: 2
@@ -2656,12 +3188,50 @@ components:
       required:
         - id
         - groupId
+        - targets
         - title
         - status
         - createdByUserId
         - files
         - createdAt
         - updatedAt
+    AssignmentMaterialReference:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 77777777-7777-4777-8777-777777777777
+        title:
+          type: string
+          example: Intro to API Contracts
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 1
+      required:
+        - id
+        - title
+        - sortOrder
+    AssignmentTargets:
+      type: object
+      properties:
+        lessons:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssignmentMaterialReference'
+        materialSections:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssignmentMaterialReference'
+        materialSubsections:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssignmentMaterialReference'
+      required:
+        - lessons
+        - materialSections
+        - materialSubsections
     AuthSession:
       type: object
       properties:
@@ -2762,10 +3332,24 @@ components:
     CreateAssignmentRequest:
       type: object
       properties:
-        lessonId:
-          type: string
-          format: uuid
-          example: 77777777-7777-4777-8777-777777777777
+        lessonIds:
+          example:
+            - 77777777-7777-4777-8777-777777777777
+          type: array
+          items:
+            type: string
+        materialSectionIds:
+          example:
+            - 88888888-8888-4888-8888-888888888888
+          type: array
+          items:
+            type: string
+        materialSubsectionIds:
+          example:
+            - 99999999-9999-4999-8999-999999999999
+          type: array
+          items:
+            type: string
         title:
           type: string
           minLength: 2
@@ -2829,7 +3413,7 @@ components:
           type: string
           minLength: 2
           maxLength: 150
-          example: Frontend Patterns Lab
+          example: API Patterns Lab
         description:
           type: string
           example: Группа для разбора компонентного мышления и интерфейсных паттернов.
@@ -2846,6 +3430,31 @@ components:
         - name
         - accessMode
         - settings
+    CreateGroupUsefulLinkRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: Телеграм
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+          example: https://t.me/test123
+        imageFileId:
+          type: string
+          format: uuid
+          nullable: true
+          example: aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 10
+      required:
+        - title
+        - url
     CreateLessonRequest:
       type: object
       properties:
@@ -2854,6 +3463,10 @@ components:
           minLength: 2
           maxLength: 200
           example: Intro to REST contracts
+        materialSubsectionId:
+          type: string
+          format: uuid
+          example: 99999999-9999-4999-8999-999999999999
         content:
           type: string
           example: Разбираем базовые REST-паттерны и итоговый контракт lesson module.
@@ -2868,20 +3481,40 @@ components:
           type: number
           minimum: 1
           example: 20
-        startsAt:
-          type: string
-          format: date-time
-          example: '2026-04-15T09:00:00.000Z'
-        endsAt:
-          type: string
-          format: date-time
-          example: '2026-04-15T10:30:00.000Z'
         fileIds:
           example:
             - aaaaaaa3-aaaa-4aaa-8aaa-aaaaaaaaaaa3
           type: array
           items:
             type: string
+      required:
+        - title
+    CreateMaterialSectionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: HTML и структура страницы
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 1
+      required:
+        - title
+    CreateMaterialSubsectionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Семантическая верстка
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 1
       required:
         - title
     CreateScheduleEventRequest:
@@ -3187,11 +3820,62 @@ components:
         scheduleEnabled:
           type: boolean
           example: true
+        usefulLinksEnabled:
+          type: boolean
+          example: true
       required:
         - chatEnabled
         - lessonsEnabled
         - assignmentsEnabled
         - scheduleEnabled
+        - usefulLinksEnabled
+    GroupUsefulLink:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: ddddddd4-dddd-4ddd-8ddd-dddddddddddd
+        groupId:
+          type: string
+          format: uuid
+          example: 66666666-6666-4666-8666-666666666666
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: Телеграм
+        url:
+          type: string
+          format: uri
+          example: https://t.me/test123
+        image:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/FileObject'
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 10
+        createdByUserId:
+          type: string
+          format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - groupId
+        - title
+        - url
+        - sortOrder
+        - createdByUserId
+        - createdAt
+        - updatedAt
     HealthResponse:
       type: object
       properties:
@@ -3226,6 +3910,11 @@ components:
           type: string
           format: uuid
           example: 66666666-6666-4666-8666-666666666666
+        materialSubsectionId:
+          type: object
+          format: uuid
+          nullable: true
+          example: 99999999-9999-4999-8999-999999999999
         title:
           type: string
           minLength: 2
@@ -3246,14 +3935,6 @@ components:
           type: number
           minimum: 1
           example: 10
-        startsAt:
-          type: object
-          format: date-time
-          nullable: true
-        endsAt:
-          type: object
-          format: date-time
-          nullable: true
         publishedAt:
           type: object
           format: date-time
@@ -3299,6 +3980,176 @@ components:
       required:
         - email
         - password
+    MaterialLesson:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 77777777-7777-4777-8777-777777777777
+        groupId:
+          type: string
+          format: uuid
+          example: 66666666-6666-4666-8666-666666666666
+        materialSubsectionId:
+          type: object
+          format: uuid
+          nullable: true
+          example: 99999999-9999-4999-8999-999999999999
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Введение в структуру страницы
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - ARCHIVED
+          example: PUBLISHED
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - groupId
+        - title
+        - status
+        - sortOrder
+        - createdAt
+        - updatedAt
+    MaterialSection:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 88888888-8888-4888-8888-888888888888
+        groupId:
+          type: string
+          format: uuid
+          example: 66666666-6666-4666-8666-666666666666
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: HTML и структура страницы
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 1
+        createdByUserId:
+          type: string
+          format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        subsections:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialSubsection'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - groupId
+        - title
+        - sortOrder
+        - createdByUserId
+        - subsections
+        - createdAt
+        - updatedAt
+    MaterialSectionSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 88888888-8888-4888-8888-888888888888
+        title:
+          type: string
+          example: HTML и структура страницы
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 1
+      required:
+        - id
+        - title
+        - sortOrder
+    MaterialSubsection:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 99999999-9999-4999-8999-999999999999
+        groupId:
+          type: string
+          format: uuid
+          example: 66666666-6666-4666-8666-666666666666
+        sectionId:
+          type: string
+          format: uuid
+          example: 88888888-8888-4888-8888-888888888888
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Семантическая верстка
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 1
+        lessonsCount:
+          type: number
+          minimum: 0
+          example: 3
+        createdByUserId:
+          type: string
+          format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - groupId
+        - sectionId
+        - title
+        - sortOrder
+        - lessonsCount
+        - createdByUserId
+        - createdAt
+        - updatedAt
+    MaterialSubsectionDetails:
+      type: object
+      properties:
+        section:
+          $ref: '#/components/schemas/MaterialSectionSummary'
+        subsection:
+          $ref: '#/components/schemas/MaterialSubsection'
+        lessons:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialLesson'
+      required:
+        - section
+        - subsection
+        - lessons
     Message:
       type: object
       properties:
@@ -3322,6 +4173,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FileObject'
+        replyToMessage:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/MessageReply'
         editedAt:
           type: object
           format: date-time
@@ -3357,6 +4212,41 @@ components:
           type: array
           items:
             type: string
+        replyToMessageId:
+          type: string
+          format: uuid
+          example: 12121212-1212-4212-8212-121212121212
+    MessageReply:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 12121212-1212-4212-8212-121212121212
+        authorId:
+          type: string
+          format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        text:
+          type: object
+          nullable: true
+          example: Закрепил материалы к уроку.
+        deletedAt:
+          type: object
+          format: date-time
+          nullable: true
+          example: '2026-04-12T12:10:00.000Z'
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-12T11:30:00.000Z'
+        author:
+          $ref: '#/components/schemas/PublicUser'
+      required:
+        - id
+        - authorId
+        - createdAt
+        - author
     MessageUpdateRequest:
       type: object
       properties:
@@ -3422,10 +4312,9 @@ components:
         sourceType:
           type: string
           enum:
-            - LESSON
             - ASSIGNMENT_DEADLINE
             - CUSTOM_EVENT
-          example: LESSON
+          example: CUSTOM_EVENT
         sourceId:
           type: string
           format: uuid
@@ -3609,11 +4498,24 @@ components:
     UpdateAssignmentRequest:
       type: object
       properties:
-        lessonId:
-          type: object
-          format: uuid
-          nullable: true
-          example: 77777777-7777-4777-8777-777777777777
+        lessonIds:
+          example:
+            - 77777777-7777-4777-8777-777777777777
+          type: array
+          items:
+            type: string
+        materialSectionIds:
+          example:
+            - 88888888-8888-4888-8888-888888888888
+          type: array
+          items:
+            type: string
+        materialSubsectionIds:
+          example:
+            - 99999999-9999-4999-8999-999999999999
+          type: array
+          items:
+            type: string
         title:
           type: string
           minLength: 2
@@ -3662,7 +4564,7 @@ components:
           type: string
           minLength: 2
           maxLength: 150
-          example: Frontend Patterns Lab
+          example: API Patterns Lab
         description:
           type: string
           example: Обновленное описание учебной группы.
@@ -3694,6 +4596,9 @@ components:
         scheduleEnabled:
           type: boolean
           example: true
+        usefulLinksEnabled:
+          type: boolean
+          example: true
     UpdateLessonRequest:
       type: object
       properties:
@@ -3702,6 +4607,11 @@ components:
           minLength: 2
           maxLength: 200
           example: Updated lesson title
+        materialSubsectionId:
+          type: object
+          format: uuid
+          nullable: true
+          example: 99999999-9999-4999-8999-999999999999
         content:
           type: string
           example: Обновленный конспект урока.
@@ -3716,22 +4626,36 @@ components:
           type: number
           minimum: 1
           example: 5
-        startsAt:
-          type: object
-          format: date-time
-          example: '2026-04-20T09:00:00.000Z'
-          nullable: true
-        endsAt:
-          type: object
-          format: date-time
-          example: '2026-04-20T10:30:00.000Z'
-          nullable: true
         fileIds:
           example:
             - aaaaaaa3-aaaa-4aaa-8aaa-aaaaaaaaaaa3
           type: array
           items:
             type: string
+    UpdateMaterialSectionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: HTML и структура страницы
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 1
+    UpdateMaterialSubsectionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Семантическая верстка
+        sortOrder:
+          type: number
+          minimum: 1
+          example: 1
     UpdateMyProfileRequest:
       type: object
       properties:

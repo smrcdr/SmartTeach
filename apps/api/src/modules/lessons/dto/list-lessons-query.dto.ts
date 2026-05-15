@@ -12,10 +12,21 @@ function normalizeOptionalUppercaseString(value: unknown) {
   return normalized.length > 0 ? normalized : undefined
 }
 
+function normalizeOptionalUuid(value: unknown) {
+  if (typeof value !== 'string') {
+    return value
+  }
+
+  const normalized = value.trim()
+
+  return normalized.length > 0 ? normalized : undefined
+}
+
 export class ListLessonsQueryDto {
   static schema = z
     .object({
       status: z.preprocess(normalizeOptionalUppercaseString, lessonStatusSchema.optional()),
+      materialSubsectionId: z.preprocess(normalizeOptionalUuid, z.string().uuid().optional()),
     })
     .strict()
 
@@ -24,4 +35,10 @@ export class ListLessonsQueryDto {
     example: 'PUBLISHED',
   })
   status?: (typeof lessonStatusValues)[number]
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    example: '99999999-9999-4999-8999-999999999999',
+  })
+  materialSubsectionId?: string
 }
