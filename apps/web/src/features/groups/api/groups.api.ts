@@ -14,6 +14,8 @@ export type GroupSettings = {
   lessonsEnabled: boolean
   assignmentsEnabled: boolean
   scheduleEnabled: boolean
+  scheduleWeeklyEnabled: boolean
+  scheduleSpecialEnabled: boolean
   usefulLinksEnabled: boolean
 }
 
@@ -22,6 +24,10 @@ export type Group = {
   code: string
   name: string
   description: string | null
+  avatarFileId?: string | null
+  avatarUrl?: string | null
+  catalogImageFileId?: string | null
+  catalogImageUrl?: string | null
   ownerId: string
   owner: PublicUser
   accessMode: 'OPEN' | 'BY_REQUEST' | 'CLOSED'
@@ -149,8 +155,12 @@ export type ScheduleEvent = {
   groupId: string
   title: string
   description: string | null
+  eventType: 'SPECIAL' | 'WEEKLY'
   startsAt: string
   endsAt: string
+  weekday: number | null
+  startTime: string | null
+  endTime: string | null
   location: string | null
   status: 'PLANNED' | 'CANCELLED'
   createdByUserId: string
@@ -201,6 +211,8 @@ export type GroupListQuery = {
 export type CreateGroupPayload = {
   name: string
   description?: string
+  avatarFileId?: string | null
+  catalogImageFileId?: string | null
   accessMode: Group['accessMode']
   settings: GroupSettings
 }
@@ -208,6 +220,8 @@ export type CreateGroupPayload = {
 export type UpdateGroupPayload = {
   name?: string
   description?: string
+  avatarFileId?: string | null
+  catalogImageFileId?: string | null
   accessMode?: Group['accessMode']
 }
 
@@ -277,8 +291,12 @@ export type UpdateSubmissionPayload = {
 export type CreateScheduleEventPayload = {
   title: string
   description?: string
-  startsAt: string
-  endsAt: string
+  eventType?: ScheduleEvent['eventType']
+  startsAt?: string
+  endsAt?: string
+  weekday?: number
+  startTime?: string
+  endTime?: string
   location?: string
 }
 
@@ -533,8 +551,12 @@ export function updateSubmission(
   })
 }
 
-export function listScheduleEvents(groupId: string, token?: string | null) {
-  return apiRequest<ScheduleEvent[]>(`/groups/${groupId}/schedule/events`, { token })
+export function listScheduleEvents(
+  groupId: string,
+  token?: string | null,
+  query: { eventType?: ScheduleEvent['eventType'] } = {}
+) {
+  return apiRequest<ScheduleEvent[]>(`/groups/${groupId}/schedule/events${buildQuery(query)}`, { token })
 }
 
 export function createScheduleEvent(groupId: string, payload: CreateScheduleEventPayload, token?: string | null) {

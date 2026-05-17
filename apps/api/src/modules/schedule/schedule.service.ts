@@ -9,6 +9,7 @@ import {
   GroupRole,
   Prisma,
   ScheduleEventStatus,
+  ScheduleEventType,
 } from '@prisma/client'
 import { PrismaService } from '../../database/prisma/prisma.service'
 import { AuthorizationService } from '../../security/authorization.service'
@@ -83,6 +84,7 @@ export class ScheduleService {
       this.prismaService.scheduleEvent.findMany({
         where: {
           groupId,
+          eventType: ScheduleEventType.SPECIAL,
           status: ScheduleEventStatus.PLANNED,
           ...this.buildWindowWhere<Prisma.ScheduleEventWhereInput>({
             from: range.from,
@@ -128,6 +130,11 @@ export class ScheduleService {
               status: query.status,
             }
           : {}),
+        ...(query.eventType !== undefined
+          ? {
+              eventType: query.eventType,
+            }
+          : {}),
         ...this.buildWindowWhere<Prisma.ScheduleEventWhereInput>({
           from: range.from,
           to: range.to,
@@ -160,23 +167,30 @@ export class ScheduleService {
     userId: string,
     payload: CreateScheduleEventRequestDto,
   ): Promise<ScheduleEventDto> {
-    await this.assertGroupAccess(groupId, userId, {
+    const access = await this.assertGroupAccess(groupId, userId, {
       requireManage: true,
       requireWritable: true,
     })
 
-    const dates = this.resolveEventDates(payload.startsAt, payload.endsAt)
+    this.assertScheduleSubtypeEnabled(access, payload.eventType ?? ScheduleEventType.SPECIAL)
+    const eventShape = this.resolveEventShape(payload)
     const title = payload.title.trim()
 
-    await this.assertStandaloneEvent(groupId, title, dates.startsAt, dates.endsAt)
+    if (eventShape.eventType === ScheduleEventType.SPECIAL) {
+      await this.assertStandaloneEvent(groupId, title, eventShape.startsAt, eventShape.endsAt)
+    }
 
     const createdEvent = await this.prismaService.scheduleEvent.create({
       data: {
         groupId,
         title,
         description: this.normalizeNullableText(payload.description),
-        startsAt: dates.startsAt,
-        endsAt: dates.endsAt,
+        eventType: eventShape.eventType,
+        startsAt: eventShape.startsAt,
+        endsAt: eventShape.endsAt,
+        weekday: eventShape.weekday,
+        startMinutes: eventShape.startMinutes,
+        endMinutes: eventShape.endMinutes,
         location: this.normalizeNullableText(payload.location),
         status: ScheduleEventStatus.PLANNED,
         createdByUserId: userId,
@@ -205,19 +219,28 @@ export class ScheduleService {
     userId: string,
     payload: UpdateScheduleEventRequestDto,
   ): Promise<ScheduleEventDto> {
-    await this.assertGroupAccess(groupId, userId, {
+    const access = await this.assertGroupAccess(groupId, userId, {
       requireManage: true,
       requireWritable: true,
     })
 
     const existingEvent = await this.getScheduleEventRecordOrThrow(groupId, eventId)
     const title = payload.title !== undefined ? payload.title.trim() : existingEvent.title
-    const dates = this.resolveEventDates(
-      payload.startsAt ?? existingEvent.startsAt.toISOString(),
-      payload.endsAt ?? existingEvent.endsAt.toISOString(),
-    )
+    this.assertScheduleSubtypeEnabled(access, existingEvent.eventType)
+    const eventShape = existingEvent.eventType === ScheduleEventType.WEEKLY
+      ? this.resolveWeeklyShape({
+          weekday: payload.weekday ?? existingEvent.weekday ?? undefined,
+          startTime: payload.startTime ?? this.minutesToTime(existingEvent.startMinutes),
+          endTime: payload.endTime ?? this.minutesToTime(existingEvent.endMinutes),
+        })
+      : this.resolveSpecialShape({
+          startsAt: payload.startsAt ?? existingEvent.startsAt.toISOString(),
+          endsAt: payload.endsAt ?? existingEvent.endsAt.toISOString(),
+        })
 
-    await this.assertStandaloneEvent(groupId, title, dates.startsAt, dates.endsAt)
+    if (existingEvent.eventType === ScheduleEventType.SPECIAL) {
+      await this.assertStandaloneEvent(groupId, title, eventShape.startsAt, eventShape.endsAt)
+    }
 
     const data: Prisma.ScheduleEventUpdateInput = {
       ...(payload.title !== undefined
@@ -232,12 +255,31 @@ export class ScheduleService {
         : {}),
       ...(payload.startsAt !== undefined
         ? {
-            startsAt: dates.startsAt,
+            startsAt: eventShape.startsAt,
           }
         : {}),
       ...(payload.endsAt !== undefined
         ? {
-            endsAt: dates.endsAt,
+            endsAt: eventShape.endsAt,
+          }
+        : {}),
+      ...(existingEvent.eventType === ScheduleEventType.WEEKLY && payload.weekday !== undefined
+        ? {
+            weekday: eventShape.weekday,
+            startsAt: eventShape.startsAt,
+            endsAt: eventShape.endsAt,
+          }
+        : {}),
+      ...(existingEvent.eventType === ScheduleEventType.WEEKLY && payload.startTime !== undefined
+        ? {
+            startMinutes: eventShape.startMinutes,
+            startsAt: eventShape.startsAt,
+          }
+        : {}),
+      ...(existingEvent.eventType === ScheduleEventType.WEEKLY && payload.endTime !== undefined
+        ? {
+            endMinutes: eventShape.endMinutes,
+            endsAt: eventShape.endsAt,
           }
         : {}),
       ...(payload.location !== undefined
@@ -305,6 +347,8 @@ export class ScheduleService {
     return {
       role: context.membership!.role,
       assignmentsEnabled: context.settings.assignmentsEnabled,
+      scheduleWeeklyEnabled: context.settings.scheduleWeeklyEnabled,
+      scheduleSpecialEnabled: context.settings.scheduleSpecialEnabled,
     }
   }
 
@@ -362,6 +406,101 @@ export class ScheduleService {
     return {
       startsAt: normalizedStartsAt,
       endsAt: normalizedEndsAt,
+    }
+  }
+
+  private resolveEventShape(payload: CreateScheduleEventRequestDto) {
+    return payload.eventType === ScheduleEventType.WEEKLY
+      ? this.resolveWeeklyShape(payload)
+      : this.resolveSpecialShape(payload)
+  }
+
+  private resolveSpecialShape(payload: { startsAt?: string, endsAt?: string }) {
+    if (!payload.startsAt || !payload.endsAt) {
+      throw new BadRequestException({
+        message: 'Validation failed',
+        errors: ['startsAt and endsAt are required for special events'],
+      })
+    }
+
+    const dates = this.resolveEventDates(payload.startsAt, payload.endsAt)
+    return {
+      eventType: ScheduleEventType.SPECIAL,
+      startsAt: dates.startsAt,
+      endsAt: dates.endsAt,
+      weekday: null,
+      startMinutes: null,
+      endMinutes: null,
+    }
+  }
+
+  private resolveWeeklyShape(payload: { weekday?: number, startTime?: string | null, endTime?: string | null }) {
+    if (!payload.weekday || !payload.startTime || !payload.endTime) {
+      throw new BadRequestException({
+        message: 'Validation failed',
+        errors: ['weekday, startTime and endTime are required for weekly events'],
+      })
+    }
+
+    const startMinutes = this.timeToMinutes(payload.startTime)
+    const endMinutes = this.timeToMinutes(payload.endTime)
+
+    if (endMinutes <= startMinutes) {
+      throw new BadRequestException({
+        message: 'Validation failed',
+        errors: ['endTime: must be greater than startTime'],
+      })
+    }
+
+    const date = new Date(Date.UTC(2026, 0, 4 + payload.weekday))
+    const startsAt = new Date(date.getTime() + startMinutes * 60_000)
+    const endsAt = new Date(date.getTime() + endMinutes * 60_000)
+
+    return {
+      eventType: ScheduleEventType.WEEKLY,
+      startsAt,
+      endsAt,
+      weekday: payload.weekday,
+      startMinutes,
+      endMinutes,
+    }
+  }
+
+  private timeToMinutes(value: string) {
+    const [hoursText, minutesText] = value.split(':')
+    const hours = Number(hoursText)
+    const minutes = Number(minutesText)
+
+    if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+      throw new BadRequestException({
+        message: 'Validation failed',
+        errors: ['time: must be in HH:mm format'],
+      })
+    }
+
+    return hours * 60 + minutes
+  }
+
+  private minutesToTime(value: number | null) {
+    if (value === null) {
+      return null
+    }
+
+    const hours = Math.floor(value / 60).toString().padStart(2, '0')
+    const minutes = (value % 60).toString().padStart(2, '0')
+    return `${hours}:${minutes}`
+  }
+
+  private assertScheduleSubtypeEnabled(
+    access: { scheduleWeeklyEnabled: boolean, scheduleSpecialEnabled: boolean },
+    eventType: ScheduleEventType,
+  ) {
+    if (eventType === ScheduleEventType.WEEKLY && !access.scheduleWeeklyEnabled) {
+      throw new ForbiddenException('Weekly schedule is disabled for this group')
+    }
+
+    if (eventType === ScheduleEventType.SPECIAL && !access.scheduleSpecialEnabled) {
+      throw new ForbiddenException('Special schedule is disabled for this group')
     }
   }
 

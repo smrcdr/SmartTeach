@@ -85,6 +85,8 @@ describe('CreateGroupPage', () => {
           lessonsEnabled: true,
           assignmentsEnabled: true,
           scheduleEnabled: true,
+        scheduleWeeklyEnabled: true,
+        scheduleSpecialEnabled: true,
           usefulLinksEnabled: true
         }
       }))
@@ -113,6 +115,8 @@ describe('CreateGroupPage', () => {
         lessonsEnabled: true,
         assignmentsEnabled: true,
         scheduleEnabled: true,
+        scheduleWeeklyEnabled: true,
+        scheduleSpecialEnabled: true,
         usefulLinksEnabled: true
       }
     })

@@ -34,7 +34,19 @@ const accessLabel = computed(() => {
 <template>
   <article :class="['group-card', compact && 'group-card--compact']">
     <RouterLink :to="{ name: 'group-preview', params: { groupId: group.id } }" class="group-card__media">
-      <span class="group-card__initials">{{ initials }}</span>
+      <img
+        v-if="group.catalogImageUrl"
+        class="group-card__image"
+        :src="group.catalogImageUrl"
+        :alt="group.name"
+      >
+      <img
+        v-else-if="group.avatarUrl"
+        class="group-card__image group-card__image--avatar"
+        :src="group.avatarUrl"
+        :alt="group.name"
+      >
+      <span v-else class="group-card__initials">{{ initials }}</span>
       <span v-if="group.viewerMembershipRole" class="group-card__flag">Вы участник</span>
     </RouterLink>
 
@@ -79,9 +91,8 @@ const accessLabel = computed(() => {
 
 .group-card__media {
   align-items: center;
-  background:
-    radial-gradient(circle at 28% 22%, rgb(255 255 255 / 62%), transparent 32%),
-    linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  background: var(--color-primary);
+  border-bottom: 1px solid var(--color-divider);
   display: grid;
   justify-items: center;
   min-height: 240px;
@@ -94,6 +105,18 @@ const accessLabel = computed(() => {
   font-size: clamp(2.4rem, 5vw, 4rem);
   font-weight: 900;
   letter-spacing: 0;
+}
+
+.group-card__image {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.group-card__image--avatar {
+  height: min(56%, 160px);
+  width: min(56%, 160px);
+  border-radius: 999px;
 }
 
 .group-card__flag {

@@ -37,6 +37,9 @@ export class UpdateScheduleEventRequestDto {
       ),
       location: z.string().max(255).optional(),
       status: scheduleEventStatusSchema.optional(),
+      weekday: z.number().int().min(1).max(7).optional(),
+      startTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+      endTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
     })
     .strict()
 
@@ -74,4 +77,13 @@ export class UpdateScheduleEventRequestDto {
     example: 'CANCELLED',
   })
   status?: (typeof scheduleEventStatusValues)[number]
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 7, example: 1 })
+  weekday?: number
+
+  @ApiPropertyOptional({ example: '09:00' })
+  startTime?: string
+
+  @ApiPropertyOptional({ example: '10:30' })
+  endTime?: string
 }

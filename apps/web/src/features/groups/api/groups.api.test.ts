@@ -69,6 +69,8 @@ describe('groups api', () => {
         lessonsEnabled: true,
         assignmentsEnabled: true,
         scheduleEnabled: false,
+        scheduleWeeklyEnabled: true,
+        scheduleSpecialEnabled: true,
         usefulLinksEnabled: true
       }
     }
@@ -106,6 +108,8 @@ describe('groups api', () => {
     const payload = {
       chatEnabled: false,
       scheduleEnabled: true,
+        scheduleWeeklyEnabled: true,
+        scheduleSpecialEnabled: true,
       usefulLinksEnabled: true
     }
 

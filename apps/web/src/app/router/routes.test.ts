@@ -15,6 +15,7 @@ describe('routes', () => {
 
     expect(routeNames).toEqual(expect.arrayContaining([
       'home',
+      'guide',
       'catalog',
       'my-groups',
       'group-preview',

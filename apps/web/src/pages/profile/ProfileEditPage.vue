@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watchEffect } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { updateMyProfile } from '@/features/users/api/users.api'
@@ -15,6 +15,7 @@ const notifications = useNotificationStore()
 const router = useRouter()
 const hasInitializedForm = ref(false)
 const selectedAvatarFile = ref<File | null>(null)
+const avatarPreviewUrl = ref<string | null>(null)
 const isSaving = ref(false)
 const shouldClearAvatar = ref(false)
 const form = reactive({
@@ -22,6 +23,13 @@ const form = reactive({
   bio: ''
 })
 const initials = computed(() => auth.user?.displayName.slice(0, 1).toUpperCase() ?? '')
+const visibleAvatarUrl = computed(() => {
+  if (shouldClearAvatar.value) {
+    return null
+  }
+
+  return avatarPreviewUrl.value ?? auth.user?.avatarUrl ?? null
+})
 
 watchEffect(() => {
   if (!auth.user || hasInitializedForm.value) {
@@ -33,14 +41,31 @@ watchEffect(() => {
   hasInitializedForm.value = true
 })
 
+function revokeAvatarPreview() {
+  if (!avatarPreviewUrl.value) {
+    return
+  }
+
+  URL.revokeObjectURL(avatarPreviewUrl.value)
+  avatarPreviewUrl.value = null
+}
+
 function selectAvatar(event: Event) {
   const input = event.target as HTMLInputElement
-  selectedAvatarFile.value = input.files?.[0] ?? null
+  const file = input.files?.[0] ?? null
+
+  revokeAvatarPreview()
+  selectedAvatarFile.value = file
   shouldClearAvatar.value = false
+
+  if (file) {
+    avatarPreviewUrl.value = URL.createObjectURL(file)
+  }
 }
 
 function clearAvatar() {
   selectedAvatarFile.value = null
+  revokeAvatarPreview()
   shouldClearAvatar.value = true
 }
 
@@ -77,13 +102,17 @@ async function submit() {
     isSaving.value = false
   }
 }
+
+onBeforeUnmount(() => {
+  revokeAvatarPreview()
+})
 </script>
 
 <template>
   <main class="page narrow-page profile-edit-page">
     <form v-if="auth.user" class="profile-edit surface-panel" @submit.prevent="submit">
       <section class="profile-edit__avatar" aria-label="Аватар профиля">
-        <img v-if="auth.user.avatarUrl && !shouldClearAvatar" :src="auth.user.avatarUrl" :alt="auth.user.displayName" />
+        <img v-if="visibleAvatarUrl" :src="visibleAvatarUrl" :alt="auth.user.displayName" />
         <span v-else class="profile-edit__initials">{{ initials }}</span>
         <label class="profile-edit__file">
           <span>Загрузить аватар</span>

@@ -6,9 +6,18 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import type { Group } from '@/features/groups/api/groups.api'
 import GroupWorkspaceLayout from './GroupWorkspaceLayout.vue'
 
-const mockGroup = vi.hoisted(() => ({
-  value: null as Group | null
-}))
+const mockGroup = vi.hoisted(() => {
+  const state = {
+    value: null as Group | null
+  }
+
+  return Object.defineProperties(state, {
+    id: { get: () => state.value?.id },
+    name: { get: () => state.value?.name },
+    code: { get: () => state.value?.code },
+    avatarUrl: { get: () => state.value?.avatarUrl }
+  }) as typeof state & Pick<Group, 'id' | 'name' | 'code' | 'avatarUrl'>
+})
 
 type GroupOverrides = Partial<Omit<Group, 'settings'>> & {
   settings?: Partial<Group['settings']>
@@ -32,6 +41,8 @@ function buildGroup(role: Group['viewerMembershipRole'], overrides: GroupOverrid
     lessonsEnabled: true,
     assignmentsEnabled: true,
     scheduleEnabled: true,
+    scheduleWeeklyEnabled: true,
+    scheduleSpecialEnabled: true,
     usefulLinksEnabled: true,
     ...overrides.settings
   }
@@ -118,6 +129,8 @@ describe('GroupWorkspaceLayout', () => {
         lessonsEnabled: false,
         assignmentsEnabled: true,
         scheduleEnabled: false,
+        scheduleWeeklyEnabled: true,
+        scheduleSpecialEnabled: true,
         usefulLinksEnabled: true
       }
     })
@@ -155,5 +168,17 @@ describe('GroupWorkspaceLayout', () => {
     expect(source).toContain('--workspace-nav-divider: color-mix')
     expect(source).toContain('border-right: 1px solid var(--workspace-nav-divider);')
     expect(source).toContain('border-bottom: 1px solid var(--workspace-nav-divider);')
+  })
+
+  it('shows the group avatar in the workspace navigation when it exists', async () => {
+    const wrapper = await mountAt('/groups/group-id/workspace', 'ADMIN', {
+      avatarUrl: 'https://cdn.test/group-avatar.png'
+    })
+
+    const avatar = wrapper.find('.workspace-nav__brand-avatar')
+
+    expect(avatar.exists()).toBe(true)
+    expect(avatar.attributes('src')).toBe('https://cdn.test/group-avatar.png')
+    expect(wrapper.find('.workspace-nav__brand-initials').exists()).toBe(false)
   })
 })

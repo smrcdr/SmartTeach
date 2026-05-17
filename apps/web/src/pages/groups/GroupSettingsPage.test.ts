@@ -29,6 +29,8 @@ function buildGroup(overrides: Partial<Group> = {}): Group {
       lessonsEnabled: true,
       assignmentsEnabled: true,
       scheduleEnabled: true,
+      scheduleWeeklyEnabled: true,
+      scheduleSpecialEnabled: true,
       usefulLinksEnabled: true
     },
     membersCount: 2,
@@ -94,6 +96,8 @@ describe('GroupSettingsPage', () => {
           lessonsEnabled: true,
           assignmentsEnabled: true,
           scheduleEnabled: true,
+          scheduleWeeklyEnabled: true,
+          scheduleSpecialEnabled: true,
           usefulLinksEnabled: true
         }), { status: 200 }))
       }
@@ -115,7 +119,7 @@ describe('GroupSettingsPage', () => {
     expect((wrapper.find('input[name="name"]').element as HTMLInputElement).value).toBe('Web Basics')
     expect((wrapper.find('textarea[name="description"]').element as HTMLTextAreaElement).value).toBe('Первичное описание')
     expect((wrapper.find('input[value="BY_REQUEST"]').element as HTMLInputElement).checked).toBe(true)
-    expect(wrapper.findAll('input[type="checkbox"]')).toHaveLength(5)
+    expect(wrapper.findAll('input[type="checkbox"]')).toHaveLength(7)
     expect(wrapper.text()).not.toContain('Статус')
     expect(wrapper.text()).not.toContain('Дата')
 
@@ -143,6 +147,8 @@ describe('GroupSettingsPage', () => {
       lessonsEnabled: true,
       assignmentsEnabled: true,
       scheduleEnabled: true,
+      scheduleWeeklyEnabled: true,
+      scheduleSpecialEnabled: true,
       usefulLinksEnabled: true
     })
     expect(notifications.items.at(-1)).toMatchObject({

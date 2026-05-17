@@ -8,7 +8,6 @@ import {
   Reply,
   Search,
   Send,
-  Smile,
   Users,
   X
 } from 'lucide-vue-next'
@@ -409,7 +408,6 @@ watch(() => route.query.groupId, () => {
           </div>
           <div class="chat-composer__field">
             <input v-model="composerText" placeholder="Написать сообщение..." />
-            <button type="button" aria-label="Добавить реакцию"><Smile :size="20" /></button>
           </div>
         </div>
         <button class="chat-composer__send" type="submit" :disabled="isSending" aria-label="Отправить сообщение"><Send :size="20" /></button>

@@ -113,7 +113,8 @@ function submitJoinAction() {
     </div>
 
     <div class="group-hero__visual">
-      <span>{{ initials }}</span>
+      <img v-if="group.avatarUrl" :src="group.avatarUrl" :alt="group.name">
+      <span v-else>{{ initials }}</span>
     </div>
   </section>
 
@@ -144,10 +145,9 @@ function submitJoinAction() {
 
 .group-hero__visual {
   align-items: center;
-  background:
-    radial-gradient(circle at 25% 20%, rgb(255 255 255 / 62%), transparent 32%),
-    linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  background: var(--color-primary);
   border-radius: var(--radius-lg);
+  border: 1px solid var(--color-divider);
   color: #fff;
   display: grid;
   font-size: clamp(4rem, 10vw, 7rem);
@@ -156,6 +156,12 @@ function submitJoinAction() {
   letter-spacing: 0;
   min-height: 420px;
   overflow: hidden;
+}
+
+.group-hero__visual img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
 }
 
 .group-hero__actions,

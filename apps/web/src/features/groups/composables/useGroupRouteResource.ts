@@ -37,7 +37,11 @@ export function useGroupRouteList<T>(
     }
   }
 
-  watch([groupId, () => options.enabled?.() ?? true], () => void refresh(), { immediate: true })
+  watch(
+    [groupId, () => options.enabled?.() ?? true, () => auth.accessToken],
+    () => void refresh(),
+    { immediate: true }
+  )
 
   return {
     items,
@@ -76,7 +80,7 @@ export function useGroupRouteItem<T>(
     }
   }
 
-  watch([groupId, itemId], () => void refresh(), { immediate: true })
+  watch([groupId, itemId, () => auth.accessToken], () => void refresh(), { immediate: true })
 
   return {
     item,

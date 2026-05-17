@@ -23,6 +23,8 @@ function buildGroup(overrides: Partial<Group> = {}): Group {
       lessonsEnabled: true,
       assignmentsEnabled: true,
       scheduleEnabled: true,
+        scheduleWeeklyEnabled: true,
+        scheduleSpecialEnabled: true,
       usefulLinksEnabled: true
     },
     membersCount: 4,

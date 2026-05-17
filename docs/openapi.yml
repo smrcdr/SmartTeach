@@ -2579,6 +2579,15 @@ paths:
               - CANCELLED
             type: string
         - in: query
+          name: eventType
+          required: false
+          schema:
+            example: SPECIAL
+            type: string
+            enum:
+              - SPECIAL
+              - WEEKLY
+        - in: query
           name: from
           required: false
           schema:
@@ -3417,6 +3426,16 @@ components:
         description:
           type: string
           example: Группа для разбора компонентного мышления и интерфейсных паттернов.
+        avatarFileId:
+          type: object
+          format: uuid
+          nullable: true
+          example: aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1
+        catalogImageFileId:
+          type: object
+          format: uuid
+          nullable: true
+          example: aaaaaaa2-aaaa-4aaa-8aaa-aaaaaaaaaaa2
         accessMode:
           type: string
           enum:
@@ -3528,6 +3547,12 @@ components:
         description:
           type: string
           example: Репетиция финальной презентации перед защитой.
+        eventType:
+          type: string
+          enum:
+            - SPECIAL
+            - WEEKLY
+          example: SPECIAL
         startsAt:
           type: string
           format: date-time
@@ -3536,13 +3561,22 @@ components:
           type: string
           format: date-time
           example: '2026-04-16T13:30:00.000Z'
+        weekday:
+          type: number
+          minimum: 1
+          maximum: 7
+          example: 1
+        startTime:
+          type: string
+          example: '09:00'
+        endTime:
+          type: string
+          example: '10:30'
         location:
           type: string
           example: Zoom / Room 204
       required:
         - title
-        - startsAt
-        - endsAt
     CreateSubmissionRequest:
       type: object
       properties:
@@ -3634,6 +3668,24 @@ components:
           type: object
           nullable: true
           example: Открытая группа для отработки HTML, CSS и базового JavaScript.
+        avatarFileId:
+          type: object
+          format: uuid
+          nullable: true
+          example: aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1
+        avatarUrl:
+          type: object
+          nullable: true
+          example: http://localhost:9000/smarteach-files/group-avatars/2026/04/12/aBcD1234xYz9.png
+        catalogImageFileId:
+          type: object
+          format: uuid
+          nullable: true
+          example: aaaaaaa2-aaaa-4aaa-8aaa-aaaaaaaaaaa2
+        catalogImageUrl:
+          type: object
+          nullable: true
+          example: http://localhost:9000/smarteach-files/group-catalog/2026/04/12/aBcD1234xYz9.png
         ownerId:
           type: string
           format: uuid
@@ -3820,6 +3872,12 @@ components:
         scheduleEnabled:
           type: boolean
           example: true
+        scheduleWeeklyEnabled:
+          type: boolean
+          example: true
+        scheduleSpecialEnabled:
+          type: boolean
+          example: true
         usefulLinksEnabled:
           type: boolean
           example: true
@@ -3828,6 +3886,8 @@ components:
         - lessonsEnabled
         - assignmentsEnabled
         - scheduleEnabled
+        - scheduleWeeklyEnabled
+        - scheduleSpecialEnabled
         - usefulLinksEnabled
     GroupUsefulLink:
       type: object
@@ -4365,6 +4425,12 @@ components:
           type: object
           nullable: true
           example: Прогоним презентации и технический чек.
+        eventType:
+          type: string
+          enum:
+            - SPECIAL
+            - WEEKLY
+          example: SPECIAL
         startsAt:
           type: string
           format: date-time
@@ -4375,6 +4441,19 @@ components:
           type: object
           nullable: true
           example: Zoom / Room 204
+        weekday:
+          type: object
+          minimum: 1
+          maximum: 7
+          nullable: true
+        startTime:
+          type: object
+          nullable: true
+          example: '09:00'
+        endTime:
+          type: object
+          nullable: true
+          example: '10:30'
         status:
           type: string
           enum:
@@ -4399,6 +4478,7 @@ components:
         - id
         - groupId
         - title
+        - eventType
         - startsAt
         - endsAt
         - status
@@ -4568,6 +4648,16 @@ components:
         description:
           type: string
           example: Обновленное описание учебной группы.
+        avatarFileId:
+          type: object
+          format: uuid
+          nullable: true
+          example: aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1
+        catalogImageFileId:
+          type: object
+          format: uuid
+          nullable: true
+          example: aaaaaaa2-aaaa-4aaa-8aaa-aaaaaaaaaaa2
         accessMode:
           type: string
           enum:
@@ -4594,6 +4684,12 @@ components:
           type: boolean
           example: true
         scheduleEnabled:
+          type: boolean
+          example: true
+        scheduleWeeklyEnabled:
+          type: boolean
+          example: true
+        scheduleSpecialEnabled:
           type: boolean
           example: true
         usefulLinksEnabled:
@@ -4701,6 +4797,17 @@ components:
             - PLANNED
             - CANCELLED
           example: CANCELLED
+        weekday:
+          type: number
+          minimum: 1
+          maximum: 7
+          example: 1
+        startTime:
+          type: string
+          example: '09:00'
+        endTime:
+          type: string
+          example: '10:30'
     UpdateSubmissionRequest:
       type: object
       properties:

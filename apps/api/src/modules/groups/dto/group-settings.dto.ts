@@ -24,5 +24,15 @@ export class GroupSettingsDto {
   @ApiProperty({
     example: true,
   })
+  scheduleWeeklyEnabled!: boolean
+
+  @ApiProperty({
+    example: true,
+  })
+  scheduleSpecialEnabled!: boolean
+
+  @ApiProperty({
+    example: true,
+  })
   usefulLinksEnabled!: boolean
 }

@@ -37,6 +37,8 @@ function buildGroup(role: Group['viewerMembershipRole']): Group {
       lessonsEnabled: true,
       assignmentsEnabled: true,
       scheduleEnabled: true,
+      scheduleWeeklyEnabled: true,
+      scheduleSpecialEnabled: true,
       usefulLinksEnabled: true
     },
     membersCount: 2,
@@ -100,6 +102,6 @@ describe('group admin actions', () => {
   it('keeps creation actions available to admins', async () => {
     expect((await mountPage(GroupLessonsPage, 'ADMIN')).text()).toContain('Добавить раздел')
     expect((await mountPage(GroupAssignmentsPage, 'ADMIN')).text()).toContain('Новое задание')
-    expect((await mountPage(GroupSchedulePage, 'ADMIN')).text()).toContain('Событие')
+    expect((await mountPage(GroupSchedulePage, 'ADMIN')).text()).toContain('Запись')
   })
 })

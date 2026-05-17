@@ -15,6 +15,8 @@ type MockGroupRecord = {
     lessonsEnabled: boolean
     assignmentsEnabled: boolean
     scheduleEnabled: boolean
+    scheduleWeeklyEnabled: boolean
+    scheduleSpecialEnabled: boolean
     usefulLinksEnabled: boolean
   } | null
   members: Array<{
@@ -36,6 +38,8 @@ function buildGroupRecord(
       lessonsEnabled: true,
       assignmentsEnabled: true,
       scheduleEnabled: true,
+      scheduleWeeklyEnabled: true,
+      scheduleSpecialEnabled: true,
       usefulLinksEnabled: true,
     },
     members: [
@@ -72,6 +76,8 @@ test('authorization service returns membership and feature state for allowed acc
     lessonsEnabled: true,
     assignmentsEnabled: true,
     scheduleEnabled: true,
+    scheduleWeeklyEnabled: true,
+    scheduleSpecialEnabled: true,
     usefulLinksEnabled: true,
   })
 })
@@ -102,6 +108,8 @@ test('authorization service rejects disabled feature flags and missing roles', a
         lessonsEnabled: true,
         assignmentsEnabled: true,
         scheduleEnabled: true,
+        scheduleWeeklyEnabled: true,
+        scheduleSpecialEnabled: true,
         usefulLinksEnabled: true,
       },
       members: [

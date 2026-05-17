@@ -28,5 +28,15 @@ export class UpdateGroupSettingsRequestDto {
   @ApiPropertyOptional({
     example: true,
   })
+  scheduleWeeklyEnabled?: boolean
+
+  @ApiPropertyOptional({
+    example: true,
+  })
+  scheduleSpecialEnabled?: boolean
+
+  @ApiPropertyOptional({
+    example: true,
+  })
   usefulLinksEnabled?: boolean
 }
