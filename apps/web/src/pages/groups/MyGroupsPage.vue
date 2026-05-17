@@ -38,7 +38,7 @@ const { groups, isLoading, error } = useGroups({ mine: true })
       <EmptyState
         v-if="!isLoading && !error && groups.length === 0"
         title="У вас пока нет групп"
-        description="Создайте группу или вступите по коду, чтобы она появилась здесь из API."
+        description="Вступите в группу или создайте свою, и она появится здесь!"
       />
       <EmptyState v-if="error" title="Не удалось загрузить группы" :description="error" />
     </section>

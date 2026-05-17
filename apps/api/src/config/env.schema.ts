@@ -13,6 +13,7 @@ export const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().url(),
   MINIO_ENDPOINT: z.string().url(),
+  MINIO_PUBLIC_ENDPOINT: z.string().url().optional(),
   MINIO_PORT: portSchema.default(9000),
   MINIO_CONSOLE_PORT: portSchema.default(9001),
   MINIO_ROOT_USER: z.string().min(1),

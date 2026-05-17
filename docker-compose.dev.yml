@@ -1,0 +1,133 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-smarteach}
+      POSTGRES_USER: ${POSTGRES_USER:-smarteach}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-smarteach}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-smarteach} -d ${POSTGRES_DB:-smarteach}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data_dev:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-smarteach}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-smarteachminio}
+    command: server /data --console-address ":9001"
+    ports:
+      - '${MINIO_PORT:-9000}:9000'
+      - '${MINIO_CONSOLE_PORT:-9001}:9001'
+    volumes:
+      - minio_data_dev:/data
+
+  minio-init:
+    image: minio/mc:latest
+    env_file:
+      - .env
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: ['/bin/sh', '/init/create-bucket.sh']
+    volumes:
+      - ./infra/minio/create-bucket.sh:/init/create-bucket.sh:ro
+    restart: 'no'
+
+  migrate:
+    image: node:22-alpine
+    working_dir: /workspace
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-smarteach}:${POSTGRES_PASSWORD:-smarteach}@postgres:5432/${POSTGRES_DB:-smarteach}?schema=public
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: http://localhost:9000
+      WEB_URL: http://localhost:5173
+      API_HOST: 0.0.0.0
+      API_PORT: 3000
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./:/workspace
+      - node_modules_dev:/workspace/node_modules
+    command: sh -c "npm install && npm run prisma:generate -w @smarteach/api && node ./node_modules/prisma/build/index.js migrate deploy --config ./apps/api/prisma.config.ts"
+    restart: 'no'
+
+  api:
+    image: node:22-alpine
+    working_dir: /workspace
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-smarteach}:${POSTGRES_PASSWORD:-smarteach}@postgres:5432/${POSTGRES_DB:-smarteach}?schema=public
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: http://localhost:9000
+      WEB_URL: http://localhost:5173
+      API_HOST: 0.0.0.0
+      API_PORT: 3000
+      NODE_ENV: development
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./:/workspace
+      - node_modules_dev:/workspace/node_modules
+    command: sh -c "npm install && npm run dev:api"
+    ports:
+      - '3000:3000'
+
+  web:
+    image: node:22-alpine
+    working_dir: /workspace
+    env_file:
+      - .env
+    environment:
+      VITE_PROXY_TARGET: http://api:3000
+    depends_on:
+      api:
+        condition: service_started
+    volumes:
+      - ./:/workspace
+      - node_modules_dev:/workspace/node_modules
+    command: sh -c "npm install && npm run dev:web"
+    ports:
+      - '5173:5173'
+
+volumes:
+  postgres_data_dev:
+  redis_data_dev:
+  minio_data_dev:
+  node_modules_dev:

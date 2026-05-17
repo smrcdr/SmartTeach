@@ -313,7 +313,7 @@ watch(() => route.query.groupId, () => {
         <EmptyState
           v-if="chats.length === 0 && !error"
           title="Чатов пока нет"
-          description="Список чатов будет заполнен данными из API."
+          description="Здесь будут отображаться ваши личные и групповые чаты"
         />
         <EmptyState v-if="error" title="Не удалось загрузить чаты" :description="error" />
       </div>
@@ -416,7 +416,7 @@ watch(() => route.query.groupId, () => {
       </form>
     </section>
     <section v-else class="chat-room chat-room--empty" aria-label="Чат не выбран">
-      <EmptyState title="Выберите чат" description="Чаты и сообщения загружаются из API." />
+      <EmptyState title="Выберите чат, чтобы начать общение" />
     </section>
   </main>
 </template>

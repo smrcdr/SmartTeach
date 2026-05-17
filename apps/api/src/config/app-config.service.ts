@@ -69,6 +69,10 @@ export class AppConfigService {
     return this.getValue('MINIO_ENDPOINT')
   }
 
+  get minioPublicEndpoint() {
+    return this.configService.get('MINIO_PUBLIC_ENDPOINT', { infer: true }) ?? this.minioEndpoint
+  }
+
   get minioPort() {
     return this.getValue('MINIO_PORT')
   }

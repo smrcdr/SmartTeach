@@ -1,0 +1,95 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-smarteach}
+      POSTGRES_USER: ${POSTGRES_USER:-smarteach}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-smarteach}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-smarteach} -d ${POSTGRES_DB:-smarteach}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data_prod:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-smarteach}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-smarteachminio}
+    command: server /data --console-address ":9001"
+    ports:
+      - '${MINIO_PORT:-9000}:9000'
+      - '${MINIO_CONSOLE_PORT:-9001}:9001'
+    volumes:
+      - minio_data_prod:/data
+
+  minio-init:
+    image: minio/mc:latest
+    env_file:
+      - .env
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: ['/bin/sh', '/init/create-bucket.sh']
+    volumes:
+      - ./infra/minio/create-bucket.sh:/init/create-bucket.sh:ro
+    restart: 'no'
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      API_PORT: 3000
+      WEB_URL: ${WEB_URL:-http://localhost}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-smarteach}:${POSTGRES_PASSWORD:-smarteach}@postgres:5432/${POSTGRES_DB:-smarteach}?schema=public
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-http://localhost:9000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - '80:80'
+
+volumes:
+  postgres_data_prod:
+  redis_data_prod:
+  minio_data_prod:
