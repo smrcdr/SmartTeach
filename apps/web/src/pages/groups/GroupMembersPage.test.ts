@@ -159,7 +159,7 @@ describe('GroupMembersPage', () => {
     })
   })
 
-  it('opens or creates a direct chat from a selected member', async () => {
+  it('opens or creates a direct chat from a selected member context menu', async () => {
     mockGroup.value = buildGroup()
     mockMembers.value = [buildMember()]
     vi.mocked(chatsApi.createDirectChat).mockResolvedValue({
@@ -175,7 +175,7 @@ describe('GroupMembersPage', () => {
     })
     const { router, wrapper } = await mountPage()
 
-    await wrapper.find('.member-row').trigger('click')
+    await wrapper.find('.member-row').trigger('contextmenu')
     expect(wrapper.find('.member-menu').exists()).toBe(true)
 
     await wrapper.findAll('.member-menu button').find((button) => button.text().includes('Написать'))?.trigger('click')
@@ -186,12 +186,12 @@ describe('GroupMembersPage', () => {
     expect(router.currentRoute.value.query.chatId).toBe('chat-id')
   })
 
-  it('positions the member action menu under the click point', async () => {
+  it('positions the member action menu under the right click point', async () => {
     mockGroup.value = buildGroup()
     mockMembers.value = [buildMember()]
     const { wrapper } = await mountPage()
 
-    await wrapper.find('.member-row').trigger('click', {
+    await wrapper.find('.member-row').trigger('contextmenu', {
       clientX: 140,
       clientY: 220
     })
@@ -204,11 +204,23 @@ describe('GroupMembersPage', () => {
     mockMembers.value = [buildMember()]
     const { router, wrapper } = await mountPage()
 
-    await wrapper.find('.member-row').trigger('click')
+    await wrapper.find('.member-row').trigger('contextmenu')
     await wrapper.findAll('.member-menu button').find((button) => button.text().includes('Открыть профиль'))?.trigger('click')
     await flushPromises()
 
     expect(router.currentRoute.value.name).toBe('public-profile')
     expect(router.currentRoute.value.params.userId).toBe('member-id')
+  })
+
+  it('does not open the member menu on left row click and opens it from the dots button', async () => {
+    mockGroup.value = buildGroup()
+    mockMembers.value = [buildMember()]
+    const { wrapper } = await mountPage()
+
+    await wrapper.find('.member-row').trigger('click')
+    expect(wrapper.find('.member-menu').exists()).toBe(false)
+
+    await wrapper.find('.member-row__actions').trigger('click')
+    expect(wrapper.find('.member-menu').exists()).toBe(true)
   })
 })

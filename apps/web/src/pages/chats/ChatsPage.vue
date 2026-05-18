@@ -11,10 +11,12 @@ import {
   Users,
   X
 } from 'lucide-vue-next'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { ComponentPublicInstance } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createMessage, listChats, listMessages } from '@/features/chats/api/chats.api'
 import type { Chat, Message } from '@/features/chats/api/chats.api'
+import { createChatRealtimeClient, type ChatRealtimeClient } from '@/features/chats/api/chats.realtime'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { uploadFile } from '@/shared/api/files.api'
 import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
@@ -35,7 +37,11 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const replyTarget = ref<Message | null>(null)
 const isSending = ref(false)
 const error = ref<string | null>(null)
+const realtimeClient = ref<ChatRealtimeClient | null>(null)
+const highlightedMessageId = ref<string | null>(null)
 const activeFilter = ref<ChatFilterKey>('ALL')
+const messageElements = new Map<string, Element>()
+let highlightTimer: ReturnType<typeof setTimeout> | null = null
 const filterItems: Array<{ key: ChatFilterKey; label: string }> = [
   { key: 'ALL', label: 'Все' },
   { key: 'GROUP', label: 'Группы' },
@@ -149,6 +155,115 @@ function getReplyPreviewText(message: Message['replyToMessage']) {
   return message.text ?? 'Вложение'
 }
 
+function getReplySnippetText(message: Message | Message['replyToMessage'], maxLength = 84) {
+  if (!message) {
+    return ''
+  }
+
+  const text = message.deletedAt ? 'Сообщение удалено' : message.text ?? 'Вложение'
+
+  return text.length > maxLength ? `${text.slice(0, maxLength).trim()}...` : text
+}
+
+function setMessageElement(messageId: string, element: Element | ComponentPublicInstance | null) {
+  if (element instanceof Element) {
+    messageElements.set(messageId, element)
+    return
+  }
+
+  messageElements.delete(messageId)
+}
+
+async function focusMessage(messageId: string) {
+  await nextTick()
+
+  const element = messageElements.get(messageId)
+
+  if (!element) {
+    return
+  }
+
+  element.scrollIntoView({
+    behavior: 'smooth',
+    block: 'center'
+  })
+
+  highlightedMessageId.value = messageId
+
+  if (highlightTimer) {
+    clearTimeout(highlightTimer)
+  }
+
+  highlightTimer = setTimeout(() => {
+    highlightedMessageId.value = null
+    highlightTimer = null
+  }, 1000)
+}
+
+function upsertMessage(message: Message) {
+  if (message.chatId !== activeChatId.value) {
+    return
+  }
+
+  const existingIndex = messages.value.findIndex((item) => item.id === message.id)
+
+  if (existingIndex === -1) {
+    messages.value = [...messages.value, message]
+    return
+  }
+
+  messages.value = messages.value.map((item, index) => index === existingIndex ? message : item)
+}
+
+function removeMessage(message: Message) {
+  if (message.chatId !== activeChatId.value) {
+    return
+  }
+
+  upsertMessage(message)
+}
+
+function subscribeToActiveChat(chatId: string | null) {
+  if (!chatId || !realtimeClient.value?.connected) {
+    return
+  }
+
+  realtimeClient.value.emit('chat.subscribe', { chatId }, (response) => {
+    if (!response.ok) {
+      error.value = response.error
+    }
+  })
+}
+
+function connectRealtime() {
+  if (!auth.accessToken || realtimeClient.value) {
+    return
+  }
+
+  const client = createChatRealtimeClient(auth.accessToken)
+
+  client.on('connect', () => {
+    subscribeToActiveChat(activeChatId.value)
+  })
+  client.on('connect_error', () => {
+    error.value = 'Не удалось подключиться к обновлениям чата'
+  })
+  client.on('chat.message.created', (message) => {
+    upsertMessage(message)
+    void loadChats()
+  })
+  client.on('chat.message.updated', upsertMessage)
+  client.on('chat.message.deleted', removeMessage)
+  client.connect()
+
+  realtimeClient.value = client
+}
+
+function disconnectRealtime() {
+  realtimeClient.value?.disconnect()
+  realtimeClient.value = null
+}
+
 async function loadChats() {
   if (!auth.accessToken) {
     return
@@ -215,7 +330,7 @@ async function submitMessage() {
       ...(uploadedFiles.length > 0 ? { fileIds: uploadedFiles.map((file) => file.id) } : {}),
       ...(replyTarget.value ? { replyToMessageId: replyTarget.value.id } : {})
     }, auth.accessToken)
-    messages.value = [...messages.value, message]
+    upsertMessage(message)
     composerText.value = ''
     selectedFiles.value = []
     replyTarget.value = null
@@ -228,12 +343,22 @@ async function submitMessage() {
 }
 
 onMounted(() => {
+  connectRealtime()
   void loadChats()
+})
+
+onBeforeUnmount(() => {
+  if (highlightTimer) {
+    clearTimeout(highlightTimer)
+  }
+
+  disconnectRealtime()
 })
 
 watch(activeChatId, (chatId) => {
   replyTarget.value = null
   void loadMessages(chatId)
+  subscribeToActiveChat(chatId)
 
   if (chatId && route.query.chatId !== chatId) {
     void router.replace({
@@ -339,7 +464,13 @@ watch(() => route.query.groupId, () => {
         <article
           v-for="message in messages"
           :key="message.id"
-          :class="['message', message.authorId === auth.user?.id ? 'message--outgoing' : 'message--incoming']"
+          :ref="(element) => setMessageElement(message.id, element)"
+          :data-message-id="message.id"
+          :class="[
+            'message',
+            message.authorId === auth.user?.id ? 'message--outgoing' : 'message--incoming',
+            highlightedMessageId === message.id && 'message--highlighted'
+          ]"
         >
           <img
             v-if="message.authorId !== auth.user?.id && message.author.avatarUrl"
@@ -349,10 +480,15 @@ watch(() => route.query.groupId, () => {
           <div class="message__stack">
             <div class="message__bubble">
               <strong v-if="message.authorId !== auth.user?.id">{{ message.author.displayName }}</strong>
-              <div v-if="message.replyToMessage" class="message__reply-preview">
+              <button
+                v-if="message.replyToMessage"
+                class="message__reply-preview"
+                type="button"
+                @click="focusMessage(message.replyToMessage.id)"
+              >
                 <span>{{ message.replyToMessage.author.displayName }}</span>
                 <p>{{ getReplyPreviewText(message.replyToMessage) }}</p>
-              </div>
+              </button>
               <span v-if="message.deletedAt" class="message__text">Сообщение удалено</span>
               <span v-else-if="message.text" class="message__text">{{ message.text }}</span>
               <div v-if="!message.deletedAt && message.files.length > 0" class="message__files">
@@ -389,12 +525,11 @@ watch(() => route.query.groupId, () => {
         <button type="button" aria-label="Прикрепить файл" @click="pickFiles"><PlusCircle :size="24" /></button>
         <div class="chat-composer__body">
           <div v-if="replyTarget" class="chat-composer__reply">
-            <Reply :size="15" />
-            <div>
-              <span>Ответ {{ replyTarget.author.displayName }}</span>
-              <p>{{ replyTarget.text ?? 'Вложение' }}</p>
-            </div>
-            <button type="button" aria-label="Убрать ответ" @click="replyTarget = null"><X :size="16" /></button>
+            <button type="button" class="chat-composer__reply-target" @click="focusMessage(replyTarget.id)">
+              <span>{{ replyTarget.author.displayName }}</span>
+              <p>{{ getReplySnippetText(replyTarget) }}</p>
+            </button>
+            <button type="button" class="chat-composer__reply-close" aria-label="Убрать ответ" @click="replyTarget = null"><X :size="16" /></button>
           </div>
           <div v-if="selectedFiles.length > 0" class="chat-composer__attachments">
             <button
@@ -495,6 +630,7 @@ watch(() => route.query.groupId, () => {
 
 .chat-list__scroll {
   display: grid;
+  min-height: 0;
   overflow-y: auto;
   padding: 0 0 24px;
   border-top: 1px solid var(--chat-list-divider);
@@ -612,6 +748,7 @@ watch(() => route.query.groupId, () => {
   background: var(--color-surface);
   display: grid;
   grid-template-rows: 80px minmax(0, 1fr) auto;
+  min-height: 0;
   min-width: 0;
 }
 
@@ -703,10 +840,10 @@ watch(() => route.query.groupId, () => {
 }
 
 .chat-room__messages {
-  align-content: end;
   background: var(--color-surface-bright);
   display: grid;
   gap: 12px;
+  min-height: 0;
   overflow-y: auto;
   padding: 24px 32px 30px;
 }
@@ -730,6 +867,7 @@ watch(() => route.query.groupId, () => {
   gap: 11px;
   max-width: min(47%, 680px);
   min-width: min(360px, 100%);
+  transition: filter 220ms ease;
 }
 
 .message img,
@@ -767,6 +905,10 @@ watch(() => route.query.groupId, () => {
 
 .message--system .message__bubble {
   font-style: italic;
+}
+
+.message--highlighted .message__bubble {
+  animation: message-highlight 1000ms ease-out;
 }
 
 .message__stack {
@@ -815,13 +957,23 @@ watch(() => route.query.groupId, () => {
 }
 
 .message__reply-preview {
+  appearance: none;
   background: rgb(255 255 255 / 44%);
+  border: 0;
   border-left: 3px solid currentColor;
   border-radius: 10px;
+  color: inherit;
+  cursor: pointer;
   display: grid;
   gap: 2px;
   margin-bottom: 8px;
   padding: 7px 9px;
+  text-align: left;
+  width: 100%;
+}
+
+.message__reply-preview:hover {
+  filter: brightness(0.97);
 }
 
 .message__reply-preview span {
@@ -907,7 +1059,8 @@ watch(() => route.query.groupId, () => {
 .chat-composer {
   align-items: center;
   background: var(--color-surface);
-  border-top: 1px solid var(--color-divider);
+  border-top: 1px solid var(--chat-layout-divider);
+  box-shadow: 0 -1px 0 color-mix(in srgb, var(--chat-layout-divider) 58%, transparent);
   display: grid;
   gap: 12px;
   grid-template-columns: 44px minmax(0, 1fr) 48px;
@@ -931,31 +1084,70 @@ watch(() => route.query.groupId, () => {
 
 .chat-composer__reply {
   align-items: center;
-  background: var(--color-surface-low);
-  border: 1px solid var(--color-divider);
-  border-radius: var(--radius-md);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   color: var(--color-text);
   display: grid;
   gap: 10px;
-  grid-template-columns: auto minmax(0, 1fr) 32px;
-  padding: 10px 12px;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 4px 2px;
+}
+
+.chat-composer .chat-composer__reply-target {
+  align-items: start;
+  justify-items: start;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 6px;
+  justify-content: stretch;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  padding: 2px 0;
+  text-align: left;
+  width: 100%;
+}
+
+.chat-composer .chat-composer__reply-target:hover {
+  filter: brightness(0.98);
 }
 
 .chat-composer__reply span {
-  color: var(--color-primary);
-  font-size: 0.72rem;
+  color: var(--color-text);
+  display: block;
+  font-size: 0.86rem;
   font-weight: 850;
+  line-height: 1.2;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
 }
 
 .chat-composer__reply p {
   color: var(--color-text-muted);
-  margin: 2px 0 0;
+  display: block;
+  font-size: 0.98rem;
+  line-height: 1.32;
+  margin: 0;
+  max-width: 100%;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  width: 100%;
 }
 
-.chat-composer__reply button {
+.chat-composer__reply-close {
   height: 30px;
   width: 30px;
 }
@@ -1026,6 +1218,23 @@ watch(() => route.query.groupId, () => {
   cursor: not-allowed;
   opacity: 0.65;
   transform: none;
+}
+
+@keyframes message-highlight {
+  0% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 34%, transparent), 0 18px 34px -20px var(--color-primary);
+    filter: brightness(1.05);
+  }
+
+  70% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 16%, transparent), 0 14px 28px -22px var(--color-primary);
+    filter: brightness(1.02);
+  }
+
+  100% {
+    box-shadow: 0 10px 24px -22px rgb(27 27 32 / 32%);
+    filter: brightness(1);
+  }
 }
 
 @media (max-width: 900px) {
