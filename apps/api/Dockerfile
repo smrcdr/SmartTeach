@@ -14,7 +14,9 @@ RUN npm run prisma:generate -w @smarteach/api
 RUN npm run build -w @smarteach/api
 
 FROM base AS runner
+ARG DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder?schema=public
 ENV NODE_ENV=production
+ENV DATABASE_URL=$DATABASE_URL
 WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
