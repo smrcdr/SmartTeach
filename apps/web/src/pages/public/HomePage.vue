@@ -17,9 +17,14 @@ const { groups, isLoading, error } = useGroups()
       </div>
       <div class="home-hero__aside">
         <p class="lead">Присоединяйтесь к учебным группам, ведите уроки, задания, расписание и чаты в единой рабочей среде.</p>
-        <RouterLink to="/catalog">
-          <AppButton size="lg">Перейти в каталог <ArrowRight :size="18" /></AppButton>
-        </RouterLink>
+        <div class="home-hero__actions">
+          <RouterLink to="/catalog">
+            <AppButton size="lg">Перейти в каталог <ArrowRight :size="18" /></AppButton>
+          </RouterLink>
+          <RouterLink to="/guide">
+            <AppButton size="lg" variant="secondary">Как пользоваться платформой?</AppButton>
+          </RouterLink>
+        </div>
       </div>
     </section>
 
@@ -67,6 +72,13 @@ const { groups, isLoading, error } = useGroups()
   display: grid;
   gap: 24px;
   justify-items: start;
+}
+
+.home-hero__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .home-recommendations__header {

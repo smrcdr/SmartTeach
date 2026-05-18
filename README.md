@@ -75,6 +75,35 @@ Prisma-файлы backend теперь лежат в `apps/api/prisma`.
 - `npm run db:migrate` — Prisma migration для backend
 - `npm run db:seed` — seed для backend
 
+## Запуск через Docker Compose
+
+### Development (инфраструктура + API + frontend с hot reload)
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Сервисы:
+
+- frontend (Vite): `http://localhost:5173`
+- API: `http://localhost:3000/api/v1`
+- Swagger: `http://localhost:3000/api/docs`
+- PostgreSQL: `localhost:5432`
+- Redis: `localhost:6379`
+- MinIO API: `http://localhost:9000`
+- MinIO Console: `http://localhost:9001`
+
+### Production (полная сборка и запуск production-окружения)
+
+```bash
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+Сервисы:
+
+- frontend (Nginx): `http://localhost`
+- API проксируется через frontend по `/api/*`
+
 ## Локальные сервисы
 
 - REST API: `http://localhost:3000/api/v1`

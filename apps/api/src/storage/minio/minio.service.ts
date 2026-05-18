@@ -11,19 +11,11 @@ type UploadObjectOptions = {
 @Injectable()
 export class MinioService {
   private readonly client: Client
+  private readonly publicClient: Client
 
   constructor(@Inject(AppConfigService) private readonly config: AppConfigService) {
-    const endpoint = new URL(this.config.minioEndpoint)
-
-    this.client = new Client({
-      endPoint: endpoint.hostname,
-      port: endpoint.port ? Number(endpoint.port) : this.config.minioPort,
-      useSSL: endpoint.protocol === 'https:',
-      accessKey: this.config.minioRootUser,
-      secretKey: this.config.minioRootPassword,
-      region: this.config.minioRegion,
-      pathStyle: this.config.minioForcePathStyle,
-    })
+    this.client = this.createClient(this.config.minioEndpoint)
+    this.publicClient = this.createClient(this.config.minioPublicEndpoint)
   }
 
   get bucketName() {
@@ -47,7 +39,7 @@ export class MinioService {
   }
 
   async getObjectUrl(objectName: string, expiresInSeconds = 60 * 60) {
-    return this.client.presignedGetObject(this.bucketName, objectName, expiresInSeconds)
+    return this.publicClient.presignedGetObject(this.bucketName, objectName, expiresInSeconds)
   }
 
   async removeObject(objectName: string) {
@@ -68,5 +60,19 @@ export class MinioService {
     if (!exists) {
       await this.client.makeBucket(bucketName, this.config.minioRegion)
     }
+  }
+
+  private createClient(endpointUrl: string) {
+    const endpoint = new URL(endpointUrl)
+
+    return new Client({
+      endPoint: endpoint.hostname,
+      port: endpoint.port ? Number(endpoint.port) : this.config.minioPort,
+      useSSL: endpoint.protocol === 'https:',
+      accessKey: this.config.minioRootUser,
+      secretKey: this.config.minioRootPassword,
+      region: this.config.minioRegion,
+      pathStyle: this.config.minioForcePathStyle,
+    })
   }
 }

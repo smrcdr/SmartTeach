@@ -19,6 +19,7 @@ import { GroupDto } from './dto/group.dto'
 import { GroupSettingsDto } from './dto/group-settings.dto'
 import {
   buildGroupSelect,
+  buildGroupImageUrlByFileId,
   mapGroupToDto,
   mapGroupSettingsToDto,
   groupSettingsSelect,
@@ -119,12 +120,15 @@ export class GroupsService {
       this.minioService,
       groups.map((group) => group.owner),
     )
+    const groupImageUrlByFileId = await buildGroupImageUrlByFileId(this.minioService, groups)
 
-    return groups.map((group) => mapGroupToDto(group, avatarUrlByFileId))
+    return groups.map((group) => mapGroupToDto(group, avatarUrlByFileId, groupImageUrlByFileId))
   }
 
   async createGroup(ownerId: string, payload: CreateGroupRequestDto): Promise<GroupDto> {
     const groupSelect = buildGroupSelect(ownerId)
+    await this.assertGroupImageFileIsAccessibleByUser(ownerId, payload.avatarFileId, 'avatarFileId')
+    await this.assertGroupImageFileIsAccessibleByUser(ownerId, payload.catalogImageFileId, 'catalogImageFileId')
 
     for (let attempt = 0; attempt < 10; attempt += 1) {
       try {
@@ -134,6 +138,8 @@ export class GroupsService {
               code: this.codeGeneratorService.generateGroupCode(),
               name: payload.name,
               description: this.normalizeDescription(payload.description),
+              avatarFileId: payload.avatarFileId ?? null,
+              catalogImageFileId: payload.catalogImageFileId ?? null,
               ownerId,
               accessMode: payload.accessMode,
               settings: {
@@ -142,6 +148,8 @@ export class GroupsService {
                   lessonsEnabled: payload.settings.lessonsEnabled,
                   assignmentsEnabled: payload.settings.assignmentsEnabled,
                   scheduleEnabled: payload.settings.scheduleEnabled,
+                  scheduleWeeklyEnabled: payload.settings.scheduleWeeklyEnabled ?? true,
+                  scheduleSpecialEnabled: payload.settings.scheduleSpecialEnabled ?? true,
                   usefulLinksEnabled: payload.settings.usefulLinksEnabled,
                 },
               },
@@ -223,6 +231,8 @@ export class GroupsService {
     }
 
     const group = await this.assertCanManageGroup(groupId, userId)
+    await this.assertGroupImageFileIsAccessibleByUser(userId, payload.avatarFileId, 'avatarFileId')
+    await this.assertGroupImageFileIsAccessibleByUser(userId, payload.catalogImageFileId, 'catalogImageFileId')
     const shouldRejectPendingJoinRequests =
       payload.accessMode !== undefined &&
       payload.accessMode !== group.accessMode &&
@@ -237,6 +247,16 @@ export class GroupsService {
       ...(payload.description !== undefined
         ? {
             description: this.normalizeDescription(payload.description),
+          }
+        : {}),
+      ...(payload.avatarFileId !== undefined
+        ? {
+            avatarFileId: payload.avatarFileId,
+          }
+        : {}),
+      ...(payload.catalogImageFileId !== undefined
+        ? {
+            catalogImageFileId: payload.catalogImageFileId,
           }
         : {}),
       ...(payload.accessMode !== undefined
@@ -351,6 +371,16 @@ export class GroupsService {
       ...(payload.scheduleEnabled !== undefined
         ? {
             scheduleEnabled: payload.scheduleEnabled,
+          }
+        : {}),
+      ...(payload.scheduleWeeklyEnabled !== undefined
+        ? {
+            scheduleWeeklyEnabled: payload.scheduleWeeklyEnabled,
+          }
+        : {}),
+      ...(payload.scheduleSpecialEnabled !== undefined
+        ? {
+            scheduleSpecialEnabled: payload.scheduleSpecialEnabled,
           }
         : {}),
       ...(payload.usefulLinksEnabled !== undefined
@@ -485,7 +515,39 @@ export class GroupsService {
     group: Prisma.GroupGetPayload<{ select: ReturnType<typeof buildGroupSelect> }>,
   ) {
     const avatarUrlByFileId = await buildAvatarUrlByFileId(this.minioService, [group.owner])
+    const groupImageUrlByFileId = await buildGroupImageUrlByFileId(this.minioService, [group])
 
-    return mapGroupToDto(group, avatarUrlByFileId)
+    return mapGroupToDto(group, avatarUrlByFileId, groupImageUrlByFileId)
+  }
+
+  private async assertGroupImageFileIsAccessibleByUser(
+    userId: string,
+    fileId: string | null | undefined,
+    fieldName: 'avatarFileId' | 'catalogImageFileId',
+  ) {
+    if (fileId === undefined || fileId === null) {
+      return
+    }
+
+    const file = await this.prismaService.file.findFirst({
+      where: {
+        id: fileId,
+        uploadedByUserId: userId,
+        deletedAt: null,
+        mimeType: {
+          startsWith: 'image/',
+        },
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    if (!file) {
+      throw new BadRequestException({
+        message: 'Validation failed',
+        errors: [`${fieldName}: Image file not found`],
+      })
+    }
   }
 }

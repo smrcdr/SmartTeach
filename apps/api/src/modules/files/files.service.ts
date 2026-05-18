@@ -95,6 +95,8 @@ export class FilesService {
         _count: {
           select: {
             avatarUsers: true,
+            groupAvatars: true,
+            groupCatalogImages: true,
             lessonFiles: true,
             assignmentFiles: true,
             submissionFiles: true,
@@ -115,6 +117,8 @@ export class FilesService {
 
     if (
       file._count.avatarUsers > 0 ||
+      file._count.groupAvatars > 0 ||
+      file._count.groupCatalogImages > 0 ||
       file._count.lessonFiles > 0 ||
       file._count.assignmentFiles > 0 ||
       file._count.submissionFiles > 0 ||

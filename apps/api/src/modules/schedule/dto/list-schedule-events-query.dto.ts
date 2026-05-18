@@ -1,6 +1,11 @@
 import { ApiPropertyOptional } from '@nestjs/swagger'
 import { z } from 'zod'
-import { scheduleEventStatusSchema, scheduleEventStatusValues } from '../schedule.schemas'
+import {
+  scheduleEventStatusSchema,
+  scheduleEventStatusValues,
+  scheduleEventTypeSchema,
+  scheduleEventTypeValues,
+} from '../schedule.schemas'
 
 function normalizeOptionalDateTime(value: unknown) {
   if (typeof value !== 'string') {
@@ -26,6 +31,7 @@ export class ListScheduleEventsQueryDto {
   static schema = z
     .object({
       status: z.preprocess(normalizeOptionalUppercaseString, scheduleEventStatusSchema.optional()),
+      eventType: z.preprocess(normalizeOptionalUppercaseString, scheduleEventTypeSchema.optional()),
       from: z.preprocess(
         normalizeOptionalDateTime,
         z
@@ -52,6 +58,12 @@ export class ListScheduleEventsQueryDto {
     example: 'PLANNED',
   })
   status?: (typeof scheduleEventStatusValues)[number]
+
+  @ApiPropertyOptional({
+    enum: scheduleEventTypeValues,
+    example: 'SPECIAL',
+  })
+  eventType?: (typeof scheduleEventTypeValues)[number]
 
   @ApiPropertyOptional({
     format: 'date-time',

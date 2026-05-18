@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { z } from 'zod'
+import { scheduleEventTypeSchema, scheduleEventTypeValues } from '../schedule.schemas'
 
 function normalizeOptionalDateTime(value: unknown) {
   if (typeof value !== 'string') {
@@ -16,18 +17,18 @@ export class CreateScheduleEventRequestDto {
     .object({
       title: z.string().trim().min(2).max(200),
       description: z.string().optional(),
+      eventType: scheduleEventTypeSchema.default('SPECIAL'),
       startsAt: z.preprocess(
         normalizeOptionalDateTime,
-        z.string().datetime({
-          offset: true,
-        }),
+        z.string().datetime({ offset: true }).optional(),
       ),
       endsAt: z.preprocess(
         normalizeOptionalDateTime,
-        z.string().datetime({
-          offset: true,
-        }),
+        z.string().datetime({ offset: true }).optional(),
       ),
+      weekday: z.number().int().min(1).max(7).optional(),
+      startTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+      endTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
       location: z.string().max(255).optional(),
     })
     .strict()
@@ -44,17 +45,32 @@ export class CreateScheduleEventRequestDto {
   })
   description?: string
 
-  @ApiProperty({
+  @ApiPropertyOptional({
+    enum: scheduleEventTypeValues,
+    example: 'SPECIAL',
+  })
+  eventType?: (typeof scheduleEventTypeValues)[number]
+
+  @ApiPropertyOptional({
     format: 'date-time',
     example: '2026-04-16T12:00:00.000Z',
   })
-  startsAt!: string
+  startsAt?: string
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     format: 'date-time',
     example: '2026-04-16T13:30:00.000Z',
   })
-  endsAt!: string
+  endsAt?: string
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 7, example: 1 })
+  weekday?: number
+
+  @ApiPropertyOptional({ example: '09:00' })
+  startTime?: string
+
+  @ApiPropertyOptional({ example: '10:30' })
+  endTime?: string
 
   @ApiPropertyOptional({
     example: 'Zoom / Room 204',

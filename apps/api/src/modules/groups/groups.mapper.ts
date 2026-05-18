@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client'
+import { MinioService } from '../../storage/minio/minio.service'
 import { mapPublicUserToDto, publicUserSelect } from '../users/users.mapper'
 import type { AvatarUrlByFileId } from '../users/user-avatar.utils'
 import { GroupDto } from './dto/group.dto'
@@ -11,6 +12,8 @@ export const groupSettingsSelect = {
   lessonsEnabled: true,
   assignmentsEnabled: true,
   scheduleEnabled: true,
+  scheduleWeeklyEnabled: true,
+  scheduleSpecialEnabled: true,
   usefulLinksEnabled: true,
 } satisfies Prisma.GroupSettingsSelect
 
@@ -19,6 +22,20 @@ const groupBaseSelect = {
   code: true,
   name: true,
   description: true,
+  avatarFileId: true,
+  avatarFile: {
+    select: {
+      deletedAt: true,
+      storageKey: true,
+    },
+  },
+  catalogImageFileId: true,
+  catalogImageFile: {
+    select: {
+      deletedAt: true,
+      storageKey: true,
+    },
+  },
   ownerId: true,
   owner: {
     select: publicUserSelect,
@@ -85,17 +102,64 @@ export type GroupRecord = Prisma.GroupGetPayload<{
   select: ReturnType<typeof buildGroupSelect>
 }>
 
+export type GroupImageUrlByFileId = ReadonlyMap<string, string>
+
 export function mapGroupSettingsToDto(settings: GroupSettingsRecord): GroupSettingsDto {
   return {
     chatEnabled: settings.chatEnabled,
     lessonsEnabled: settings.lessonsEnabled,
     assignmentsEnabled: settings.assignmentsEnabled,
     scheduleEnabled: settings.scheduleEnabled,
+    scheduleWeeklyEnabled: settings.scheduleWeeklyEnabled,
+    scheduleSpecialEnabled: settings.scheduleSpecialEnabled,
     usefulLinksEnabled: settings.usefulLinksEnabled,
   }
 }
 
-export function mapGroupToDto(group: GroupRecord, avatarUrlByFileId?: AvatarUrlByFileId): GroupDto {
+export async function buildGroupImageUrlByFileId(
+  minioService: MinioService,
+  groups: Array<Pick<GroupRecord, 'avatarFileId' | 'avatarFile' | 'catalogImageFileId' | 'catalogImageFile'>>,
+): Promise<Map<string, string>> {
+  const imageFiles = Array.from(
+    new Map(
+      groups.flatMap((group) => {
+        const entries: Array<readonly [string, string]> = []
+
+        if (group.avatarFileId && group.avatarFile?.deletedAt === null && group.avatarFile.storageKey) {
+          entries.push([group.avatarFileId, group.avatarFile.storageKey] as const)
+        }
+
+        if (
+          group.catalogImageFileId &&
+          group.catalogImageFile?.deletedAt === null &&
+          group.catalogImageFile.storageKey
+        ) {
+          entries.push([group.catalogImageFileId, group.catalogImageFile.storageKey] as const)
+        }
+
+        return entries
+      }),
+    ).entries(),
+  )
+
+  if (imageFiles.length === 0) {
+    return new Map()
+  }
+
+  const urls = await Promise.all(
+    imageFiles.map(([, storageKey]) => minioService.getObjectUrl(storageKey)),
+  )
+
+  return new Map(
+    imageFiles.map(([fileId], index) => [fileId, urls[index] ?? '']),
+  )
+}
+
+export function mapGroupToDto(
+  group: GroupRecord,
+  avatarUrlByFileId?: AvatarUrlByFileId,
+  groupImageUrlByFileId?: GroupImageUrlByFileId,
+): GroupDto {
   if (!group.settings) {
     throw new Error(`Group ${group.id} is missing settings`)
   }
@@ -105,6 +169,10 @@ export function mapGroupToDto(group: GroupRecord, avatarUrlByFileId?: AvatarUrlB
     code: group.code,
     name: group.name,
     description: group.description,
+    avatarFileId: group.avatarFileId,
+    avatarUrl: group.avatarFileId ? groupImageUrlByFileId?.get(group.avatarFileId) ?? null : null,
+    catalogImageFileId: group.catalogImageFileId,
+    catalogImageUrl: group.catalogImageFileId ? groupImageUrlByFileId?.get(group.catalogImageFileId) ?? null : null,
     ownerId: group.ownerId,
     owner: mapPublicUserToDto(group.owner, avatarUrlByFileId),
     accessMode: group.accessMode,

@@ -3,7 +3,13 @@
     <AppTopNav />
     <aside v-if="group" class="workspace-nav">
       <RouterLink to="/my-groups" class="workspace-nav__brand">
-        <span>{{ initials }}</span>
+        <img
+          v-if="group.avatarUrl"
+          class="workspace-nav__brand-avatar"
+          :src="group.avatarUrl"
+          :alt="group.name"
+        >
+        <span v-else class="workspace-nav__brand-initials">{{ initials }}</span>
         <div>
           <strong>{{ group.name }}</strong>
           <small>{{ group.code }}</small>
@@ -117,16 +123,26 @@ watch([() => route.name, () => group.value], () => {
   padding: 12px;
 }
 
-.workspace-nav__brand > span {
+.workspace-nav__brand-avatar,
+.workspace-nav__brand-initials {
+  flex: 0 0 auto;
+  height: 44px;
+  width: 44px;
+}
+
+.workspace-nav__brand-avatar {
+  border-radius: var(--radius-lg);
+  object-fit: cover;
+}
+
+.workspace-nav__brand-initials {
   align-items: center;
   background: var(--color-primary);
   border-radius: var(--radius-lg);
   color: #fff;
   display: inline-flex;
   font-weight: 850;
-  height: 44px;
   justify-content: center;
-  width: 44px;
 }
 
 .workspace-nav__brand strong,

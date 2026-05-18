@@ -82,4 +82,27 @@ describe('ProfileEditPage', () => {
       message: 'Профиль обновлён'
     })
   })
+
+  it('shows the selected avatar immediately before saving the profile', async () => {
+    const createObjectUrl = vi.fn(() => 'blob:local-avatar')
+    const revokeObjectUrl = vi.fn()
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: createObjectUrl,
+      revokeObjectURL: revokeObjectUrl
+    })
+
+    const { wrapper } = await mountPage()
+    const file = new File(['avatar'], 'avatar.png', { type: 'image/png' })
+    const input = wrapper.find<HTMLInputElement>('input[type="file"]')
+
+    Object.defineProperty(input.element, 'files', {
+      value: [file],
+      configurable: true
+    })
+    await input.trigger('change')
+
+    expect(createObjectUrl).toHaveBeenCalledWith(file)
+    expect(wrapper.find('.profile-edit__avatar img').attributes('src')).toBe('blob:local-avatar')
+  })
 })

@@ -12,6 +12,8 @@ export class UpdateGroupRequestDto {
     .object({
       name: z.string().trim().min(2).max(150).optional(),
       description: z.string().trim().optional(),
+      avatarFileId: z.string().uuid().nullable().optional(),
+      catalogImageFileId: z.string().uuid().nullable().optional(),
       accessMode: groupAccessModeSchema.optional(),
       status: groupEditableStatusSchema.optional(),
     })
@@ -28,6 +30,20 @@ export class UpdateGroupRequestDto {
     example: 'Обновленное описание учебной группы.',
   })
   description?: string
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    example: 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+  })
+  avatarFileId?: string | null
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    example: 'aaaaaaa2-aaaa-4aaa-8aaa-aaaaaaaaaaa2',
+  })
+  catalogImageFileId?: string | null
 
   @ApiPropertyOptional({
     enum: groupAccessModeValues,

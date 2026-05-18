@@ -20,6 +20,8 @@ export const groupSettingsSchema = z
     lessonsEnabled: z.boolean(),
     assignmentsEnabled: z.boolean(),
     scheduleEnabled: z.boolean(),
+    scheduleWeeklyEnabled: z.boolean().default(true),
+    scheduleSpecialEnabled: z.boolean().default(true),
     usefulLinksEnabled: z.boolean().default(true),
   })
   .strict()

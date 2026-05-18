@@ -33,6 +33,32 @@ export class GroupDto {
   })
   description!: string | null
 
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    example: 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+  })
+  avatarFileId!: string | null
+
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 'http://localhost:9000/smarteach-files/group-avatars/2026/04/12/aBcD1234xYz9.png',
+  })
+  avatarUrl!: string | null
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    example: 'aaaaaaa2-aaaa-4aaa-8aaa-aaaaaaaaaaa2',
+  })
+  catalogImageFileId!: string | null
+
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 'http://localhost:9000/smarteach-files/group-catalog/2026/04/12/aBcD1234xYz9.png',
+  })
+  catalogImageUrl!: string | null
+
   @ApiProperty({
     format: 'uuid',
     example: '11111111-1111-4111-8111-111111111111',

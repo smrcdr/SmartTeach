@@ -53,6 +53,11 @@ enum ScheduleEventStatus {
   CANCELLED
 }
 
+enum ScheduleEventType {
+  SPECIAL
+  WEEKLY
+}
+
 enum ChatType {
   GROUP
   DIRECT
@@ -118,6 +123,8 @@ model File {
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
   uploadedByUser   User     @relation("UploadedFiles", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
   avatarUsers      User[]   @relation("UserAvatar")
+  groupAvatars     Group[]  @relation("GroupAvatar")
+  groupCatalogImages Group[] @relation("GroupCatalogImage")
   lessonFiles      LessonFile[]
   assignmentFiles  AssignmentFile[]
   submissionFiles  SubmissionFile[]
@@ -134,6 +141,8 @@ model Group {
   name        String          @db.VarChar(150)
   description String?         @db.Text
   ownerId     String          @map("owner_id") @db.Uuid
+  avatarFileId String?        @map("avatar_file_id") @db.Uuid
+  catalogImageFileId String?  @map("catalog_image_file_id") @db.Uuid
   accessMode  GroupAccessMode @map("access_mode")
   status      GroupStatus     @default(ACTIVE)
   createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -141,6 +150,8 @@ model Group {
   archivedAt  DateTime?       @map("archived_at") @db.Timestamptz(6)
   deletedAt   DateTime?       @map("deleted_at") @db.Timestamptz(6)
   owner       User            @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  avatarFile  File?           @relation("GroupAvatar", fields: [avatarFileId], references: [id], onDelete: SetNull)
+  catalogImageFile File?      @relation("GroupCatalogImage", fields: [catalogImageFileId], references: [id], onDelete: SetNull)
   settings    GroupSettings?
   members     GroupMember[]
   joinRequests GroupJoinRequest[]
@@ -153,6 +164,8 @@ model Group {
   materialSubsections MaterialSubsection[]
 
   @@index([ownerId])
+  @@index([avatarFileId])
+  @@index([catalogImageFileId])
   @@index([status])
   @@map("groups")
 }
@@ -163,6 +176,8 @@ model GroupSettings {
   lessonsEnabled      Boolean  @default(true) @map("lessons_enabled")
   assignmentsEnabled  Boolean  @default(true) @map("assignments_enabled")
   scheduleEnabled     Boolean  @default(true) @map("schedule_enabled")
+  scheduleWeeklyEnabled Boolean @default(true) @map("schedule_weekly_enabled")
+  scheduleSpecialEnabled Boolean @default(true) @map("schedule_special_enabled")
   usefulLinksEnabled  Boolean  @default(true) @map("useful_links_enabled")
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -429,8 +444,12 @@ model ScheduleEvent {
   groupId         String              @map("group_id") @db.Uuid
   title           String              @db.VarChar(200)
   description     String?             @db.Text
+  eventType       ScheduleEventType    @default(SPECIAL) @map("event_type")
   startsAt        DateTime            @map("starts_at") @db.Timestamptz(6)
   endsAt          DateTime            @map("ends_at") @db.Timestamptz(6)
+  weekday         Int?                 @db.SmallInt
+  startMinutes    Int?                 @map("start_minutes") @db.SmallInt
+  endMinutes      Int?                 @map("end_minutes") @db.SmallInt
   location        String?             @db.VarChar(255)
   status          ScheduleEventStatus @default(PLANNED)
   createdByUserId String              @map("created_by_user_id") @db.Uuid
@@ -443,6 +462,7 @@ model ScheduleEvent {
   @@index([groupId])
   @@index([createdByUserId])
   @@index([groupId, startsAt])
+  @@index([groupId, eventType, weekday, startMinutes])
   @@index([groupId, status])
   @@map("schedule_events")
 }

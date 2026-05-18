@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
-import { scheduleEventStatusValues } from '../schedule.schemas'
+import { scheduleEventStatusValues, scheduleEventTypeValues } from '../schedule.schemas'
 
 export class ScheduleEventDto {
   @ApiProperty({
@@ -28,6 +28,12 @@ export class ScheduleEventDto {
   description!: string | null
 
   @ApiProperty({
+    enum: scheduleEventTypeValues,
+    example: 'SPECIAL',
+  })
+  eventType!: (typeof scheduleEventTypeValues)[number]
+
+  @ApiProperty({
     format: 'date-time',
   })
   startsAt!: string
@@ -42,6 +48,15 @@ export class ScheduleEventDto {
     example: 'Zoom / Room 204',
   })
   location!: string | null
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 7, nullable: true })
+  weekday!: number | null
+
+  @ApiPropertyOptional({ nullable: true, example: '09:00' })
+  startTime!: string | null
+
+  @ApiPropertyOptional({ nullable: true, example: '10:30' })
+  endTime!: string | null
 
   @ApiProperty({
     enum: scheduleEventStatusValues,
