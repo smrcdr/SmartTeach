@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createDirectChat, createGroupChat, createMessage } from './chats.api'
+import { createDirectChat, createGroupChat, createMessage, deleteGroupChat, updateGroupChat } from './chats.api'
 
 describe('chats api', () => {
   afterEach(() => {
@@ -39,6 +39,23 @@ describe('chats api', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/chats/chat-id/messages', expect.objectContaining({
       method: 'POST',
       body: JSON.stringify(payload)
+    }))
+  })
+
+  it('updates and deletes group chats through backend endpoints', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(
+      new Response(JSON.stringify({ id: 'chat-id' }), { status: 200 })
+    ))
+
+    await updateGroupChat('group-id', 'chat-id', { title: 'Новый чат' }, 'access-token')
+    await deleteGroupChat('group-id', 'chat-id', 'access-token')
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/v1/groups/group-id/chats/chat-id', expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify({ title: 'Новый чат' })
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/v1/groups/group-id/chats/chat-id', expect.objectContaining({
+      method: 'DELETE'
     }))
   })
 })

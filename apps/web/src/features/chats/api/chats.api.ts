@@ -79,6 +79,21 @@ export function createGroupChat(groupId: string, payload: { title: string }, tok
   })
 }
 
+export function updateGroupChat(groupId: string, chatId: string, payload: { title: string }, token?: string | null) {
+  return apiRequest<Chat>(`/groups/${groupId}/chats/${chatId}`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(payload)
+  })
+}
+
+export function deleteGroupChat(groupId: string, chatId: string, token?: string | null) {
+  return apiRequest<void>(`/groups/${groupId}/chats/${chatId}`, {
+    method: 'DELETE',
+    token
+  })
+}
+
 export function createDirectChat(userId: string, token?: string | null) {
   return apiRequest<Chat>('/chats/direct', {
     method: 'POST',

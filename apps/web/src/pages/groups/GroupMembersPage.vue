@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Clipboard, MessageCircle, UserPlus, UserRound } from 'lucide-vue-next'
+import { Clipboard, MessageCircle, MoreVertical, UserPlus, UserRound } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
@@ -43,13 +43,28 @@ function getMemberMenuPosition(event: MouseEvent) {
   }
 }
 
-function toggleMemberMenu(member: GroupMember, event: MouseEvent) {
+function openMemberMenu(member: GroupMember, event: MouseEvent) {
+  memberMenuPosition.value = getMemberMenuPosition(event)
+  selectedMember.value = member
+}
+
+function toggleMemberMenuFromButton(member: GroupMember, event: Event) {
   if (selectedMember.value?.userId === member.userId) {
     selectedMember.value = null
     return
   }
 
-  memberMenuPosition.value = getMemberMenuPosition(event)
+  const element = event.currentTarget
+
+  if (!(element instanceof HTMLElement)) {
+    return
+  }
+
+  const rect = element.getBoundingClientRect()
+  memberMenuPosition.value = {
+    left: Math.min(Math.max(rect.right - 280, 12), Math.max(12, window.innerWidth - 292)),
+    top: Math.min(rect.bottom + 8, Math.max(12, window.innerHeight - 124))
+  }
   selectedMember.value = member
 }
 
@@ -123,7 +138,7 @@ async function openPublicProfile() {
           class="member-row"
           type="button"
           :aria-expanded="selectedMember?.userId === member.userId"
-          @click.stop="toggleMemberMenu(member, $event)"
+          @contextmenu.prevent.stop="openMemberMenu(member, $event)"
         >
           <img v-if="member.user.avatarUrl" :src="member.user.avatarUrl" :alt="member.user.displayName" />
           <span v-else class="member-row__initials">{{ member.user.displayName.slice(0, 1) }}</span>
@@ -132,6 +147,18 @@ async function openPublicProfile() {
             <p>{{ member.user.bio }}</p>
           </div>
           <strong>{{ getGroupRoleLabel(member.role) }}</strong>
+          <span
+            class="member-row__actions"
+            role="button"
+            tabindex="0"
+            aria-label="Действия с участником"
+            :aria-expanded="selectedMember?.userId === member.userId"
+            @click.stop="toggleMemberMenuFromButton(member, $event)"
+            @keydown.enter.stop.prevent="toggleMemberMenuFromButton(member, $event)"
+            @keydown.space.stop.prevent="toggleMemberMenuFromButton(member, $event)"
+          >
+            <MoreVertical :size="18" />
+          </span>
         </button>
 
         <section
@@ -205,11 +232,29 @@ async function openPublicProfile() {
   display: grid;
   font: inherit;
   gap: 16px;
-  grid-template-columns: 52px 1fr auto;
+  grid-template-columns: 52px minmax(0, 1fr) auto 34px;
   padding: 18px 20px;
   text-align: left;
   transition: background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
   width: 100%;
+}
+
+.member-row__actions {
+  align-items: center;
+  border-radius: 50%;
+  color: var(--color-text-muted);
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  transition: background-color 160ms ease, color 160ms ease;
+  width: 34px;
+}
+
+.member-row__actions:hover,
+.member-row__actions:focus-visible {
+  background: var(--color-surface-highest);
+  color: var(--color-primary);
+  outline: none;
 }
 
 .member-row:hover {
@@ -375,7 +420,7 @@ async function openPublicProfile() {
 @media (max-width: 620px) {
   .member-row {
     align-items: start;
-    grid-template-columns: 44px minmax(0, 1fr);
+    grid-template-columns: 44px minmax(0, 1fr) 34px;
   }
 
   .member-row strong {
