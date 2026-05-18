@@ -8,6 +8,22 @@ type UploadObjectOptions = {
   contentType: string
 }
 
+export function resolveMinioPort(endpoint: URL, fallbackPort: number) {
+  if (endpoint.port) {
+    return Number(endpoint.port)
+  }
+
+  if (endpoint.protocol === 'https:') {
+    return 443
+  }
+
+  if (endpoint.protocol === 'http:') {
+    return 80
+  }
+
+  return fallbackPort
+}
+
 @Injectable()
 export class MinioService {
   private readonly client: Client
@@ -67,7 +83,7 @@ export class MinioService {
 
     return new Client({
       endPoint: endpoint.hostname,
-      port: endpoint.port ? Number(endpoint.port) : this.config.minioPort,
+      port: resolveMinioPort(endpoint, this.config.minioPort),
       useSSL: endpoint.protocol === 'https:',
       accessKey: this.config.minioRootUser,
       secretKey: this.config.minioRootPassword,
