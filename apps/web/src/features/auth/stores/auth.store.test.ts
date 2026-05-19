@@ -117,4 +117,50 @@ describe('auth store', () => {
 
     expect(auth.error).toBe('Пароль должен быть не короче 8 символов')
   })
+
+  it('refreshes an expired stored session instead of clearing it', async () => {
+    vi.stubGlobal('fetch', fetchMock)
+    localStorage.setItem('smarteach.accessToken', 'expired-token')
+    localStorage.setItem('smarteach.sessionId', 'old-session')
+
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        statusCode: 401,
+        message: 'Unauthorized'
+      }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        accessToken: 'fresh-token',
+        sessionId: 'fresh-session'
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: 'user-1',
+        email: 'student@smarteach.local',
+        displayName: 'Student Example'
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      }))
+
+    const auth = useAuthStore()
+
+    await expect(auth.ensureSession()).resolves.toBe(true)
+
+    expect(auth.accessToken).toBe('fresh-token')
+    expect(auth.sessionId).toBe('fresh-session')
+    expect(auth.user).toMatchObject({
+      id: 'user-1',
+      email: 'student@smarteach.local',
+      displayName: 'Student Example'
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get('Authorization')).toBe('Bearer expired-token')
+    expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get('Authorization')).toBeNull()
+    expect(new Headers(fetchMock.mock.calls[2]?.[1]?.headers).get('Authorization')).toBe('Bearer fresh-token')
+  })
 })

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { ApiError } from '@/shared/api/http'
+import { ApiError, configureAuthRefresh } from '@/shared/api/http'
 import * as authApi from '../api/auth.api'
 import { translateAuthValidationError } from '../lib/auth-validation'
 
@@ -80,6 +80,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoading = ref(false)
   const error = ref<string | null>(null)
   const hasCheckedSession = ref(false)
+  let refreshPromise: Promise<string | null> | null = null
 
   const displayUser = computed(() => user.value)
 
@@ -107,6 +108,27 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem(tokenStorageKey)
     localStorage.removeItem(sessionStorageKey)
   }
+
+  async function refreshAccessToken() {
+    if (!refreshPromise) {
+      refreshPromise = authApi.refresh()
+        .then((tokenPair) => {
+          setTokenPair(tokenPair)
+          return tokenPair.accessToken
+        })
+        .catch(() => {
+          clearSession()
+          return null
+        })
+        .finally(() => {
+          refreshPromise = null
+        })
+    }
+
+    return refreshPromise
+  }
+
+  configureAuthRefresh(refreshAccessToken, clearSession)
 
   async function login(payload: authApi.LoginPayload) {
     isLoading.value = true
@@ -136,20 +158,24 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function loadMe() {
     if (!accessToken.value) {
-      return
+      return false
     }
 
     try {
       user.value = await authApi.getMe(accessToken.value)
+      return true
     } catch {
       clearSession()
+      return false
     }
   }
 
   async function ensureSession() {
     if (accessToken.value) {
       if (!user.value) {
-        await loadMe()
+        const loaded = await loadMe()
+        hasCheckedSession.value = true
+        return loaded
       }
 
       hasCheckedSession.value = true
@@ -163,9 +189,9 @@ export const useAuthStore = defineStore('auth', () => {
     hasCheckedSession.value = true
 
     try {
-      setTokenPair(await authApi.refresh())
-      await loadMe()
-      return Boolean(accessToken.value)
+      await refreshAccessToken()
+      const loaded = await loadMe()
+      return loaded
     } catch {
       clearSession()
       return false
