@@ -1,5 +1,5 @@
-import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Group } from '../api/groups.api'
 import GroupHeroPanel from './GroupHeroPanel.vue'
 
@@ -55,6 +55,11 @@ function mountPanel(group: Group) {
 }
 
 describe('GroupHeroPanel', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.useRealTimers()
+  })
+
   it('shows a join button for open groups when the viewer is not a member', async () => {
     const wrapper = mountPanel(buildGroup({ accessMode: 'OPEN' }))
 
@@ -93,5 +98,34 @@ describe('GroupHeroPanel', () => {
     const action = wrapper.get('[data-testid="group-access-action"]')
     expect(action.text()).toContain('Заявка отправлена')
     expect(action.attributes('disabled')).toBeDefined()
+  })
+
+  it('copies the group code and shows a temporary copied state', async () => {
+    vi.useFakeTimers()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, {
+      clipboard: {
+        writeText
+      }
+    })
+
+    const wrapper = mountPanel(buildGroup({ code: 'TS101' }))
+    const codeButton = wrapper.get('[data-testid="group-code-button"]')
+
+    expect(codeButton.text()).toContain('Код TS101')
+
+    await codeButton.trigger('click')
+    await flushPromises()
+
+    expect(writeText).toHaveBeenCalledWith('TS101')
+    expect(codeButton.classes()).toContain('group-hero__code-button--copied')
+    expect(wrapper.get('.group-hero__code-text').text()).toBe('Код TS101')
+    expect(wrapper.get('.group-hero__code-toast').classes()).toContain('group-hero__code-toast--visible')
+
+    await vi.advanceTimersByTimeAsync(1400)
+    await flushPromises()
+
+    expect(codeButton.classes()).not.toContain('group-hero__code-button--copied')
+    expect(wrapper.get('.group-hero__code-toast').classes()).not.toContain('group-hero__code-toast--visible')
   })
 })

@@ -3,6 +3,7 @@ import { ArrowRight, BookOpen, LockKeyhole, UserPlus, Users } from 'lucide-vue-n
 import { computed } from 'vue'
 import type { Group } from '../api/groups.api'
 import { isGroupMember } from '../lib/group-permissions'
+import { useClipboardCopy } from '@/shared/composables/useClipboardCopy'
 import AppButton from '@/shared/ui/AppButton.vue'
 import MetricTile from '@/shared/ui/MetricTile.vue'
 import ModuleBadges from './ModuleBadges.vue'
@@ -17,6 +18,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   join: []
 }>()
+const { isCopied: isCodeCopied, copy: copyCode } = useClipboardCopy()
 
 const initials = computed(() => props.group.name
   .split(/\s+/)
@@ -86,6 +88,10 @@ function submitJoinAction() {
 
   emit('join')
 }
+
+async function copyGroupCode() {
+  await copyCode(props.group.code)
+}
 </script>
 
 <template>
@@ -108,7 +114,21 @@ function submitJoinAction() {
         >
           <UserPlus :size="18" /> {{ joinAction.label }}
         </AppButton>
-        <AppButton variant="secondary" size="lg">Код {{ group.code }}</AppButton>
+        <AppButton
+          variant="secondary"
+          size="lg"
+          type="button"
+          class="group-hero__code-button"
+          :class="{ 'group-hero__code-button--copied': isCodeCopied }"
+          data-testid="group-code-button"
+          aria-live="polite"
+          @click="copyGroupCode"
+        >
+          <span class="group-hero__code-text">Код {{ group.code }}</span>
+          <span class="group-hero__code-toast" :class="{ 'group-hero__code-toast--visible': isCodeCopied }">
+            Скопировано
+          </span>
+        </AppButton>
       </div>
     </div>
 
@@ -147,7 +167,6 @@ function submitJoinAction() {
   align-items: center;
   background: var(--color-primary);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--color-divider);
   color: #fff;
   display: grid;
   font-size: clamp(4rem, 10vw, 7rem);
@@ -174,6 +193,44 @@ function submitJoinAction() {
 .group-hero__metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.group-hero__code-button {
+  overflow: hidden;
+  position: relative;
+}
+
+.group-hero__code-button--copied {
+  background: color-mix(in srgb, var(--color-primary-container) 18%, var(--color-surface-high));
+  color: color-mix(in srgb, var(--color-primary) 72%, var(--color-text));
+}
+
+.group-hero__code-text {
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.group-hero__code-toast {
+  color: color-mix(in srgb, var(--color-primary) 72%, var(--color-text));
+  font-size: 0.76rem;
+  font-weight: 800;
+  left: 50%;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, calc(-50% + 8px));
+  transition: opacity 180ms ease, transform 180ms ease;
+  white-space: nowrap;
+}
+
+.group-hero__code-button--copied .group-hero__code-text {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.group-hero__code-toast--visible {
+  opacity: 1;
+  transform: translate(-50%, -50%);
 }
 
 @media (max-width: 980px) {
