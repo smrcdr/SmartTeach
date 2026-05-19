@@ -34,6 +34,7 @@ export type RegisterPayload = LoginPayload & {
 export function login(payload: LoginPayload) {
   return apiRequest<AuthSession>('/auth/login', {
     method: 'POST',
+    skipAuthRefresh: true,
     body: JSON.stringify(payload)
   })
 }
@@ -41,6 +42,7 @@ export function login(payload: LoginPayload) {
 export function register(payload: RegisterPayload) {
   return apiRequest<AuthSession>('/auth/register', {
     method: 'POST',
+    skipAuthRefresh: true,
     body: JSON.stringify(payload)
   })
 }
@@ -51,13 +53,15 @@ export function getMe(token: string) {
 
 export function refresh() {
   return apiRequest<TokenPair>('/auth/refresh', {
-    method: 'POST'
+    method: 'POST',
+    skipAuthRefresh: true
   })
 }
 
 export function logout(token: string | null) {
   return apiRequest<void>('/auth/logout', {
     method: 'POST',
-    token
+    token,
+    skipAuthRefresh: true
   })
 }
