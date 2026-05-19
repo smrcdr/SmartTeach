@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ArrowRight, BookOpen, LockKeyhole, UserPlus, Users } from 'lucide-vue-next'
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed } from 'vue'
 import type { Group } from '../api/groups.api'
 import { isGroupMember } from '../lib/group-permissions'
+import { useClipboardCopy } from '@/shared/composables/useClipboardCopy'
 import AppButton from '@/shared/ui/AppButton.vue'
 import MetricTile from '@/shared/ui/MetricTile.vue'
 import ModuleBadges from './ModuleBadges.vue'
@@ -17,8 +18,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   join: []
 }>()
-const isCodeCopied = ref(false)
-let copiedStateTimer: ReturnType<typeof setTimeout> | null = null
+const { isCopied: isCodeCopied, copy: copyCode } = useClipboardCopy()
 
 const initials = computed(() => props.group.name
   .split(/\s+/)
@@ -90,41 +90,8 @@ function submitJoinAction() {
 }
 
 async function copyGroupCode() {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(props.group.code)
-    } else {
-      const textarea = document.createElement('textarea')
-      textarea.value = props.group.code
-      textarea.setAttribute('readonly', '')
-      textarea.style.position = 'absolute'
-      textarea.style.left = '-9999px'
-      document.body.appendChild(textarea)
-      textarea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textarea)
-    }
-
-    isCodeCopied.value = true
-
-    if (copiedStateTimer) {
-      clearTimeout(copiedStateTimer)
-    }
-
-    copiedStateTimer = setTimeout(() => {
-      isCodeCopied.value = false
-      copiedStateTimer = null
-    }, 1400)
-  } catch {
-    isCodeCopied.value = false
-  }
+  await copyCode(props.group.code)
 }
-
-onBeforeUnmount(() => {
-  if (copiedStateTimer) {
-    clearTimeout(copiedStateTimer)
-  }
-})
 </script>
 
 <template>
