@@ -39,7 +39,7 @@ const classes = computed(() => [
 <style scoped>
 .app-button {
   align-items: center;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   cursor: pointer;
   display: inline-flex;
@@ -78,6 +78,7 @@ const classes = computed(() => [
 
 .app-button--primary {
   background: var(--color-action-primary-bg);
+  border-color: color-mix(in srgb, var(--color-primary-container) 46%, transparent);
   box-shadow: var(--shadow-action-primary);
   color: var(--color-action-primary-text);
 }
@@ -88,11 +89,13 @@ const classes = computed(() => [
 
 .app-button--secondary {
   background: var(--color-surface-high);
+  border-color: var(--color-panel-border);
   color: var(--color-text);
 }
 
 .app-button--tertiary {
   background: transparent;
+  border-color: var(--color-panel-border);
   color: var(--color-primary);
   font-size: 0.76rem;
   letter-spacing: 0.05em;
@@ -100,7 +103,8 @@ const classes = computed(() => [
 }
 
 .app-button--quiet {
-  background: transparent;
+  background: var(--color-surface-low);
+  border-color: var(--color-panel-border);
   color: var(--color-text-muted);
 }
 

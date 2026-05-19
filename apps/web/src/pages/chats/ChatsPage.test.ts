@@ -92,7 +92,11 @@ async function mountChatsPage() {
 describe('ChatsPage', () => {
   beforeEach(() => {
     realtimeMock.handlers.clear()
+    vi.mocked(chatsApi.listChats).mockReset()
+    vi.mocked(chatsApi.listMessages).mockReset()
+    vi.mocked(chatsApi.createMessage).mockReset()
     vi.mocked(chatsRealtime.createChatRealtimeClient).mockClear()
+    vi.mocked(filesApi.uploadFile).mockReset()
     realtimeMock.client.connect.mockClear()
     realtimeMock.client.disconnect.mockClear()
     realtimeMock.client.emit.mockClear()
@@ -156,7 +160,7 @@ describe('ChatsPage', () => {
     expect(wrapper.text()).toContain('Сообщение из API')
     expect(wrapper.text()).not.toContain('Дизайн-системы 2024')
     expect(wrapper.text()).not.toContain('Марина Ковалева')
-    expect(wrapper.find('.chat-composer__field input').attributes('placeholder')).toBe('Написать сообщение...')
+    expect(wrapper.find('.chat-composer__field textarea').attributes('placeholder')).toBe('Написать сообщение...')
   })
 
   it('switches chat filters through backend chatType queries', async () => {
@@ -305,7 +309,7 @@ describe('ChatsPage', () => {
     expect(wrapper.find('.chat-composer__reply').text()).toContain('Backend User')
     expect(wrapper.find('.chat-composer__reply').text()).toContain('Исходное сообщение')
     expect(wrapper.find('.chat-composer__reply').text()).not.toContain('Ответ Backend User')
-    await wrapper.find('.chat-composer__field input').setValue('Ответ с файлом')
+    await wrapper.find('.chat-composer__field textarea').setValue('Ответ с файлом')
     const fileInput = wrapper.find('input[type="file"]').element as HTMLInputElement
     Object.defineProperty(fileInput, 'files', {
       configurable: true,
@@ -321,6 +325,100 @@ describe('ChatsPage', () => {
       fileIds: ['file-id'],
       replyToMessageId: 'message-id'
     }, 'access-token')
+  })
+
+  it('submits a message when Enter is pressed without modifiers', async () => {
+    vi.mocked(chatsApi.listChats).mockResolvedValue([buildChat()])
+    vi.mocked(chatsApi.listMessages).mockResolvedValue([])
+    vi.mocked(chatsApi.createMessage).mockResolvedValue({
+      id: 'message-id',
+      chatId: 'chat-id',
+      authorId: 'user-id',
+      text: 'Привет',
+      files: [],
+      replyToMessage: null,
+      editedAt: null,
+      deletedAt: null,
+      createdAt: '2026-04-26T08:23:00.000Z',
+      author: {
+        id: 'user-id',
+        displayName: 'Student Example',
+        bio: null,
+        avatarUrl: null
+      }
+    })
+
+    const wrapper = await mountChatsPage()
+    await flushPromises()
+    await flushPromises()
+
+    const textarea = wrapper.find('.chat-composer__field textarea')
+    await textarea.setValue('Привет')
+    await textarea.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(chatsApi.createMessage).toHaveBeenCalledWith('chat-id', {
+      text: 'Привет'
+    }, 'access-token')
+  })
+
+  it('keeps multiline input when Enter is pressed with Shift', async () => {
+    vi.mocked(chatsApi.listChats).mockResolvedValue([buildChat()])
+    vi.mocked(chatsApi.listMessages).mockResolvedValue([])
+
+    const wrapper = await mountChatsPage()
+    await flushPromises()
+    await flushPromises()
+
+    const textarea = wrapper.find('.chat-composer__field textarea')
+    await textarea.setValue('Черновик')
+    await textarea.trigger('keydown', { key: 'Enter', shiftKey: true })
+    await flushPromises()
+
+    expect(chatsApi.createMessage).not.toHaveBeenCalled()
+    expect((textarea.element as HTMLTextAreaElement).value).toBe('Черновик')
+  })
+
+  it('does not submit while IME composition is active', async () => {
+    vi.mocked(chatsApi.listChats).mockResolvedValue([buildChat()])
+    vi.mocked(chatsApi.listMessages).mockResolvedValue([])
+
+    const wrapper = await mountChatsPage()
+    await flushPromises()
+    await flushPromises()
+
+    const textarea = wrapper.find('.chat-composer__field textarea')
+    await textarea.setValue('Привет')
+    await textarea.trigger('keydown', {
+      key: 'Enter',
+      isComposing: true,
+      keyCode: 229
+    })
+    await flushPromises()
+
+    expect(chatsApi.createMessage).not.toHaveBeenCalled()
+  })
+
+  it('resizes the composer textarea to fit content up to the max height', async () => {
+    vi.mocked(chatsApi.listChats).mockResolvedValue([buildChat()])
+    vi.mocked(chatsApi.listMessages).mockResolvedValue([])
+
+    const wrapper = await mountChatsPage()
+    await flushPromises()
+    await flushPromises()
+
+    const textarea = wrapper.find('.chat-composer__field textarea').element as HTMLTextAreaElement
+
+    Object.defineProperty(textarea, 'scrollHeight', {
+      configurable: true,
+      get: () => 240
+    })
+
+    await wrapper.find('.chat-composer__field textarea').trigger('input')
+    await flushPromises()
+
+    expect(textarea.style.height).toBe('168px')
+    expect(textarea.style.overflowY).toBe('auto')
   })
 
   it('renders new messages from realtime events without reloading the page', async () => {

@@ -42,7 +42,7 @@ defineEmits<{
 
 .textarea__control {
   background: var(--color-surface-low);
-  border: 1px solid transparent;
+  border: 1px solid var(--color-panel-border);
   border-radius: var(--radius-md);
   color: var(--color-text);
   min-height: 132px;

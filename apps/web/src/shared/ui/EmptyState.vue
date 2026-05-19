@@ -19,6 +19,7 @@ defineProps<{
 .empty-state {
   align-items: center;
   background: var(--color-surface-low);
+  border: 1px solid var(--color-panel-border);
   border-radius: var(--radius-lg);
   color: var(--color-text-muted);
   display: grid;

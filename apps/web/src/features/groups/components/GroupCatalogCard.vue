@@ -76,6 +76,7 @@ const accessLabel = computed(() => {
 <style scoped>
 .group-card {
   background: var(--color-surface-lowest);
+  border: 1px solid var(--color-panel-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
   display: grid;

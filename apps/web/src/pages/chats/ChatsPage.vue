@@ -34,6 +34,7 @@ const activeChatId = ref<string | null>(null)
 const composerText = ref('')
 const selectedFiles = ref<File[]>([])
 const fileInput = ref<HTMLInputElement | null>(null)
+const composerTextarea = ref<HTMLTextAreaElement | null>(null)
 const replyTarget = ref<Message | null>(null)
 const isSending = ref(false)
 const error = ref<string | null>(null)
@@ -114,6 +115,37 @@ function getRequestedChatId() {
 
 function pickFiles() {
   fileInput.value?.click()
+}
+
+const composerMaxHeight = 168
+
+function resizeComposer() {
+  const element = composerTextarea.value
+  if (!element) {
+    return
+  }
+
+  element.style.height = 'auto'
+  const nextHeight = Math.min(element.scrollHeight, composerMaxHeight)
+  element.style.height = `${nextHeight}px`
+  element.style.overflowY = element.scrollHeight > composerMaxHeight ? 'auto' : 'hidden'
+}
+
+function onComposerInput() {
+  void nextTick(resizeComposer)
+}
+
+function onComposerKeydown(event: KeyboardEvent) {
+  const legacyCompositionKeyCode = (event as KeyboardEvent & { keyCode?: number }).keyCode
+
+  if (event.isComposing || legacyCompositionKeyCode === 229) {
+    return
+  }
+
+  if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    event.preventDefault()
+    void submitMessage()
+  }
 }
 
 function selectFiles(event: Event) {
@@ -334,6 +366,7 @@ async function submitMessage() {
     composerText.value = ''
     selectedFiles.value = []
     replyTarget.value = null
+    void nextTick(resizeComposer)
     await loadChats()
   } catch (caught) {
     notifications.error(caught instanceof Error ? caught.message : 'Не удалось отправить сообщение')
@@ -344,6 +377,7 @@ async function submitMessage() {
 
 onMounted(() => {
   connectRealtime()
+  void nextTick(resizeComposer)
   void loadChats()
 })
 
@@ -522,7 +556,7 @@ watch(() => route.query.groupId, () => {
 
       <form class="chat-composer" @submit.prevent="submitMessage">
         <input ref="fileInput" class="chat-composer__file-input" type="file" multiple @change="selectFiles" />
-        <button type="button" aria-label="Прикрепить файл" @click="pickFiles"><PlusCircle :size="24" /></button>
+        <button class="chat-composer__action" type="button" aria-label="Прикрепить файл" @click="pickFiles"><PlusCircle :size="24" /></button>
         <div class="chat-composer__body">
           <div v-if="replyTarget" class="chat-composer__reply">
             <button type="button" class="chat-composer__reply-target" @click="focusMessage(replyTarget.id)">
@@ -542,7 +576,15 @@ watch(() => route.query.groupId, () => {
             </button>
           </div>
           <div class="chat-composer__field">
-            <input v-model="composerText" placeholder="Написать сообщение..." />
+            <textarea
+              ref="composerTextarea"
+              v-model="composerText"
+              class="chat-composer__input"
+              placeholder="Написать сообщение..."
+              rows="1"
+              @input="onComposerInput"
+              @keydown="onComposerKeydown"
+            ></textarea>
           </div>
         </div>
         <button class="chat-composer__send" type="submit" :disabled="isSending" aria-label="Отправить сообщение"><Send :size="20" /></button>
@@ -1057,7 +1099,7 @@ watch(() => route.query.groupId, () => {
 }
 
 .chat-composer {
-  align-items: center;
+  align-items: end;
   background: var(--color-surface);
   border-top: 1px solid var(--chat-layout-divider);
   box-shadow: 0 -1px 0 color-mix(in srgb, var(--chat-layout-divider) 58%, transparent);
@@ -1072,6 +1114,8 @@ watch(() => route.query.groupId, () => {
 }
 
 .chat-composer > button {
+  align-self: end;
+  flex: 0 0 auto;
   height: 44px;
   width: 44px;
 }
@@ -1174,13 +1218,13 @@ watch(() => route.query.groupId, () => {
 }
 
 .chat-composer__field {
-  align-items: center;
+  align-items: stretch;
   background: var(--color-surface-low);
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: 22px;
   display: flex;
   min-height: 50px;
-  padding: 0 10px 0 22px;
+  padding: 6px 14px 6px 22px;
   transition: background-color 160ms ease, border-color 160ms ease;
 }
 
@@ -1189,16 +1233,33 @@ watch(() => route.query.groupId, () => {
   border-color: var(--color-focus-border);
 }
 
-.chat-composer__field input {
+.chat-composer__field input,
+.chat-composer__input {
   background: transparent;
   border: 0;
   color: var(--color-text);
   flex: 1;
+  font: inherit;
+  line-height: 1.4;
+  max-height: 168px;
+  min-height: 24px;
   min-width: 0;
   outline: none;
+  overflow-y: hidden;
+  padding: 8px 0;
+  resize: none;
+  width: 100%;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
-.chat-composer__field input::placeholder {
+.chat-composer__input {
+  display: block;
+  white-space: pre-wrap;
+}
+
+.chat-composer__field input::placeholder,
+.chat-composer__input::placeholder {
   color: var(--color-placeholder);
 }
 

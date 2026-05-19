@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import { BookOpen, CalendarDays, ClipboardList, Link, MessageCircle, Plus, Upload, X } from 'lucide-vue-next'
 import {
   createUsefulLink,
@@ -42,7 +42,9 @@ const hasMetrics = computed(() => {
 })
 const isLinkDialogOpen = ref(false)
 const isSubmittingLink = ref(false)
+const isCodeCopied = ref(false)
 const imageInput = ref<HTMLInputElement | null>(null)
+let copiedStateTimer: ReturnType<typeof setTimeout> | null = null
 const linkForm = reactive({
   title: '',
   url: '',
@@ -151,6 +153,47 @@ async function submitUsefulLink() {
     isSubmittingLink.value = false
   }
 }
+
+async function copyGroupCode() {
+  if (!group.value) {
+    return
+  }
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(group.value.code)
+    } else {
+      const textarea = document.createElement('textarea')
+      textarea.value = group.value.code
+      textarea.setAttribute('readonly', '')
+      textarea.style.position = 'absolute'
+      textarea.style.left = '-9999px'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+    }
+
+    isCodeCopied.value = true
+
+    if (copiedStateTimer) {
+      clearTimeout(copiedStateTimer)
+    }
+
+    copiedStateTimer = setTimeout(() => {
+      isCodeCopied.value = false
+      copiedStateTimer = null
+    }, 1400)
+  } catch {
+    isCodeCopied.value = false
+  }
+}
+
+onBeforeUnmount(() => {
+  if (copiedStateTimer) {
+    clearTimeout(copiedStateTimer)
+  }
+})
 </script>
 
 <template>
@@ -165,6 +208,21 @@ async function submitUsefulLink() {
         <StatusPill :label="getGroupStatusLabel(group.status)" tone="success" />
       </template>
     </AppPageHeader>
+
+    <section class="workspace-page__meta">
+      <button
+        type="button"
+        class="workspace-page__code-button"
+        :class="{ 'workspace-page__code-button--copied': isCodeCopied }"
+        aria-live="polite"
+        @click="copyGroupCode"
+      >
+        <span class="workspace-page__code-text">Код {{ group.code }}</span>
+        <span class="workspace-page__code-toast" :class="{ 'workspace-page__code-toast--visible': isCodeCopied }">
+          Скопировано
+        </span>
+      </button>
+    </section>
 
     <section v-if="hasMetrics" class="workspace-page__metrics">
       <MetricTile v-if="group.settings.lessonsEnabled" label="Материалов" :value="lessons.length" detail="Опубликованные и черновики" :icon="BookOpen" />
@@ -249,6 +307,74 @@ async function submitUsefulLink() {
 </template>
 
 <style scoped>
+.workspace-page__meta {
+  margin-bottom: 20px;
+}
+
+.workspace-page__code-button {
+  align-items: center;
+  background: var(--color-surface-high);
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-weight: 750;
+  min-height: 42px;
+  overflow: hidden;
+  padding: 0 20px;
+  position: relative;
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.workspace-page__code-button:hover {
+  transform: translateY(-1px);
+}
+
+.workspace-page__code-button:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.workspace-page__code-button:focus-visible {
+  outline: 3px solid var(--color-focus-border);
+  outline-offset: 3px;
+}
+
+.workspace-page__code-button--copied {
+  background: color-mix(in srgb, var(--color-primary-container) 18%, var(--color-surface-high));
+  color: color-mix(in srgb, var(--color-primary) 72%, var(--color-text));
+}
+
+.workspace-page__code-text {
+  transition: transform 180ms ease, opacity 180ms ease;
+  white-space: nowrap;
+}
+
+.workspace-page__code-toast {
+  color: color-mix(in srgb, var(--color-primary) 72%, var(--color-text));
+  font-size: 0.76rem;
+  font-weight: 800;
+  left: 50%;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, calc(-50% + 8px));
+  transition: opacity 180ms ease, transform 180ms ease;
+  white-space: nowrap;
+}
+
+.workspace-page__code-button--copied .workspace-page__code-text {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.workspace-page__code-toast--visible {
+  opacity: 1;
+  transform: translate(-50%, -50%);
+}
+
 .workspace-page__metrics {
   display: grid;
   gap: 16px;
