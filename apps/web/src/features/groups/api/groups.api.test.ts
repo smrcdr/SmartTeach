@@ -7,6 +7,7 @@ import {
   createMaterialSection,
   createMaterialSubsection,
   createSubmission,
+  deleteUsefulLink,
   listMaterials,
   createUsefulLink,
   createScheduleEvent,
@@ -18,7 +19,8 @@ import {
   updateGroupSettings,
   updateLesson,
   updateMaterialSection,
-  updateMaterialSubsection
+  updateMaterialSubsection,
+  updateUsefulLink
 } from './groups.api'
 
 describe('groups api', () => {
@@ -179,6 +181,8 @@ describe('groups api', () => {
     await createSubmission('group-id', 'assignment-id', submissionPayload, 'access-token')
     await createScheduleEvent('group-id', eventPayload, 'access-token')
     await createUsefulLink('group-id', usefulLinkPayload, 'access-token')
+    await updateUsefulLink('group-id', 'useful-link-id', usefulLinkPayload, 'access-token')
+    await deleteUsefulLink('group-id', 'useful-link-id', 'access-token')
     await listUsefulLinks('group-id', 'access-token')
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/v1/groups/group-id/materials/sections', expect.objectContaining({
@@ -220,7 +224,14 @@ describe('groups api', () => {
       method: 'POST',
       body: JSON.stringify(usefulLinkPayload)
     }))
-    expect(fetchMock).toHaveBeenNthCalledWith(11, '/api/v1/groups/group-id/useful-links', expect.objectContaining({
+    expect(fetchMock).toHaveBeenNthCalledWith(11, '/api/v1/groups/group-id/useful-links/useful-link-id', expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify(usefulLinkPayload)
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(12, '/api/v1/groups/group-id/useful-links/useful-link-id', expect.objectContaining({
+      method: 'DELETE'
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(13, '/api/v1/groups/group-id/useful-links', expect.objectContaining({
       credentials: 'include'
     }))
   })

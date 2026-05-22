@@ -307,6 +307,11 @@ export type CreateUsefulLinkPayload = {
   sortOrder?: number
 }
 
+export type UpdateUsefulLinkPayload = {
+  title?: string
+  url?: string
+}
+
 function toQuery(query: GroupListQuery = {}) {
   const params = new URLSearchParams()
 
@@ -576,6 +581,26 @@ export function createUsefulLink(groupId: string, payload: CreateUsefulLinkPaylo
     method: 'POST',
     token,
     body: JSON.stringify(payload)
+  })
+}
+
+export function updateUsefulLink(
+  groupId: string,
+  linkId: string,
+  payload: UpdateUsefulLinkPayload,
+  token?: string | null
+) {
+  return apiRequest<UsefulLink>(`/groups/${groupId}/useful-links/${linkId}`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(payload)
+  })
+}
+
+export function deleteUsefulLink(groupId: string, linkId: string, token?: string | null) {
+  return apiRequest<void>(`/groups/${groupId}/useful-links/${linkId}`, {
+    method: 'DELETE',
+    token
   })
 }
 

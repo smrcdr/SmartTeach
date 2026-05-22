@@ -3013,6 +3013,105 @@ paths:
       summary: Добавить полезную ссылку
       tags:
         - Group useful links
+  /groups/{groupId}/useful-links/{linkId}:
+    patch:
+      description: Доступно владельцу и администраторам группы, если useful_links_enabled включен.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: linkId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGroupUsefulLinkRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupUsefulLink'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Обновить полезную ссылку
+      tags:
+        - Group useful links
+    delete:
+      description: Доступно владельцу и администраторам группы, если useful_links_enabled включен.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            format: uuid
+            type: string
+        - in: path
+          name: linkId
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '204':
+          description: ''
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Удалить полезную ссылку
+      tags:
+        - Group useful links
   /groups/by-code/{code}:
     get:
       parameters:
@@ -3474,6 +3573,19 @@ components:
       required:
         - title
         - url
+    UpdateGroupUsefulLinkRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: Телеграм
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+          example: https://t.me/test123
     CreateLessonRequest:
       type: object
       properties:

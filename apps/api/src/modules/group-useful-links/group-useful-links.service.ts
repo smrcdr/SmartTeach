@@ -11,6 +11,7 @@ import { AuthorizationService } from '../../security/authorization.service'
 import { MinioService } from '../../storage/minio/minio.service'
 import { CreateGroupUsefulLinkRequestDto } from './dto/create-group-useful-link-request.dto'
 import { GroupUsefulLinkDto } from './dto/group-useful-link.dto'
+import { UpdateGroupUsefulLinkRequestDto } from './dto/update-group-useful-link-request.dto'
 import {
   GroupUsefulLinkRecord,
   groupUsefulLinkSelect,
@@ -87,6 +88,48 @@ export class GroupUsefulLinksService {
     })
 
     return this.mapUsefulLinkRecordToDto(link)
+  }
+
+  async updateUsefulLink(
+    groupId: string,
+    linkId: string,
+    userId: string,
+    payload: UpdateGroupUsefulLinkRequestDto,
+  ): Promise<GroupUsefulLinkDto> {
+    await this.assertGroupAccess(groupId, userId, {
+      requireManage: true,
+      requireWritable: true,
+    })
+
+    await this.getUsefulLinkRecordOrThrow(this.prismaService, groupId, linkId)
+
+    const link = await this.prismaService.groupUsefulLink.update({
+      where: {
+        id: linkId,
+      },
+      data: {
+        ...(payload.title !== undefined ? { title: payload.title } : {}),
+        ...(payload.url !== undefined ? { url: payload.url } : {}),
+      },
+      select: groupUsefulLinkSelect,
+    })
+
+    return this.mapUsefulLinkRecordToDto(link)
+  }
+
+  async deleteUsefulLink(groupId: string, linkId: string, userId: string): Promise<void> {
+    await this.assertGroupAccess(groupId, userId, {
+      requireManage: true,
+      requireWritable: true,
+    })
+
+    await this.getUsefulLinkRecordOrThrow(this.prismaService, groupId, linkId)
+
+    await this.prismaService.groupUsefulLink.delete({
+      where: {
+        id: linkId,
+      },
+    })
   }
 
   private async assertGroupAccess(

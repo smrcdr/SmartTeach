@@ -256,6 +256,73 @@ test('useful links endpoints create and list group links', async () => {
   assert.equal(listResult.body[0].id, createResult.body.id)
 })
 
+test('useful links endpoints update and delete group links', async () => {
+  const owner = await registerUser('owner-edit')
+  const member = await registerUser('member-edit')
+  const group = await createGroup(owner.accessToken)
+
+  await prisma.groupMember.create({
+    data: {
+      groupId: group.id,
+      userId: member.user.id,
+      role: GroupRole.USER,
+    },
+  })
+
+  const createResult = await request<UsefulLinkResponse>(`/groups/${group.id}/useful-links`, {
+    method: 'POST',
+    token: owner.accessToken,
+    body: {
+      title: 'Документация',
+      url: 'https://example.com/docs',
+    },
+  })
+
+  assert.equal(createResult.response.status, 201)
+  assert.ok(createResult.body)
+
+  const memberUpdateResult = await request(`/groups/${group.id}/useful-links/${createResult.body.id}`, {
+    method: 'PATCH',
+    token: member.accessToken,
+    body: {
+      title: 'Не пройдет',
+    },
+  })
+
+  assert.equal(memberUpdateResult.response.status, 403)
+
+  const updateResult = await request<UsefulLinkResponse>(`/groups/${group.id}/useful-links/${createResult.body.id}`, {
+    method: 'PATCH',
+    token: owner.accessToken,
+    body: {
+      title: 'Новая документация',
+      url: 'https://example.com/new-docs',
+    },
+  })
+
+  assert.equal(updateResult.response.status, 200)
+  assert.ok(updateResult.body)
+  assert.equal(updateResult.body.id, createResult.body.id)
+  assert.equal(updateResult.body.title, 'Новая документация')
+  assert.equal(updateResult.body.url, 'https://example.com/new-docs')
+
+  const deleteResult = await request(`/groups/${group.id}/useful-links/${createResult.body.id}`, {
+    method: 'DELETE',
+    token: owner.accessToken,
+  })
+
+  assert.equal(deleteResult.response.status, 204)
+  assert.equal(deleteResult.body, null)
+
+  const listResult = await request<UsefulLinkResponse[]>(`/groups/${group.id}/useful-links`, {
+    token: owner.accessToken,
+  })
+
+  assert.equal(listResult.response.status, 200)
+  assert.ok(listResult.body)
+  assert.equal(listResult.body.length, 0)
+})
+
 test('useful links endpoints enforce roles, file type and feature flag', async () => {
   const owner = await registerUser('owner-guards')
   const member = await registerUser('member-guards')

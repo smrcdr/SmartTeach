@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { Upload, X } from 'lucide-vue-next'
 import { useNotificationStore } from '@/shared/notifications/stores/notifications.store'
 import AppButton from '@/shared/ui/AppButton.vue'
@@ -14,8 +14,14 @@ export type UsefulLinkDraft = {
 const props = withDefaults(defineProps<{
   open: boolean
   isSubmitting?: boolean
+  mode?: 'create' | 'edit'
+  initialTitle?: string
+  initialUrl?: string
 }>(), {
-  isSubmitting: false
+  isSubmitting: false,
+  mode: 'create',
+  initialTitle: '',
+  initialUrl: ''
 })
 
 const emit = defineEmits<{
@@ -29,6 +35,14 @@ const form = reactive<UsefulLinkDraft>({
   title: '',
   url: '',
   imageFile: null
+})
+const dialogTitle = computed(() => props.mode === 'edit' ? 'Редактировать ссылку' : 'Добавить ссылку')
+const submitLabel = computed(() => {
+  if (props.isSubmitting) {
+    return props.mode === 'edit' ? 'Сохраняем...' : 'Добавляем...'
+  }
+
+  return props.mode === 'edit' ? 'Сохранить' : 'Добавить ссылку'
 })
 
 function resetForm() {
@@ -95,13 +109,22 @@ function submit() {
   emit('submit', {
     title: form.title.trim(),
     url: form.url.trim(),
-    imageFile: form.imageFile
+    imageFile: props.mode === 'edit' ? null : form.imageFile
   })
 }
 
 watch(() => props.open, (isOpen) => {
   if (!isOpen) {
     resetForm()
+    return
+  }
+
+  form.title = props.initialTitle
+  form.url = props.initialUrl
+  form.imageFile = null
+
+  if (imageInput.value) {
+    imageInput.value.value = ''
   }
 })
 </script>
@@ -118,7 +141,7 @@ watch(() => props.open, (isOpen) => {
       <header class="link-dialog__header">
         <div>
           <span class="eyebrow">Полезная ссылка</span>
-          <h2 id="link-dialog-title">Добавить ссылку</h2>
+          <h2 id="link-dialog-title">{{ dialogTitle }}</h2>
         </div>
         <button class="link-dialog__close" type="button" aria-label="Закрыть" @click="closeDialog">
           <X :size="18" />
@@ -128,7 +151,7 @@ watch(() => props.open, (isOpen) => {
       <AppTextField v-model="form.title" name="title" label="Текст" placeholder="Например: Телеграм" />
       <AppTextField v-model="form.url" name="url" label="Ссылка" placeholder="https://t.me/test123" />
 
-      <label class="link-dialog__file">
+      <label v-if="mode === 'create'" class="link-dialog__file">
         <span>
           <Upload :size="18" />
           Картинка
@@ -139,7 +162,7 @@ watch(() => props.open, (isOpen) => {
 
       <div class="link-dialog__actions">
         <AppButton type="submit" size="lg" :disabled="isSubmitting">
-          {{ isSubmitting ? 'Добавляем...' : 'Добавить ссылку' }}
+          {{ submitLabel }}
         </AppButton>
         <AppButton type="button" variant="quiet" size="lg" :disabled="isSubmitting" @click="closeDialog">
           Отмена
